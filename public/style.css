@@ -1,0 +1,182 @@
+/* ======== 基本スタイル ======== */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #333;
+  background-color: #f4f7f9;
+  margin: 0;
+}
+
+/* ======== 全体のレイアウト ======== */
+main, #auth-container, #archive-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px 30px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+/* ======== 文字のスタイル ======== */
+h1, h2 {
+  color: #111;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+h1 {
+    text-align: center;
+}
+
+/* ======== リストのスタイル ======== */
+ul {
+  list-style: none;
+  padding: 0;
+  min-height: 40px;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  transition: all 0.2s ease-in-out;
+}
+
+li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-color: #007bff;
+}
+
+li.completed .task-content span {
+    text-decoration: line-through;
+    color: #aaa;
+}
+li.completed .due-date {
+    text-decoration: line-through;
+}
+
+/* ======== タスクコンテンツのスタイル ======== */
+.task-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.due-date {
+  font-size: 0.8em;
+  color: #666;
+}
+
+/* ======== 入力フォームとボタンのスタイル ======== */
+input[type="text"], input[type="email"], input[type="password"] {
+  width: calc(100% - 24px);
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.add-task-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#new-task-input {
+  flex-grow: 1;
+  margin-bottom: 0;
+}
+input[type="date"] {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 6px;
+  background-color: #007bff;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin: 0 0 0 5px;
+  white-space: nowrap;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+.task-buttons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#logout-button, .delete-btn {
+  background-color: #dc3545;
+}
+
+.move-btn {
+  background-color: #28a745;
+}
+
+.complete-btn {
+    background-color: #ffc107;
+}
+
+.move-to-stock-btn, .unarchive-btn {
+    background-color: #6c757d;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  padding: 5px;
+  margin: 0;
+  line-height: 0;
+}
+.delete-btn img {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease-in-out;
+}
+.delete-btn:hover img {
+  transform: scale(1.2);
+}
+
+#user-info {
+  text-align: right;
+  margin-bottom: 20px;
+  color: #666;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+#user-info span {
+  margin-right: 10px;
+}
+
+.main-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.main-controls button {
+    background-color: #6c757d;
+}
+
+#archive-container button {
+    display: block;
+    margin: 20px auto 0;
+}

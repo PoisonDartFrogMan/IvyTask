@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IvyTask</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+</head>
+<body>
+
+  <div id="auth-container">
+    <h1>IvyTask</h1>
+    <p>アカウントを作成、またはログインしてください</p>
+    <input type="email" id="email-input" placeholder="メールアドレス">
+    <input type="password" id="password-input" placeholder="パスワード">
+    <button id="signup-button">サインアップ</button>
+    <button id="login-button">ログイン</button>
+  </div>
+
+  <main id="app-container" style="display: none;">
+    <div id="user-info">
+      <span id="user-email"></span>
+      <button id="logout-button">ログアウト</button>
+    </div>
+    
+    <h1>IvyTask</h1>
+    
+    <div class="main-controls">
+        <button id="reset-day-button">新しい日を始める</button>
+        <button id="archive-view-button">アーカイブを見る</button>
+    </div>
+
+    <section>
+      <h2>今日のタスク</h2>
+      <ul id="today-tasks"></ul>
+    </section>
+
+    <section>
+      <h2>タスクストック</h2>
+      <ul id="stock-tasks"></ul>
+    </section>
+
+    <section>
+      <h2>新しいタスクを追加</h2>
+      <div class="add-task-form">
+        <input type="text" id="new-task-input" placeholder="やるべきことを入力...">
+        <input type="date" id="due-date-input">
+        <button id="add-task-button">ストックに追加</button>
+      </div>
+    </section>
+  </main>
+  
+  <div id="archive-container" style="display: none;">
+      <h1>アーカイブ</h1>
+      <ul id="archive-tasks"></ul>
+      <button id="back-to-main-button">メイン画面へ戻る</button>
+  </div>
+
+
+  <script type="module">
+    // Firebase SDKから、我々が必要とする「能力」をインポートする
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, doc, deleteDoc, updateDoc, orderBy, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+  apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
+  authDomain: "ivy-league-app-95a5d.firebaseapp.com",
+  projectId: "ivy-league-app-95a5d",
+  storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
+  messagingSenderId: "470602099850",
+  appId: "1:470602099850:web:1ac19841730eb053341173",
+  measurementId: "G-BE4QS8RP2G"
+};
+
+    // Firebaseの初期化
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // HTML要素を取得
+    const mainContainer = document.getElementById('app-container');
+    const authContainer = document.getElementById('auth-container');
+    const archiveContainer = document.getElementById('archive-container');
+    const emailInput = document.getElementById('email-input');
+    const passwordInput = document.getElementById('password-input');
+    const signupButton = document.getElementById('signup-button');
+    const loginButton = document.getElementById('login-button');
+    const logoutButton = document.getElementById('logout-button');
+    const userEmailSpan = document.getElementById('user-email');
+    const addButton = document.getElementById('add-task-button');
+    const taskInput = document.getElementById('new-task-input');
+    const dueDateInput = document.getElementById('due-date-input');
+    const stockList = document.getElementById('stock-tasks');
+    const todayList = document.getElementById('today-tasks');
+    const archiveList = document.getElementById('archive-tasks');
+    const resetDayButton = document.getElementById('reset-day-button');
+    const archiveViewButton = document.getElementById('archive-view-button');
+    const backToMainButton = document.getElementById('back-to-main-button');
+
+    let currentUserId = null;
+
+    // 「門番」：ログイン状態の監視
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUserId = user.uid;
+        authContainer.style.display = 'none';
+        mainContainer.style.display = 'block';
+        archiveContainer.style.display = 'none';
+        userEmailSpan.textContent = user.email;
+        loadTasks(currentUserId);
+        activateDragAndDrop();
+      } else {
+        currentUserId = null;
+        authContainer.style.display = 'block';
+        mainContainer.style.display = 'none';
+        archiveContainer.style.display = 'none';
+      }
+    });
+
+    // メインのタスクを読み込む
+    async function loadTasks(userId) {
+      stockList.innerHTML = '';
+      todayList.innerHTML = '';
+      const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today", "completed"]));
+      const querySnapshot = await getDocs(q);
+      
+      let tasks = [];
+      querySnapshot.forEach(doc => tasks.push({ id: doc.id, ...doc.data() }));
+      
+      tasks.sort((a, b) => {
+        if (a.status === b.status) return (a.priority || 0) - (b.priority || 0);
+        if (a.status === 'today') return -1;
+        if (b.status === 'today') return 1;
+        if (a.status === 'completed') return 1;
+        if (b.status === 'completed') return -1;
+        return 0;
+      });
+      
+      tasks.forEach(task => renderTask(task.id, task));
+    }
+
+    // アーカイブされたタスクを読み込む
+    async function loadArchivedTasks(userId) {
+        archiveList.innerHTML = '';
+        const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            renderTask(doc.id, doc.data(), true);
+        });
+    }
+
+    // 画面にタスクを描画する
+    function renderTask(id, data, isArchived = false) {
+      const newTask = document.createElement('li');
+      newTask.dataset.id = id;
+      if (data.status === 'completed') newTask.classList.add('completed');
+
+      const taskContent = document.createElement('div');
+      taskContent.className = 'task-content';
+      const taskLabel = document.createElement('span');
+      taskLabel.textContent = data.text;
+      taskContent.appendChild(taskLabel);
+
+      if (data.dueDate) {
+        const dueDateSpan = document.createElement('small');
+        dueDateSpan.className = 'due-date';
+        dueDateSpan.textContent = `期日: ${data.dueDate.toDate().toLocaleDateString('ja-JP')}`;
+        taskContent.appendChild(dueDateSpan);
+      }
+      newTask.appendChild(taskContent);
+
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.className = 'task-buttons';
+      
+      if (isArchived) {
+          buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
+      } else {
+          if (data.status === 'stock') buttonsContainer.appendChild(createButton('今日へ', 'move-btn'));
+          if (data.status === 'today') {
+            buttonsContainer.appendChild(createButton('完了', 'complete-btn'));
+            buttonsContainer.appendChild(createButton('ストックへ', 'move-to-stock-btn'));
+          }
+      }
+      if (!isArchived) buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
+      
+      newTask.appendChild(buttonsContainer);
+
+      if (isArchived) {
+          archiveList.appendChild(newTask);
+      } else if (data.status === 'today' || data.status === 'completed') {
+        todayList.appendChild(newTask);
+      } else {
+        stockList.appendChild(newTask);
+      }
+    }
+
+    function createButton(text, className) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.className = className;
+        return button;
+    }
+
+    function createIconButton(src, className) {
+        const button = document.createElement('button');
+        button.className = className;
+        const icon = document.createElement('img');
+        icon.src = src;
+        icon.alt = className;
+        button.appendChild(icon);
+        return button;
+    }
+
+    // ドラッグ＆ドロップ機能を有効化する
+    function activateDragAndDrop() {
+      new Sortable(todayList, {
+        animation: 150,
+        onEnd: async (evt) => {
+          const items = evt.to.children;
+          const batch = writeBatch(db);
+          Array.from(items).forEach((item, index) => {
+            if (item.dataset.id) {
+              const taskDocRef = doc(db, "tasks", item.dataset.id);
+              batch.update(taskDocRef, { priority: index });
+            }
+          });
+          await batch.commit();
+        }
+      });
+    }
+
+    // タスク追加処理
+    addButton.addEventListener('click', async () => {
+      const taskText = taskInput.value.trim();
+      const dueDateValue = dueDateInput.value;
+      if (taskText === '' || !currentUserId) return;
+      const newTaskData = {
+        userId: currentUserId, text: taskText, status: 'stock', priority: Date.now(), createdAt: new Date()
+      };
+      if (dueDateValue) {
+        newTaskData.dueDate = Timestamp.fromDate(new Date(dueDateValue));
+      }
+      const docRef = await addDoc(collection(db, "tasks"), newTaskData);
+      renderTask(docRef.id, newTaskData);
+      taskInput.value = '';
+      dueDateInput.value = '';
+    });
+
+    // 各リストのクリックイベントを処理する
+    document.body.addEventListener('click', async (event) => {
+        const taskItem = event.target.closest('li');
+        if (!taskItem || !currentUserId) return;
+        const taskId = taskItem.dataset.id;
+        const taskDocRef = doc(db, "tasks", taskId);
+        
+        let shouldReloadMain = false;
+        let shouldReloadArchive = false;
+
+        if (event.target.closest('.delete-btn')) {
+            await deleteDoc(taskDocRef);
+            taskItem.remove();
+        } else if (event.target.closest('.move-btn')) {
+            if (todayList.children.length < 6) {
+                await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
+                shouldReloadMain = true;
+            } else {
+                alert('「今日のタスク」は6つまでだッ！');
+            }
+        } else if (event.target.closest('.complete-btn')) {
+            await updateDoc(taskDocRef, { status: 'completed' });
+            shouldReloadMain = true;
+        } else if (event.target.closest('.move-to-stock-btn')) {
+            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+            shouldReloadMain = true;
+        } else if (event.target.closest('.unarchive-btn')) {
+            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+            shouldReloadArchive = true;
+        }
+
+        if(shouldReloadMain) loadTasks(currentUserId);
+        if(shouldReloadArchive) loadArchivedTasks(currentUserId);
+    });
+
+    // 「新しい日を始める」ボタンの処理
+    resetDayButton.addEventListener('click', async () => {
+        if (!currentUserId || !confirm("新しい日を始めますか？\n完了したタスクはアーカイブされ、未完了の「今日のタスク」はストックに戻ります。")) return;
+        
+        const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        
+        querySnapshot.forEach(docSnap => {
+            const task = docSnap.data();
+            if(task.status === 'completed') {
+                batch.update(docSnap.ref, { status: 'archived' });
+            } else if(task.status === 'today') {
+                batch.update(docSnap.ref, { status: 'stock', priority: Date.now() });
+            }
+        });
+        await batch.commit();
+        loadTasks(currentUserId);
+    });
+
+    // アーカイブ表示ボタンの処理
+    archiveViewButton.addEventListener('click', () => {
+        mainContainer.style.display = 'none';
+        archiveContainer.style.display = 'block';
+        loadArchivedTasks(currentUserId);
+    });
+
+    // メイン画面へ戻るボタンの処理
+    backToMainButton.addEventListener('click', () => {
+        archiveContainer.style.display = 'none';
+        mainContainer.style.display = 'block';
+        loadTasks(currentUserId);
+    });
+
+    // 認証ボタン処理
+    signupButton.addEventListener('click', () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
+      createUserWithEmailAndPassword(auth, email, password).catch((error) => alert('サインアップ失敗: ' + error.message));
+    });
+    loginButton.addEventListener('click', () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
+      signInWithEmailAndPassword(auth, email, password).catch((error) => alert('ログイン失敗: ' + error.message));
+    });
+    logoutButton.addEventListener('click', () => {
+      signOut(auth);
+    });
+  </script>
+
+</body>
+</html>
