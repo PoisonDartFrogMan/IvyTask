@@ -335,10 +335,43 @@
             updateColorPicker();
             return;
         }
+
         if (event.target.closest('.due-date')) {
-            const taskItem = event.target.closest('li'); if (!taskItem) return; const taskId = taskItem.dataset.id; const taskDocRef = doc(db, "tasks", taskId); const originalDateSpan = event.target; const dateInput = document.createElement('input'); dateInput.type = 'date'; try { const docSnap = await getDoc(taskDocRef); if (docSnap.exists() && docSnap.data().dueDate) { const currentDueDate = docSnap.data().dueDate.toDate(); const year = currentDueDate.getFullYear(); const month = String(currentDueDate.getMonth() + 1).padStart(2, '0'); const day = String(currentDueDate.getDate()).padStart(2, '0'); dateInput.value = `${year}-${month}-${day}`; } } catch (e) { console.error("日付の読み込みエラー:", e); } originalDateSpan.replaceWith(dateInput); dateInput.focus(); const saveAndRevert = async () => { if (dateInput.value) { const newDueDate = Timestamp.fromDate(new Date(dateInput.value)); await updateDoc(taskDocRef, { dueDate: newDueDate }); } loadTasks(currentUserId); }; dateInput.addEventListener('blur', saveAndRevert); dateInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { dateInput.blur(); } });
+            const taskItem = event.target.closest('li');
+            if (!taskItem) return;
+            const taskId = taskItem.dataset.id;
+            const taskDocRef = doc(db, "tasks", taskId);
+            const originalDateSpan = event.target;
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            try {
+                const docSnap = await getDoc(taskDocRef);
+                if (docSnap.exists() && docSnap.data().dueDate) {
+                    const currentDueDate = docSnap.data().dueDate.toDate();
+                    const year = currentDueDate.getFullYear();
+                    const month = String(currentDueDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentDueDate.getDate()).padStart(2, '0');
+                    dateInput.value = `${year}-${month}-${day}`;
+                }
+            } catch (e) { console.error("日付の読み込みエラー:", e); }
+            originalDateSpan.replaceWith(dateInput);
+            dateInput.focus();
+            const saveAndRevert = async () => {
+                if (dateInput.value) {
+                    const newDueDate = Timestamp.fromDate(new Date(dateInput.value));
+                    await updateDoc(taskDocRef, { dueDate: newDueDate });
+                }
+                loadTasks(currentUserId);
+            };
+            dateInput.addEventListener('blur', saveAndRevert);
+            dateInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    dateInput.blur();
+                }
+            });
             return; 
         }
+
         if (event.target.closest('.delete-label-btn')) {
             const labelItem = event.target.closest('.label-item');
             const labelId = labelItem.dataset.id;
@@ -347,15 +380,40 @@
             }
             return;
         }
+
         const taskItem = event.target.closest('li');
         if (taskItem && taskItem.dataset.id) {
             const taskId = taskItem.dataset.id;
             const taskDocRef = doc(db, "tasks", taskId);
-            if (event.target.closest('.delete-btn')) { if(confirm('このタスクを完全に削除しますか？')){ await deleteDoc(taskDocRef); } }
-            else if (event.target.closest('.move-btn')) { if (todayList.children.length < 6) { await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length }); } else { alert('「Focalist」は6つまでだッ！'); } }
-            else if (event.target.closest('.complete-btn')) { await updateDoc(taskDocRef, { status: 'completed' }); }
-            else if (event.target.closest('.move-to-stock-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
-            else if (event.target.closest('.unarchive-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
+            
+            let needsReload = false;
+            let archiveReload = false;
+
+            if (event.target.closest('.delete-btn')) {
+                if(confirm('このタスクを完全に削除しますか？')){
+                    await deleteDoc(taskDocRef);
+                    taskItem.remove(); // UIから即時削除
+                }
+            } else if (event.target.closest('.move-btn')) {
+                if (todayList.children.length < 6) {
+                    await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
+                    needsReload = true;
+                } else {
+                    alert('「Focalist」は6つまでだッ！');
+                }
+            } else if (event.target.closest('.complete-btn')) {
+                await updateDoc(taskDocRef, { status: 'completed' });
+                needsReload = true;
+            } else if (event.target.closest('.move-to-stock-btn')) {
+                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+                needsReload = true;
+            } else if (event.target.closest('.unarchive-btn')) {
+                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+                archiveReload = true;
+            }
+
+            if(needsReload) loadTasks(currentUserId);
+            if(archiveReload) loadArchivedTasks(currentUserId);
         }
     });
 
