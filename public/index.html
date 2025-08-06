@@ -24,9 +24,9 @@
       <a href="/faq.html" target="_blank" id="faq-button" title="FAQ"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg></a>
       <button id="logout-button">ログアウト</button>
     </div>
-    
+
     <h1>IvyTask</h1>
-    
+
     <div class="main-controls">
         <button id="manage-labels-button">ラベルを編集</button>
         <button id="reset-day-button">Reset</button>
@@ -54,13 +54,13 @@
         </div>
     </section>
   </main>
-  
+
   <div id="archive-container" style="display: none;">
       <h1>アーカイブ</h1>
       <ul id="archive-tasks"></ul>
       <button id="back-to-main-button">メイン画面へ戻る</button>
   </div>
-  
+
   <div id="label-modal-backdrop" class="hidden">
     <div id="label-modal">
         <h2>カテゴリーラベルを管理</h2>
@@ -146,7 +146,7 @@
         if (unsubscribeLabels) unsubscribeLabels();
       }
     });
-    
+
     function loadLabels(userId) {
       const labelsQuery = query(collection(db, "labels"), where("userId", "==", userId));
       return onSnapshot(labelsQuery, (snapshot) => {
@@ -177,7 +177,7 @@
         li.appendChild(deleteBtn);
         labelsList.appendChild(li);
     }
-    
+
     function updateColorPicker() {
         colorPicker.innerHTML = '';
         if (labels.length === 0) {
@@ -235,7 +235,6 @@
       const newTask = document.createElement('li');
       newTask.dataset.id = id;
       if (data.status === 'completed') newTask.classList.add('completed');
-      
       const label = labels.find(l => l.id === data.labelId);
       if (label) {
         newTask.style.borderLeftColor = label.color;
@@ -243,13 +242,11 @@
       } else {
         newTask.style.borderLeftColor = '#e0e0e0';
       }
-
       const taskContent = document.createElement('div');
       taskContent.className = 'task-content';
       const taskLabel = document.createElement('span');
       taskLabel.textContent = data.text;
       taskContent.appendChild(taskLabel);
-
       if (data.dueDate) {
         const dueDateSpan = document.createElement('small');
         dueDateSpan.className = 'due-date';
@@ -257,13 +254,10 @@
         taskContent.appendChild(dueDateSpan);
       }
       newTask.appendChild(taskContent);
-
       const buttonsContainer = document.createElement('div');
       buttonsContainer.className = 'task-buttons';
-      
-      if (isArchived) {
-          buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
-      } else {
+      if (isArchived) { buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn')); }
+      else {
           if (data.status === 'stock') buttonsContainer.appendChild(createButton('Focus', 'move-btn'));
           if (data.status === 'today') {
             buttonsContainer.appendChild(createButton('完了', 'complete-btn'));
@@ -271,37 +265,16 @@
           }
       }
       buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
-      
       newTask.appendChild(buttonsContainer);
-
-      if (isArchived) {
-          archiveList.appendChild(newTask);
-      } else if (data.status === 'today' || data.status === 'completed') {
-        todayList.appendChild(newTask);
-      } else {
-        stockList.appendChild(newTask);
-      }
+      if (isArchived) { archiveList.appendChild(newTask); }
+      else if (data.status === 'today' || data.status === 'completed') { todayList.appendChild(newTask); }
+      else { stockList.appendChild(newTask); }
     }
 
     function createButton(text, className) { const button = document.createElement('button'); button.textContent = text; button.className = className; return button; }
     function createIconButton(src, className) { const button = document.createElement('button'); button.className = className; const icon = document.createElement('img'); icon.src = src; icon.alt = className; button.appendChild(icon); return button; }
-    function activateDragAndDrop() {
-       new Sortable(todayList, {
-         animation: 150,
-         onEnd: async (evt) => {
-          const items = evt.to.children; 
-          const batch = writeBatch(db); 
-          Array.from(items).forEach((item, index) => { 
-            if (item.dataset.id) { 
-              const taskDocRef = doc(db, "tasks", item.dataset.id); 
-              batch.update(taskDocRef, { priority: index }); 
-            } 
-          }); 
-          await batch.commit(); 
-        } 
-      }); 
-    }
-    
+    function activateDragAndDrop() { new Sortable(todayList, { animation: 150, onEnd: async (evt) => { const items = evt.to.children; const batch = writeBatch(db); Array.from(items).forEach((item, index) => { if (item.dataset.id) { const taskDocRef = doc(db, "tasks", item.dataset.id); batch.update(taskDocRef, { priority: index }); } }); await batch.commit(); } }); }
+
     async function runDailyAutomation(userId) {
         const allTasksQuery = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
         const querySnapshot = await getDocs(allTasksQuery);
@@ -355,7 +328,7 @@
       loadTasks(currentUserId);
       taskInput.value = ''; dueDateInput.value = '';
     });
-    
+
     document.body.addEventListener('click', async (event) => {
         if (event.target.closest('.color-choice')) {
             selectedLabelId = event.target.closest('.color-choice').dataset.labelId;
@@ -365,6 +338,14 @@
         if (event.target.closest('.due-date')) {
             const taskItem = event.target.closest('li'); if (!taskItem) return; const taskId = taskItem.dataset.id; const taskDocRef = doc(db, "tasks", taskId); const originalDateSpan = event.target; const dateInput = document.createElement('input'); dateInput.type = 'date'; try { const docSnap = await getDoc(taskDocRef); if (docSnap.exists() && docSnap.data().dueDate) { const currentDueDate = docSnap.data().dueDate.toDate(); const year = currentDueDate.getFullYear(); const month = String(currentDueDate.getMonth() + 1).padStart(2, '0'); const day = String(currentDueDate.getDate()).padStart(2, '0'); dateInput.value = `${year}-${month}-${day}`; } } catch (e) { console.error("日付の読み込みエラー:", e); } originalDateSpan.replaceWith(dateInput); dateInput.focus(); const saveAndRevert = async () => { if (dateInput.value) { const newDueDate = Timestamp.fromDate(new Date(dateInput.value)); await updateDoc(taskDocRef, { dueDate: newDueDate }); } loadTasks(currentUserId); }; dateInput.addEventListener('blur', saveAndRevert); dateInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { dateInput.blur(); } });
             return; 
+        }
+        if (event.target.closest('.delete-label-btn')) {
+            const labelItem = event.target.closest('.label-item');
+            const labelId = labelItem.dataset.id;
+            if (confirm('このラベルを削除しますか？関連するタスクのラベルは解除されます。')) {
+                await deleteDoc(doc(db, "labels", labelId));
+            }
+            return;
         }
         const taskItem = event.target.closest('li');
         if (taskItem && taskItem.dataset.id) {
@@ -389,15 +370,6 @@
         await addDoc(collection(db, "labels"), { userId: currentUserId, name: name, color: color, createdAt: serverTimestamp() });
         labelNameInput.value = '';
     });
-    labelsList.addEventListener('click', async (event) => {
-        if (event.target.closest('.delete-label-btn')) {
-            const labelItem = event.target.closest('.label-item');
-            const labelId = labelItem.dataset.id;
-            if (confirm('このラベルを削除しますか？関連するタスクのラベルは解除されます。')) {
-                await deleteDoc(doc(db, "labels", labelId));
-            }
-        }
-    });
 
     resetDayButton.addEventListener('click', async () => {
         if (!currentUserId || !confirm("Resetしますか？\n完了したタスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
@@ -415,7 +387,7 @@
 
     archiveViewButton.addEventListener('click', () => { mainContainer.style.display = 'none'; archiveContainer.style.display = 'block'; loadArchivedTasks(currentUserId); });
     backToMainButton.addEventListener('click', () => { archiveContainer.style.display = 'none'; mainContainer.style.display = 'block'; loadTasks(currentUserId); });
-    
+
     signupButton.addEventListener('click', () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) return alert("メールアドレスとパスワードを入力してください。"); createUserWithEmailAndPassword(auth, email, password).catch((error) => alert('サインアップ失敗: ' + error.message)); });
     loginButton.addEventListener('click', () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) return alert("メールアドレスとパスワードを入力してください。"); signInWithEmailAndPassword(auth, email, password).catch((error) => alert('ログイン失敗: ' + error.message)); });
     logoutButton.addEventListener('click', () => { signOut(auth); });
