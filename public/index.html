@@ -91,7 +91,6 @@
       measurementId: "G-BE4QS8RP2G"
     };
 
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -128,7 +127,7 @@
     let labels = [];
     let unsubscribeLabels = () => {};
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUserId = user.uid;
         authContainer.style.display = 'none';
@@ -136,6 +135,7 @@
         userEmailSpan.textContent = user.email;
         if (unsubscribeLabels) unsubscribeLabels();
         unsubscribeLabels = loadLabels(currentUserId);
+        await runDailyAutomation(currentUserId);
         loadTasks(currentUserId);
         activateDragAndDrop();
       } else {
@@ -194,44 +194,33 @@
             colorPicker.appendChild(choice);
         });
         if (!labels.some(l => l.id === selectedLabelId)) {
-            selectedLabelId = labels[0].id;
+            selectedLabelId = labels.length > 0 ? labels[0].id : null;
         }
-        const selectedChoice = colorPicker.querySelector(`[data-label-id="${selectedLabelId}"]`);
-        if (selectedChoice) selectedChoice.classList.add('selected');
+        if (selectedLabelId) {
+            const selectedChoice = colorPicker.querySelector(`[data-label-id="${selectedLabelId}"]`);
+            if (selectedChoice) selectedChoice.classList.add('selected');
+        }
     }
 
     async function loadTasks(userId) {
       stockList.innerHTML = '';
       todayList.innerHTML = '';
-      
-      // ★★★ 掟を破る orderBy("priority") を削除！ ★★★
       const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today", "completed"]));
       const querySnapshot = await getDocs(q);
-      
       let tasks = [];
       querySnapshot.forEach(doc => tasks.push({ id: doc.id, ...doc.data() }));
-      
-      // ★★★ 受け取った後、我々自身の力で並べ替える ★★★
       tasks.sort((a, b) => {
-        // ステータスによる大分類
-        const statusOrder = { 'today': 1, 'completed': 2, 'stock': 3 };
-        if (statusOrder[a.status] !== statusOrder[b.status]) {
-            return statusOrder[a.status] - statusOrder[b.status];
-        }
-
-        // ストック内では期日で並べ替え
-        if (a.status === 'stock') {
+        if (a.status === 'stock' && b.status === 'stock') {
             const aHasDate = a.dueDate;
             const bHasDate = b.dueDate;
             if (aHasDate && !bHasDate) return -1;
             if (!aHasDate && bHasDate) return 1;
             if (aHasDate && bHasDate) return a.dueDate.toMillis() - b.dueDate.toMillis();
         }
-        
-        // それ以外はpriorityで並べ替え
+        const statusOrder = { 'today': 1, 'completed': 2, 'stock': 3 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
         return (a.priority || 0) - (b.priority || 0);
       });
-      
       tasks.forEach(task => renderTask(task.id, task));
     }
 
@@ -246,6 +235,7 @@
       const newTask = document.createElement('li');
       newTask.dataset.id = id;
       if (data.status === 'completed') newTask.classList.add('completed');
+      
       const label = labels.find(l => l.id === data.labelId);
       if (label) {
         newTask.style.borderLeftColor = label.color;
@@ -253,11 +243,13 @@
       } else {
         newTask.style.borderLeftColor = '#e0e0e0';
       }
+
       const taskContent = document.createElement('div');
       taskContent.className = 'task-content';
       const taskLabel = document.createElement('span');
       taskLabel.textContent = data.text;
       taskContent.appendChild(taskLabel);
+
       if (data.dueDate) {
         const dueDateSpan = document.createElement('small');
         dueDateSpan.className = 'due-date';
@@ -265,10 +257,13 @@
         taskContent.appendChild(dueDateSpan);
       }
       newTask.appendChild(taskContent);
+
       const buttonsContainer = document.createElement('div');
       buttonsContainer.className = 'task-buttons';
-      if (isArchived) { buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn')); }
-      else {
+      
+      if (isArchived) {
+          buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
+      } else {
           if (data.status === 'stock') buttonsContainer.appendChild(createButton('Focus', 'move-btn'));
           if (data.status === 'today') {
             buttonsContainer.appendChild(createButton('完了', 'complete-btn'));
@@ -276,16 +271,77 @@
           }
       }
       buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
+      
       newTask.appendChild(buttonsContainer);
-      if (isArchived) { archiveList.appendChild(newTask); }
-      else if (data.status === 'today' || data.status === 'completed') { todayList.appendChild(newTask); }
-      else { stockList.appendChild(newTask); }
+
+      if (isArchived) {
+          archiveList.appendChild(newTask);
+      } else if (data.status === 'today' || data.status === 'completed') {
+        todayList.appendChild(newTask);
+      } else {
+        stockList.appendChild(newTask);
+      }
     }
 
     function createButton(text, className) { const button = document.createElement('button'); button.textContent = text; button.className = className; return button; }
     function createIconButton(src, className) { const button = document.createElement('button'); button.className = className; const icon = document.createElement('img'); icon.src = src; icon.alt = className; button.appendChild(icon); return button; }
-    function activateDragAndDrop() { new Sortable(todayList, { animation: 150, onEnd: async (evt) => { const items = evt.to.children; const batch = writeBatch(db); Array.from(items).forEach((item, index) => { if (item.dataset.id) { const taskDocRef = doc(db, "tasks", item.dataset.id); batch.update(taskDocRef, { priority: index }); } }); await batch.commit(); } }); }
+    function activateDragAndDrop() {
+       new Sortable(todayList, {
+         animation: 150,
+         onEnd: async (evt) => {
+          const items = evt.to.children; 
+          const batch = writeBatch(db); 
+          Array.from(items).forEach((item, index) => { 
+            if (item.dataset.id) { 
+              const taskDocRef = doc(db, "tasks", item.dataset.id); 
+              batch.update(taskDocRef, { priority: index }); 
+            } 
+          }); 
+          await batch.commit(); 
+        } 
+      }); 
+    }
     
+    async function runDailyAutomation(userId) {
+        const allTasksQuery = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
+        const querySnapshot = await getDocs(allTasksQuery);
+        let allTasks = [];
+        querySnapshot.forEach(doc => allTasks.push({ ref: doc.ref, ...doc.data() }));
+        let todayTasksCount = allTasks.filter(t => t.status === 'today').length;
+        const stockTasks = allTasks.filter(t => t.status === 'stock');
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        today.setHours(0, 0, 0, 0);
+        tomorrow.setHours(0, 0, 0, 0);
+        const tasksToMove = [];
+        const blockedTasks = [];
+        stockTasks.forEach(task => {
+            if (task.dueDate) {
+                const taskDueDate = task.dueDate.toDate();
+                taskDueDate.setHours(0, 0, 0, 0);
+                if (taskDueDate.getTime() === tomorrow.getTime()) {
+                    if (todayTasksCount < 6) {
+                        tasksToMove.push(task.ref);
+                        todayTasksCount++;
+                    } else {
+                        blockedTasks.push(task.text);
+                    }
+                }
+            }
+        });
+        if (tasksToMove.length > 0) {
+            const batch = writeBatch(db);
+            tasksToMove.forEach((taskRef, index) => {
+                batch.update(taskRef, { status: 'today', priority: todayTasksCount + index });
+            });
+            await batch.commit();
+        }
+        if (blockedTasks.length > 0) {
+            alert(`以下のタスクは、期日が明日ですが、「Focalist」が満杯のため移動できませんでした：\n\n- ${blockedTasks.join('\n- ')}`);
+        }
+    }
+
     addButton.addEventListener('click', async () => {
       const taskText = taskInput.value.trim();
       const dueDateValue = dueDateInput.value;
@@ -296,6 +352,7 @@
       const newTaskData = { userId: currentUserId, text: taskText, status: 'stock', priority: Date.now(), createdAt: serverTimestamp(), labelId: selectedLabelId };
       if (dueDateValue) { newTaskData.dueDate = Timestamp.fromDate(new Date(dueDateValue)); }
       await addDoc(collection(db, "tasks"), newTaskData);
+      loadTasks(currentUserId);
       taskInput.value = ''; dueDateInput.value = '';
     });
     
@@ -314,7 +371,7 @@
             const taskId = taskItem.dataset.id;
             const taskDocRef = doc(db, "tasks", taskId);
             if (event.target.closest('.delete-btn')) { if(confirm('このタスクを完全に削除しますか？')){ await deleteDoc(taskDocRef); } }
-            else if (event.target.closest('.move-btn') && todayList.children.length < 6) { await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length }); }
+            else if (event.target.closest('.move-btn')) { if (todayList.children.length < 6) { await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length }); } else { alert('「Focalist」は6つまでだッ！'); } }
             else if (event.target.closest('.complete-btn')) { await updateDoc(taskDocRef, { status: 'completed' }); }
             else if (event.target.closest('.move-to-stock-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
             else if (event.target.closest('.unarchive-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
@@ -333,12 +390,11 @@
         labelNameInput.value = '';
     });
     labelsList.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('delete-label-btn')) {
+        if (event.target.closest('.delete-label-btn')) {
             const labelItem = event.target.closest('.label-item');
             const labelId = labelItem.dataset.id;
             if (confirm('このラベルを削除しますか？関連するタスクのラベルは解除されます。')) {
                 await deleteDoc(doc(db, "labels", labelId));
-                // Note: Need to also update tasks that use this label. A Cloud Function is better. For now, we'll just delete the label.
             }
         }
     });
