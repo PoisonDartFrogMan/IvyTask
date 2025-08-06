@@ -1,0 +1,61 @@
+/* FAQページ専用のスタイル */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #333;
+    background-color: #f4f7f9;
+    margin: 0;
+    padding: 20px;
+}
+
+.faq-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 30px 40px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+h1, h2, h3 {
+    color: #111;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+h1 {
+    text-align: center;
+    border-bottom: none;
+}
+
+h2 {
+    font-size: 1.5em;
+}
+
+h3 {
+    font-size: 1.1em;
+    border-bottom: none;
+    margin-bottom: 10px;
+}
+
+.faq-item {
+    margin-bottom: 30px;
+}
+
+.faq-item p {
+    line-height: 1.7;
+    margin-left: 2em; /* 字下げ */
+}
+
+.back-link {
+    display: block;
+    text-align: center;
+    margin-top: 40px;
+    font-weight: bold;
+    color: #007bff;
+    text-decoration: none;
+}
+.back-link:hover {
+    text-decoration: underline;
+}

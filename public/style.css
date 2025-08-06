@@ -38,82 +38,126 @@ ul {
 li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 15px;
   background-color: #ffffff;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   padding: 12px 15px;
   margin-bottom: 10px;
   transition: all 0.2s ease-in-out;
+  border-left-width: 5px; /* ★★★ オーラ（左枠線）の太さを指定 ★★★ */
 }
 
 li:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-color: #007bff;
 }
 
 li.completed .task-content span {
     text-decoration: line-through;
     color: #aaa;
 }
-li.completed .due-date {
-    text-decoration: line-through;
-}
 
-/* ======== タスクコンテンツのスタイル ======== */
-.task-content {
+/* ======== 色選択と「オーラ」のスタイル ======== */
+#color-picker {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.due-date {
-  font-size: 0.8em;
-  color: #666;
+  gap: 10px;
+  margin-top: 15px;
+  padding-left: 5px;
 }
 
-/* ======== 入力フォームとボタンのスタイル ======== */
-input[type="text"], input[type="email"], input[type="password"] {
-  width: calc(100% - 24px);
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 16px;
-  margin-bottom: 10px;
+.color-choice {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+}
+.color-choice:hover {
+  transform: scale(1.2);
+}
+.color-choice.selected {
+  border-color: #007bff;
+}
+
+/* ★★★ 各色の「オーラ」の定義 ★★★ */
+.task-color-default { border-left-color: #e0e0e0; }
+.task-color-red { background-color: #fff8f7; border-left-color: #f44336; }
+.task-color-blue { background-color: #e3f2fd; border-left-color: #2196f3; }
+.task-color-green { background-color: #e8f5e9; border-left-color: #4caf50; }
+.task-color-yellow { background-color: #fffde7; border-left-color: #ffeb3b; }
+
+/* ======== カラーピッカーの「丸」の色を定義する部分 ======== */
+
+.color-choice[data-color="default"] { background-color: #e0e0e0; }
+
+.color-choice[data-color="red"] { background-color: #f44336; }
+
+.color-choice[data-color="blue"] { background-color: #2196f3; }
+
+.color-choice[data-color="green"] { background-color: #4caf50; }
+
+.color-choice[data-color="yellow"] { background-color: #ffeb3b; }
+
+/* (残りのCSSは、前回の完全版と同じ) */
+.task-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
+.due-date {
+    font-size: 0.8em;
+    color: #666;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: calc(100% - 24px);
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    margin-bottom: 10px;
 }
 
 .add-task-form {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+    display: flex;
+    gap: 10px;
+    align-items: center;
 }
+
 #new-task-input {
-  flex-grow: 1;
-  margin-bottom: 0;
+    flex-grow: 1;
+    margin-bottom: 0;
 }
+
 input[type="date"] {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 16px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
 }
 
 button {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 6px;
-  background-color: #007bff;
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin: 0 0 0 5px;
-  white-space: nowrap;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    background-color: #007bff;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0 0 0 5px;
+    white-space: nowrap;
 }
 
 button:hover {
-  opacity: 0.85;
+    opacity: 0.85;
 }
 
 .task-buttons {
@@ -122,48 +166,52 @@ button:hover {
     gap: 5px;
 }
 
-#logout-button, .delete-btn {
-  background-color: #dc3545;
+#logout-button {
+    background-color: #dc3545;
 }
 
 .move-btn {
-  background-color: #28a745;
+    background-color: #28a745;
 }
 
 .complete-btn {
     background-color: #ffc107;
 }
 
-.move-to-stock-btn, .unarchive-btn {
+.move-to-stock-btn,
+.unarchive-btn {
     background-color: #6c757d;
 }
 
 .delete-btn {
-  background: none;
-  border: none;
-  padding: 5px;
-  margin: 0;
-  line-height: 0;
+    background: none;
+    border: none;
+    padding: 5px;
+    margin: 0;
+    line-height: 0;
 }
+
 .delete-btn img {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.2s ease-in-out;
+    width: 20px;
+    height: 20px;
+    transition: transform 0.2s ease-in-out;
 }
+
 .delete-btn:hover img {
-  transform: scale(1.2);
+    transform: scale(1.2);
 }
 
 #user-info {
-  text-align: right;
-  margin-bottom: 20px;
-  color: #666;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+    text-align: right;
+    margin-bottom: 20px;
+    color: #666;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
 }
+
 #user-info span {
-  margin-right: 10px;
+    margin-right: 10px;
 }
 
 .main-controls {
@@ -172,11 +220,155 @@ button:hover {
     gap: 10px;
     margin-bottom: 20px;
 }
+
 .main-controls button {
     background-color: #6c757d;
+}
+
+#archive-container {
+    display: none;
 }
 
 #archive-container button {
     display: block;
     margin: 20px auto 0;
+}
+
+/* ======== レスポンシブ対応 ======== */
+
+/* 中程度端末向け（タブレット等、幅768px以下） */
+@media (max-width: 768px) {
+  main, #auth-container, #archive-container {
+    margin: 20px;
+    padding: 15px 20px;
+  }
+
+  h1 {
+    font-size: 1.8em;
+  }
+  h2 {
+    font-size: 1.3em;
+  }
+}
+
+/* 極小端末向け（スマートフォン等、幅480px以下） */
+@media (max-width: 480px) {
+  .add-task-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+
+  #new-task-input, input[type="date"], #add-task-button {
+    width: auto; /* 幅を自動調整に戻す */
+    margin: 0;
+  }
+
+  #color-picker {
+    flex-wrap: wrap; /* 折り返しを許可 */
+    justify-content: flex-start;
+    gap: 15px;
+  }
+
+  li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .task-buttons {
+    width: 100%;
+    justify-content: flex-end; /* ボタンを右寄せにする */
+  }
+}
+
+/* ======== FAQボタンのスタイル ======== */
+#faq-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  margin-right: 15px;
+  text-decoration: none;
+  transition: all 0.2s;
+  opacity: 0.7;
+}
+
+#faq-button:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+
+
+/* ======== ラベル管理モーダル ======== */
+.hidden {
+    display: none !important;
+}
+
+#label-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#label-modal {
+    background-color: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+#labels-list {
+    list-style: none;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.label-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.label-color-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+#add-label-form input[type="text"] {
+    width: calc(100% - 24px);
+    margin-bottom: 10px;
+}
+
+.label-color-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.label-color-selector input[type="color"] {
+    width: 50px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+.label-color-selector button {
+    flex-grow: 1;
+    margin: 0;
 }

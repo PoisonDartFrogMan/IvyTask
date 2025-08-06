@@ -21,18 +21,20 @@
   <main id="app-container" style="display: none;">
     <div id="user-info">
       <span id="user-email"></span>
+      <a href="/faq.html" target="_blank" id="faq-button" title="FAQ"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg></a>
       <button id="logout-button">ログアウト</button>
     </div>
     
     <h1>IvyTask</h1>
     
     <div class="main-controls">
-        <button id="reset-day-button">新しい日を始める</button>
-        <button id="archive-view-button">アーカイブを見る</button>
+        <button id="manage-labels-button">ラベルを編集</button>
+        <button id="reset-day-button">Reset</button>
+        <button id="archive-view-button">アーカイブ</button>
     </div>
 
     <section>
-      <h2>今日のタスク</h2>
+      <h2>Focalist</h2>
       <ul id="today-tasks"></ul>
     </section>
 
@@ -48,6 +50,8 @@
         <input type="date" id="due-date-input">
         <button id="add-task-button">ストックに追加</button>
       </div>
+      <div id="color-picker">
+        </div>
     </section>
   </main>
   
@@ -56,31 +60,42 @@
       <ul id="archive-tasks"></ul>
       <button id="back-to-main-button">メイン画面へ戻る</button>
   </div>
-
+  
+  <div id="label-modal-backdrop" class="hidden">
+    <div id="label-modal">
+        <h2>カテゴリーラベルを管理</h2>
+        <ul id="labels-list"></ul>
+        <form id="add-label-form">
+            <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required>
+            <div class="label-color-selector">
+                <input type="color" id="label-color-input" value="#CCCCCC">
+                <button type="submit">新しいラベルを追加</button>
+            </div>
+        </form>
+        <button id="close-label-modal-button">閉じる</button>
+    </div>
+  </div>
 
   <script type="module">
-    // Firebase SDKから、我々が必要とする「能力」をインポートする
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, doc, deleteDoc, updateDoc, orderBy, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, getDoc, doc, deleteDoc, updateDoc, orderBy, writeBatch, Timestamp, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
     const firebaseConfig = {
-  apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
-  authDomain: "ivy-league-app-95a5d.firebaseapp.com",
-  projectId: "ivy-league-app-95a5d",
-  storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
-  messagingSenderId: "470602099850",
-  appId: "1:470602099850:web:1ac19841730eb053341173",
-  measurementId: "G-BE4QS8RP2G"
-};
+      apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
+      authDomain: "ivy-league-app-95a5d.firebaseapp.com",
+      projectId: "ivy-league-app-95a5d",
+      storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
+      messagingSenderId: "470602099850",
+      appId: "1:470602099850:web:1ac19841730eb053341173",
+      measurementId: "G-BE4QS8RP2G"
+    };
 
-    // Firebaseの初期化
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // HTML要素を取得
     const mainContainer = document.getElementById('app-container');
     const authContainer = document.getElementById('auth-container');
     const archiveContainer = document.getElementById('archive-container');
@@ -93,23 +108,34 @@
     const addButton = document.getElementById('add-task-button');
     const taskInput = document.getElementById('new-task-input');
     const dueDateInput = document.getElementById('due-date-input');
+    const colorPicker = document.getElementById('color-picker');
     const stockList = document.getElementById('stock-tasks');
     const todayList = document.getElementById('today-tasks');
     const archiveList = document.getElementById('archive-tasks');
     const resetDayButton = document.getElementById('reset-day-button');
     const archiveViewButton = document.getElementById('archive-view-button');
     const backToMainButton = document.getElementById('back-to-main-button');
+    const manageLabelsButton = document.getElementById('manage-labels-button');
+    const labelModalBackdrop = document.getElementById('label-modal-backdrop');
+    const closeLabelModalButton = document.getElementById('close-label-modal-button');
+    const addLabelForm = document.getElementById('add-label-form');
+    const labelNameInput = document.getElementById('label-name-input');
+    const labelColorInput = document.getElementById('label-color-input');
+    const labelsList = document.getElementById('labels-list');
 
     let currentUserId = null;
+    let selectedLabelId = null;
+    let labels = [];
+    let unsubscribeLabels = () => {};
 
-    // 「門番」：ログイン状態の監視
     onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUserId = user.uid;
         authContainer.style.display = 'none';
         mainContainer.style.display = 'block';
-        archiveContainer.style.display = 'none';
         userEmailSpan.textContent = user.email;
+        if (unsubscribeLabels) unsubscribeLabels();
+        unsubscribeLabels = loadLabels(currentUserId);
         loadTasks(currentUserId);
         activateDragAndDrop();
       } else {
@@ -117,53 +143,121 @@
         authContainer.style.display = 'block';
         mainContainer.style.display = 'none';
         archiveContainer.style.display = 'none';
+        if (unsubscribeLabels) unsubscribeLabels();
       }
     });
+    
+    function loadLabels(userId) {
+      const labelsQuery = query(collection(db, "labels"), where("userId", "==", userId));
+      return onSnapshot(labelsQuery, (snapshot) => {
+        labelsList.innerHTML = '';
+        labels = [];
+        snapshot.forEach(doc => {
+          const label = { id: doc.id, ...doc.data() };
+          labels.push(label);
+          renderLabelInModal(label);
+        });
+        updateColorPicker();
+      });
+    }
 
-    // メインのタスクを読み込む
+    function renderLabelInModal(label) {
+        const li = document.createElement('li');
+        li.className = 'label-item';
+        li.dataset.id = label.id;
+        const colorCircle = document.createElement('div');
+        colorCircle.className = 'label-color-circle';
+        colorCircle.style.backgroundColor = label.color;
+        const labelName = document.createElement('span');
+        labelName.className = 'label-name';
+        labelName.textContent = label.name;
+        const deleteBtn = createButton('削除','delete-label-btn');
+        li.appendChild(colorCircle);
+        li.appendChild(labelName);
+        li.appendChild(deleteBtn);
+        labelsList.appendChild(li);
+    }
+    
+    function updateColorPicker() {
+        colorPicker.innerHTML = '';
+        if (labels.length === 0) {
+            colorPicker.innerHTML = '<p class="no-labels-message">ラベルがありません。「ラベルを編集」から作成してください。</p>';
+            selectedLabelId = null;
+            return;
+        }
+        labels.forEach(label => {
+            const choice = document.createElement('div');
+            choice.className = 'color-choice';
+            choice.dataset.labelId = label.id;
+            choice.style.backgroundColor = label.color;
+            choice.title = label.name;
+            colorPicker.appendChild(choice);
+        });
+        if (!labels.some(l => l.id === selectedLabelId)) {
+            selectedLabelId = labels[0].id;
+        }
+        const selectedChoice = colorPicker.querySelector(`[data-label-id="${selectedLabelId}"]`);
+        if (selectedChoice) selectedChoice.classList.add('selected');
+    }
+
     async function loadTasks(userId) {
       stockList.innerHTML = '';
       todayList.innerHTML = '';
+      
+      // ★★★ 掟を破る orderBy("priority") を削除！ ★★★
       const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today", "completed"]));
       const querySnapshot = await getDocs(q);
       
       let tasks = [];
       querySnapshot.forEach(doc => tasks.push({ id: doc.id, ...doc.data() }));
       
+      // ★★★ 受け取った後、我々自身の力で並べ替える ★★★
       tasks.sort((a, b) => {
-        if (a.status === b.status) return (a.priority || 0) - (b.priority || 0);
-        if (a.status === 'today') return -1;
-        if (b.status === 'today') return 1;
-        if (a.status === 'completed') return 1;
-        if (b.status === 'completed') return -1;
-        return 0;
+        // ステータスによる大分類
+        const statusOrder = { 'today': 1, 'completed': 2, 'stock': 3 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+            return statusOrder[a.status] - statusOrder[b.status];
+        }
+
+        // ストック内では期日で並べ替え
+        if (a.status === 'stock') {
+            const aHasDate = a.dueDate;
+            const bHasDate = b.dueDate;
+            if (aHasDate && !bHasDate) return -1;
+            if (!aHasDate && bHasDate) return 1;
+            if (aHasDate && bHasDate) return a.dueDate.toMillis() - b.dueDate.toMillis();
+        }
+        
+        // それ以外はpriorityで並べ替え
+        return (a.priority || 0) - (b.priority || 0);
       });
       
       tasks.forEach(task => renderTask(task.id, task));
     }
 
-    // アーカイブされたタスクを読み込む
     async function loadArchivedTasks(userId) {
         archiveList.innerHTML = '';
-        const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"));
+        const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            renderTask(doc.id, doc.data(), true);
-        });
+        querySnapshot.forEach((doc) => { renderTask(doc.id, doc.data(), true); });
     }
 
-    // 画面にタスクを描画する
     function renderTask(id, data, isArchived = false) {
       const newTask = document.createElement('li');
       newTask.dataset.id = id;
       if (data.status === 'completed') newTask.classList.add('completed');
-
+      const label = labels.find(l => l.id === data.labelId);
+      if (label) {
+        newTask.style.borderLeftColor = label.color;
+        newTask.style.backgroundColor = `${label.color}20`;
+      } else {
+        newTask.style.borderLeftColor = '#e0e0e0';
+      }
       const taskContent = document.createElement('div');
       taskContent.className = 'task-content';
       const taskLabel = document.createElement('span');
       taskLabel.textContent = data.text;
       taskContent.appendChild(taskLabel);
-
       if (data.dueDate) {
         const dueDateSpan = document.createElement('small');
         dueDateSpan.className = 'due-date';
@@ -171,170 +265,104 @@
         taskContent.appendChild(dueDateSpan);
       }
       newTask.appendChild(taskContent);
-
       const buttonsContainer = document.createElement('div');
       buttonsContainer.className = 'task-buttons';
-      
-      if (isArchived) {
-          buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
-      } else {
-          if (data.status === 'stock') buttonsContainer.appendChild(createButton('今日へ', 'move-btn'));
+      if (isArchived) { buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn')); }
+      else {
+          if (data.status === 'stock') buttonsContainer.appendChild(createButton('Focus', 'move-btn'));
           if (data.status === 'today') {
             buttonsContainer.appendChild(createButton('完了', 'complete-btn'));
             buttonsContainer.appendChild(createButton('ストックへ', 'move-to-stock-btn'));
           }
       }
-      if (!isArchived) buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
-      
+      buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
       newTask.appendChild(buttonsContainer);
-
-      if (isArchived) {
-          archiveList.appendChild(newTask);
-      } else if (data.status === 'today' || data.status === 'completed') {
-        todayList.appendChild(newTask);
-      } else {
-        stockList.appendChild(newTask);
-      }
+      if (isArchived) { archiveList.appendChild(newTask); }
+      else if (data.status === 'today' || data.status === 'completed') { todayList.appendChild(newTask); }
+      else { stockList.appendChild(newTask); }
     }
 
-    function createButton(text, className) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.className = className;
-        return button;
-    }
-
-    function createIconButton(src, className) {
-        const button = document.createElement('button');
-        button.className = className;
-        const icon = document.createElement('img');
-        icon.src = src;
-        icon.alt = className;
-        button.appendChild(icon);
-        return button;
-    }
-
-    // ドラッグ＆ドロップ機能を有効化する
-    function activateDragAndDrop() {
-      new Sortable(todayList, {
-        animation: 150,
-        onEnd: async (evt) => {
-          const items = evt.to.children;
-          const batch = writeBatch(db);
-          Array.from(items).forEach((item, index) => {
-            if (item.dataset.id) {
-              const taskDocRef = doc(db, "tasks", item.dataset.id);
-              batch.update(taskDocRef, { priority: index });
-            }
-          });
-          await batch.commit();
-        }
-      });
-    }
-
-    // タスク追加処理
+    function createButton(text, className) { const button = document.createElement('button'); button.textContent = text; button.className = className; return button; }
+    function createIconButton(src, className) { const button = document.createElement('button'); button.className = className; const icon = document.createElement('img'); icon.src = src; icon.alt = className; button.appendChild(icon); return button; }
+    function activateDragAndDrop() { new Sortable(todayList, { animation: 150, onEnd: async (evt) => { const items = evt.to.children; const batch = writeBatch(db); Array.from(items).forEach((item, index) => { if (item.dataset.id) { const taskDocRef = doc(db, "tasks", item.dataset.id); batch.update(taskDocRef, { priority: index }); } }); await batch.commit(); } }); }
+    
     addButton.addEventListener('click', async () => {
       const taskText = taskInput.value.trim();
       const dueDateValue = dueDateInput.value;
       if (taskText === '' || !currentUserId) return;
-      const newTaskData = {
-        userId: currentUserId, text: taskText, status: 'stock', priority: Date.now(), createdAt: new Date()
-      };
-      if (dueDateValue) {
-        newTaskData.dueDate = Timestamp.fromDate(new Date(dueDateValue));
+      if (!selectedLabelId && labels.length > 0) {
+          selectedLabelId = labels[0].id;
       }
-      const docRef = await addDoc(collection(db, "tasks"), newTaskData);
-      renderTask(docRef.id, newTaskData);
-      taskInput.value = '';
-      dueDateInput.value = '';
+      const newTaskData = { userId: currentUserId, text: taskText, status: 'stock', priority: Date.now(), createdAt: serverTimestamp(), labelId: selectedLabelId };
+      if (dueDateValue) { newTaskData.dueDate = Timestamp.fromDate(new Date(dueDateValue)); }
+      await addDoc(collection(db, "tasks"), newTaskData);
+      taskInput.value = ''; dueDateInput.value = '';
     });
-
-    // 各リストのクリックイベントを処理する
+    
     document.body.addEventListener('click', async (event) => {
-        const taskItem = event.target.closest('li');
-        if (!taskItem || !currentUserId) return;
-        const taskId = taskItem.dataset.id;
-        const taskDocRef = doc(db, "tasks", taskId);
-        
-        let shouldReloadMain = false;
-        let shouldReloadArchive = false;
-
-        if (event.target.closest('.delete-btn')) {
-            await deleteDoc(taskDocRef);
-            taskItem.remove();
-        } else if (event.target.closest('.move-btn')) {
-            if (todayList.children.length < 6) {
-                await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
-                shouldReloadMain = true;
-            } else {
-                alert('「今日のタスク」は6つまでだッ！');
-            }
-        } else if (event.target.closest('.complete-btn')) {
-            await updateDoc(taskDocRef, { status: 'completed' });
-            shouldReloadMain = true;
-        } else if (event.target.closest('.move-to-stock-btn')) {
-            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-            shouldReloadMain = true;
-        } else if (event.target.closest('.unarchive-btn')) {
-            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-            shouldReloadArchive = true;
+        if (event.target.closest('.color-choice')) {
+            selectedLabelId = event.target.closest('.color-choice').dataset.labelId;
+            updateColorPicker();
+            return;
         }
-
-        if(shouldReloadMain) loadTasks(currentUserId);
-        if(shouldReloadArchive) loadArchivedTasks(currentUserId);
+        if (event.target.closest('.due-date')) {
+            const taskItem = event.target.closest('li'); if (!taskItem) return; const taskId = taskItem.dataset.id; const taskDocRef = doc(db, "tasks", taskId); const originalDateSpan = event.target; const dateInput = document.createElement('input'); dateInput.type = 'date'; try { const docSnap = await getDoc(taskDocRef); if (docSnap.exists() && docSnap.data().dueDate) { const currentDueDate = docSnap.data().dueDate.toDate(); const year = currentDueDate.getFullYear(); const month = String(currentDueDate.getMonth() + 1).padStart(2, '0'); const day = String(currentDueDate.getDate()).padStart(2, '0'); dateInput.value = `${year}-${month}-${day}`; } } catch (e) { console.error("日付の読み込みエラー:", e); } originalDateSpan.replaceWith(dateInput); dateInput.focus(); const saveAndRevert = async () => { if (dateInput.value) { const newDueDate = Timestamp.fromDate(new Date(dateInput.value)); await updateDoc(taskDocRef, { dueDate: newDueDate }); } loadTasks(currentUserId); }; dateInput.addEventListener('blur', saveAndRevert); dateInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { dateInput.blur(); } });
+            return; 
+        }
+        const taskItem = event.target.closest('li');
+        if (taskItem && taskItem.dataset.id) {
+            const taskId = taskItem.dataset.id;
+            const taskDocRef = doc(db, "tasks", taskId);
+            if (event.target.closest('.delete-btn')) { if(confirm('このタスクを完全に削除しますか？')){ await deleteDoc(taskDocRef); } }
+            else if (event.target.closest('.move-btn') && todayList.children.length < 6) { await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length }); }
+            else if (event.target.closest('.complete-btn')) { await updateDoc(taskDocRef, { status: 'completed' }); }
+            else if (event.target.closest('.move-to-stock-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
+            else if (event.target.closest('.unarchive-btn')) { await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() }); }
+        }
     });
 
-    // 「新しい日を始める」ボタンの処理
+    manageLabelsButton.addEventListener('click', () => labelModalBackdrop.classList.remove('hidden'));
+    closeLabelModalButton.addEventListener('click', () => labelModalBackdrop.classList.add('hidden'));
+    addLabelForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = labelNameInput.value.trim();
+        const color = labelColorInput.value;
+        if (!name || !currentUserId) return;
+        if (labels.some(l => l.name === name)) return alert('同じ名前のラベルは既に存在します。');
+        await addDoc(collection(db, "labels"), { userId: currentUserId, name: name, color: color, createdAt: serverTimestamp() });
+        labelNameInput.value = '';
+    });
+    labelsList.addEventListener('click', async (event) => {
+        if (event.target.classList.contains('delete-label-btn')) {
+            const labelItem = event.target.closest('.label-item');
+            const labelId = labelItem.dataset.id;
+            if (confirm('このラベルを削除しますか？関連するタスクのラベルは解除されます。')) {
+                await deleteDoc(doc(db, "labels", labelId));
+                // Note: Need to also update tasks that use this label. A Cloud Function is better. For now, we'll just delete the label.
+            }
+        }
+    });
+
     resetDayButton.addEventListener('click', async () => {
-        if (!currentUserId || !confirm("新しい日を始めますか？\n完了したタスクはアーカイブされ、未完了の「今日のタスク」はストックに戻ります。")) return;
-        
+        if (!currentUserId || !confirm("Resetしますか？\n完了したタスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
         const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
         const querySnapshot = await getDocs(q);
         const batch = writeBatch(db);
-        
         querySnapshot.forEach(docSnap => {
             const task = docSnap.data();
-            if(task.status === 'completed') {
-                batch.update(docSnap.ref, { status: 'archived' });
-            } else if(task.status === 'today') {
-                batch.update(docSnap.ref, { status: 'stock', priority: Date.now() });
-            }
+            if(task.status === 'completed') batch.update(docSnap.ref, { status: 'archived' });
+            else if(task.status === 'today') batch.update(docSnap.ref, { status: 'stock', priority: Date.now() });
         });
         await batch.commit();
         loadTasks(currentUserId);
     });
 
-    // アーカイブ表示ボタンの処理
-    archiveViewButton.addEventListener('click', () => {
-        mainContainer.style.display = 'none';
-        archiveContainer.style.display = 'block';
-        loadArchivedTasks(currentUserId);
-    });
-
-    // メイン画面へ戻るボタンの処理
-    backToMainButton.addEventListener('click', () => {
-        archiveContainer.style.display = 'none';
-        mainContainer.style.display = 'block';
-        loadTasks(currentUserId);
-    });
-
-    // 認証ボタン処理
-    signupButton.addEventListener('click', () => {
-      const email = emailInput.value;
-      const password = passwordInput.value;
-      if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
-      createUserWithEmailAndPassword(auth, email, password).catch((error) => alert('サインアップ失敗: ' + error.message));
-    });
-    loginButton.addEventListener('click', () => {
-      const email = emailInput.value;
-      const password = passwordInput.value;
-      if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
-      signInWithEmailAndPassword(auth, email, password).catch((error) => alert('ログイン失敗: ' + error.message));
-    });
-    logoutButton.addEventListener('click', () => {
-      signOut(auth);
-    });
+    archiveViewButton.addEventListener('click', () => { mainContainer.style.display = 'none'; archiveContainer.style.display = 'block'; loadArchivedTasks(currentUserId); });
+    backToMainButton.addEventListener('click', () => { archiveContainer.style.display = 'none'; mainContainer.style.display = 'block'; loadTasks(currentUserId); });
+    
+    signupButton.addEventListener('click', () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) return alert("メールアドレスとパスワードを入力してください。"); createUserWithEmailAndPassword(auth, email, password).catch((error) => alert('サインアップ失敗: ' + error.message)); });
+    loginButton.addEventListener('click', () => { const email = emailInput.value; const password = passwordInput.value; if (!email || !password) return alert("メールアドレスとパスワードを入力してください。"); signInWithEmailAndPassword(auth, email, password).catch((error) => alert('ログイン失敗: ' + error.message)); });
+    logoutButton.addEventListener('click', () => { signOut(auth); });
   </script>
-
 </body>
 </html>
