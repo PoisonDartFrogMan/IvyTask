@@ -16,7 +16,7 @@ main, #auth-container, #archive-container {
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
-/* ======== 見出し ======== */
+/* ======== 文字のスタイル ======== */
 h1, h2 {
   color: #111;
   border-bottom: 2px solid #007bff;
@@ -26,7 +26,7 @@ h1, h2 {
 }
 h1 { text-align: center; }
 
-/* ======== リスト／タスクカード ======== */
+/* ======== リストのスタイル ======== */
 ul { list-style: none; padding: 0; min-height: 40px; }
 
 li {
@@ -39,22 +39,49 @@ li {
   padding: 12px 15px;
   margin-bottom: 10px;
   transition: all .2s ease-in-out;
-  border-left-width: 5px;  /* 左のオーラ */
+  border-left-width: 5px; /* 左枠線（ラベル色） */
 }
-li:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+li:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 li.completed .task-content span { text-decoration: line-through; color: #aaa; }
 
-/* ======== タスク中身 ======== */
 .task-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex-grow: 1;
 }
-.due-date { font-size: .8em; color: #666; }
+.due-date { font-size: 0.8em; color: #666; }
 
-/* ======== 入力系 ======== */
-input[type="text"], input[type="email"], input[type="password"] {
+/* ======== 色選択とラベル名ヒント ======== */
+#color-picker { display: flex; gap: 10px; margin-top: 15px; padding-left: 5px; }
+.color-choice {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform .2s, border-color .2s;
+}
+.color-choice:hover { transform: scale(1.15); }
+.color-choice.selected { border-color: #2d7ff9; }
+
+#selected-label-hint {
+  margin-top: 8px;
+  font-size: .9rem;
+  color: #444;
+  min-height: 1.2em; /* チラつき防止 */
+}
+
+/* 旧クラスの互換（未使用でも残す） */
+.task-color-default { border-left-color: #e0e0e0; }
+.task-color-red { background-color: #fff8f7; border-left-color: #f44336; }
+.task-color-blue { background-color: #e3f2fd; border-left-color: #2196f3; }
+.task-color-green { background-color: #e8f5e9; border-left-color: #4caf50; }
+.task-color-yellow { background-color: #fffde7; border-left-color: #ffeb3b; }
+
+/* ======== 入力欄 ======== */
+input[type="text"],
+input[type="email"],
+input[type="password"] {
   width: calc(100% - 24px);
   padding: 12px;
   border: 1px solid #ccc;
@@ -62,408 +89,110 @@ input[type="text"], input[type="email"], input[type="password"] {
   font-size: 16px;
   margin-bottom: 10px;
 }
-input[type="date"] {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 16px;
-}
-
-/* 新規追加行 */
 .add-task-form { display: flex; gap: 10px; align-items: center; }
 #new-task-input { flex-grow: 1; margin-bottom: 0; }
+input[type="date"] {
+  padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px;
+}
 
 /* ======== ボタン ======== */
 button {
   padding: 10px 15px;
-  border: none;
-  border-radius: 6px;
-  background-color: #007bff;
-  color: #fff;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all .2s;
-  margin: 0 0 0 5px;
-  white-space: nowrap;
+  border: none; border-radius: 6px;
+  background-color: #007bff; color: #fff;
+  font-size: 14px; font-weight: bold;
+  cursor: pointer; transition: opacity .2s, transform .1s;
+  margin: 0 0 0 5px; white-space: nowrap;
 }
 button:hover { opacity: .85; }
-
-.task-buttons { display: flex; align-items: center; gap: 5px; }
-
 #logout-button { background-color: #dc3545; }
 .move-btn { background-color: #28a745; }
-.complete-btn { background-color: #ffc107; color: #111; }
-.move-to-stock-btn, .unarchive-btn { background-color: #6c757d; }
+.complete-btn { background-color: #ffc107; color: #222; }
+.move-to-stock-btn, .unarchive-btn { background-color: #6c757d; color: #fff; }
 
+.task-buttons { display: flex; align-items: center; gap: 8px; }
 .delete-btn { background: none; border: none; padding: 5px; margin: 0; line-height: 0; }
-.delete-btn img { width: 20px; height: 20px; transition: transform .2s ease-in-out; }
+.delete-btn img { width: 20px; height: 20px; transition: transform .2s; }
 .delete-btn:hover img { transform: scale(1.2); }
 
-/* ======== ユーザー情報行 ======== */
+/* ======== タスクのラベル再設定セレクト ======== */
+.label-select {
+  appearance: none;
+  padding: 8px 10px;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  max-width: 160px;
+}
+
+/* ======== ヘッダー ======== */
 #user-info {
-  text-align: right;
-  margin-bottom: 20px;
-  color: #666;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  text-align: right; margin-bottom: 20px; color: #666;
+  display: flex; justify-content: flex-end; align-items: center;
 }
 #user-info span { margin-right: 10px; }
-
-/* ======== メイン操作ボタン行 ======== */
-.main-controls {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-bottom: 20px;
-}
+.main-controls { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
 .main-controls button { background-color: #6c757d; }
 
-/* ======== アーカイブ画面 ======== */
 #archive-container { display: none; }
 #archive-container button { display: block; margin: 20px auto 0; }
 
 /* ======== FAQボタン ======== */
 #faq-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #6c757d;
-  margin-right: 15px;
-  text-decoration: none;
-  transition: all .2s;
-  opacity: .7;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #6c757d; margin-right: 15px; text-decoration: none;
+  transition: all .2s; opacity: .7;
 }
 #faq-button:hover { opacity: 1; transform: scale(1.15); }
-
-/* ======== カラーピッカー（ラベル選択） ======== */
-#color-picker {
-  display: flex;
-  gap: 12px;
-  margin-top: 15px;
-  padding-left: 5px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.color-choice {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 3px solid transparent;
-  transition: all .2s;
-}
-.color-choice:hover { transform: scale(1.15); }
-.color-choice.selected { border-color: #007bff; }
-
-/* 選択中ラベル名の表示（新規） */
-.selected-label-name {
-  width: 100%;
-  font-size: 14px;
-  color: #333;
-  margin-top: 6px;
-}
-.selected-label-name small { color: #666; }
-
-/* ======== タスク行で使うラベル選択（セレクト） ======== */
-.label-select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid #d3d3d3;
-  border-radius: 6px;
-  padding: 6px 28px 6px 10px;
-  background: #fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 24 24" fill="%23666"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 8px center;
-  font-size: 14px;
-  color: #333;
-}
-.label-select:focus { outline: none; border-color: #007bff; }
-.label-select option { padding: 6px; }
-
-/* ======== ラベルオーラ（左線）デフォルト色 ======== */
-.task-color-default { border-left-color: #e0e0e0; }
-.task-color-red     { background-color: #fff8f7; border-left-color: #f44336; }
-.task-color-blue    { background-color: #e3f2fd; border-left-color: #2196f3; }
-.task-color-green   { background-color: #e8f5e9; border-left-color: #4caf50; }
-.task-color-yellow  { background-color: #fffde7; border-left-color: #ffeb3b; }
 
 /* ======== ラベル管理モーダル ======== */
 .hidden { display: none !important; }
 
 #label-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0,0,0,.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed; inset: 0;
+  background-color: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-
 #label-modal {
-  background-color: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  width: 92%;
-  max-width: 520px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.2);
+  background-color: #fff; padding: 30px; border-radius: 12px;
+  width: 90%; max-width: 520px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
-#label-modal h2 { margin: 0 0 12px; font-size: 18px; }
-
-#labels-list {
-  list-style: none;
-  padding: 0;
-  max-height: 240px;
-  overflow-y: auto;
-  margin: 0 0 16px;
-}
-
-.label-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 8px;
-  border-bottom: 1px solid #eee;
-}
-.label-color-circle {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 1px solid #e6e6e6;
-}
+#labels-list { list-style: none; padding: 0; max-height: 240px; overflow-y: auto; margin-bottom: 20px; }
+.label-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; }
+.label-color-circle { width: 20px; height: 20px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; border: 1px solid #ddd; }
 .label-name { flex: 1; min-width: 0; }
-
-/* ラベル編集ボタン群 */
+.label-item input[type="text"] {
+  flex: 1; padding: 8px 10px; border: 1px solid #cfd6df; border-radius: 6px; font-size: 14px;
+}
 .edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn {
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin: 0;
+  padding: 6px 10px; font-size: 12px; margin: 0;
 }
-.edit-label-btn   { background: #0d6efd; }
-.save-label-btn   { background: #28a745; }
-.cancel-label-btn { background: #6c757d; }
-.delete-label-btn { background: #dc3545; }
 
-/* 新規ラベル追加フォーム */
-#add-label-form input[type="text"] {
-  width: calc(100% - 24px);
-  margin-bottom: 10px;
-}
-.label-color-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+#add-label-form input[type="text"] { width: calc(100% - 24px); margin-bottom: 10px; }
+.label-color-selector { display: flex; align-items: center; gap: 10px; }
 .label-color-selector input[type="color"] {
-  width: 50px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  width: 50px; height: 40px; padding: 0; border: 1px solid #ccc; border-radius: 6px;
 }
 .label-color-selector button { flex-grow: 1; margin: 0; }
 
 /* ======== レスポンシブ ======== */
+/* タブレット以下（<=768px） */
 @media (max-width: 768px) {
   main, #auth-container, #archive-container { margin: 20px; padding: 15px 20px; }
   h1 { font-size: 1.8em; }
   h2 { font-size: 1.3em; }
-
   .label-select { max-width: 140px; }
 }
 
+/* スマホ（<=480px） */
 @media (max-width: 480px) {
   .add-task-form { flex-direction: column; align-items: stretch; gap: 15px; }
   #new-task-input, input[type="date"], #add-task-button { width: auto; margin: 0; }
-
-  #color-picker { flex-wrap: wrap; gap: 15px; justify-content: flex-start; }
-
+  #color-picker { flex-wrap: wrap; justify-content: flex-start; gap: 15px; }
   li { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .task-buttons { width: 100%; justify-content: flex-end; }
-
+  .task-buttons { width: 100%; justify-content: space-between; gap: 10px; }
   .label-select { flex: 1; max-width: none; }
-}
-
-/* ===== Hotfix: タスク行の横並びレイアウト補正 ===== */
-li { align-items: center; }                /* 行内を縦中央に */
-.task-content { flex: 1 1 auto; }          /* 左側の本文は広がる */
-.task-buttons {
-  margin-left: auto;                       /* 右端に寄せる */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.label-select {
-  min-width: 120px;                        /* セレクトのサイズ安定化 */
-  max-width: 160px;
-  height: 32px;
-  margin-right: 8px;                       /* ボタンと間隔 */
-  font-size: 14px;
-}
-
-/* 期日は本文の行内に並べたい場合はこれで揃う */
-.task-content .due-date {
-  display: inline-block;
-  margin-left: 12px;
-}
-
-/* スマホでは縦積みに切り替え */
-@media (max-width: 768px) {
-  li { flex-direction: column; align-items: stretch; }
-  .label-select { width: 100%; max-width: none; height: 36px; }
-  .task-buttons { margin-left: 0; justify-content: flex-end; }
-}
-
-/* ===== Hotfix2: タスク行の横並びを強制（スマホでも縦崩れさせない） ===== */
-
-/* 行全体は常に横並び。本文は左、セレクト＋ボタンは右 */
-li {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-}
-
-.task-content {
-  flex: 1 1 auto !important;   /* 左側は広がる */
-  min-width: 0 !important;
-}
-
-/* 右側のアクションエリア */
-.task-buttons {
-  margin-left: auto !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 8px !important;
-  width: auto !important;       /* 100%に広がらない */
-  flex-wrap: nowrap !important; /* 縦に折り返さない */
-}
-
-/* ラベルのセレクト */
-.label-select {
-  min-width: 120px !important;
-  max-width: 160px !important;
-  height: 32px !important;
-  margin-right: 8px !important;
-  font-size: 14px !important;
-}
-
-/* 期日の表示を本文と同じ行に */
-.task-content .due-date {
-  display: inline-block !important;
-  margin-left: 12px !important;
-}
-
-/* 念のため、モバイル用の “縦積み” 指定を上書きして潰す */
-@media (max-width: 480px) {
-  li {
-    flex-direction: row !important;
-    align-items: center !important;
-  }
-  .task-buttons {
-    width: auto !important;
-    justify-content: flex-end !important;
-    flex-direction: row !important;
-  }
-}
-
-/* ===== Hotfix3: タスク行のレイアウトを常に横並びにする ===== */
-
-/* 各タスク行は横並び */
-li {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 12px !important;
-}
-
-/* 左側（タイトル＋期日）は広がる */
-.task-content {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-}
-
-/* 右側（ラベル選択＋ボタン） */
-.task-buttons {
-  flex: 0 0 auto !important;
-  margin-left: auto !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 8px !important;
-  flex-wrap: nowrap !important;   /* 折り返さない */
-  width: auto !important;         /* 右側全体が100%に広がらない */
-  white-space: nowrap !important; /* 中で折り返さない */
-}
-
-/* 右側のセレクト（ラベル）幅を明示（100%上書き） */
-.task-buttons select,
-.label-select {
-  display: inline-block !important;
-  width: 160px !important;        /* ここはお好みで */
-  min-width: 140px !important;
-  max-width: 220px !important;
-  height: 32px !important;
-  font-size: 14px !important;
-  box-sizing: border-box !important;
-}
-
-/* 期日をタイトルと同じ行に */
-.task-content .due-date {
-  display: inline-block !important;
-  margin-left: 12px !important;
-}
-
-/* モバイルでも縦積みにしない（既存の @media を打ち消す） */
-@media (max-width: 480px) {
-  li {
-    flex-direction: row !important;
-    align-items: center !important;
-  }
-  .task-buttons {
-    flex-wrap: nowrap !important;
-    justify-content: flex-end !important;
-  }
-  .task-buttons select,
-  .label-select {
-    width: 45vw !important;        /* 画面幅に合わせて少し広めに */
-    max-width: 260px !important;
-  }
-}
-
-/* === Modal (必須) === */
-.hidden { display: none !important; }
-
-#label-modal-backdrop{
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.6);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 2000;
-}
-#label-modal{
-  background: #fff;
-  padding: 30px;
-  border-radius: 12px;
-  width: 90%; max-width: 500px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.2);
-}
-
-/* === タスク行の横並びホットフィックス === */
-li{ display:flex !important; align-items:center !important; gap:12px !important; }
-.task-content{ flex:1 1 auto !important; min-width:0 !important; }
-.task-buttons{
-  margin-left:auto !important; display:flex !important; gap:8px !important;
-  flex-wrap:nowrap !important; white-space:nowrap !important;
-}
-.task-buttons select,.label-select{
-  width:160px !important; min-width:140px !important; max-width:220px !important;
-  height:32px !important; box-sizing:border-box !important;
-}
-.task-content .due-date{ display:inline-block !important; margin-left:12px !important; }
-
-@media (max-width:480px){
-  li{ flex-direction:row !important; }
-  .task-buttons select,.label-select{ width:45vw !important; max-width:260px !important; }
 }
