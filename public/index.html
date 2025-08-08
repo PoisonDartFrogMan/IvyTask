@@ -1,31 +1,18 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IvyTask</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-  <style>
-    /* 追加: ラベル名ヒントと小さめセレクト */
-    .label-hint{margin-top:8px;font-size:.9rem;color:#444}
-    .label-select{max-width:160px}
-    .label-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #eee;border-radius:8px;margin:8px 0}
-    .label-color-circle{width:18px;height:18px;border-radius:50%;border:1px solid #ddd}
-    .label-name{flex:1}
-    .inline-edit{display:flex;gap:8px;align-items:center}
-    .hidden{display:none}
-    .color-choice{width:28px;height:28px;border-radius:50%;border:3px solid transparent;cursor:pointer;margin-right:10px}
-    .color-choice.selected{border-color:#2d7ff9}
-  </style>
 </head>
 <body>
-
   <div id="auth-container">
     <h1>IvyTask</h1>
     <p>アカウントを作成、またはログインしてください</p>
-    <input type="email" id="email-input" placeholder="メールアドレス">
-    <input type="password" id="password-input" placeholder="パスワード">
+    <input type="email" id="email-input" placeholder="メールアドレス"/>
+    <input type="password" id="password-input" placeholder="パスワード"/>
     <button id="signup-button">サインアップ</button>
     <button id="login-button">ログイン</button>
   </div>
@@ -33,7 +20,9 @@
   <main id="app-container" style="display:none;">
     <div id="user-info">
       <span id="user-email"></span>
-      <a href="/faq.html" target="_blank" id="faq-button" title="FAQ"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg></a>
+      <a href="/faq.html" target="_blank" id="faq-button" title="FAQ">
+        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+      </a>
       <button id="logout-button">ログアウト</button>
     </div>
 
@@ -58,11 +47,13 @@
     <section>
       <h2>新しいタスクを追加</h2>
       <div class="add-task-form">
-        <input type="text" id="new-task-input" placeholder="やるべきことを入力...">
-        <input type="date" id="due-date-input">
+        <input type="text" id="new-task-input" placeholder="やるべきことを入力..."/>
+        <input type="date" id="due-date-input"/>
         <button id="add-task-button">ストックに追加</button>
       </div>
+      <!-- ラベル選択（色チップ） -->
       <div id="color-picker"></div>
+      <!-- 選択中のラベル名を表示 -->
       <div id="selected-label-hint" class="label-hint"></div>
     </section>
   </main>
@@ -78,13 +69,15 @@
     <div id="label-modal">
       <h2>カテゴリーラベルを管理</h2>
       <ul id="labels-list"></ul>
+
       <form id="add-label-form">
-        <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required>
+        <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required/>
         <div class="label-color-selector">
-          <input type="color" id="label-color-input" value="#CCCCCC">
+          <input type="color" id="label-color-input" value="#CCCCCC"/>
           <button type="submit">新しいラベルを追加</button>
         </div>
       </form>
+
       <button id="close-label-modal-button">閉じる</button>
     </div>
   </div>
@@ -117,17 +110,21 @@
     const loginButton = document.getElementById('login-button');
     const logoutButton = document.getElementById('logout-button');
     const userEmailSpan = document.getElementById('user-email');
+
     const addButton = document.getElementById('add-task-button');
     const taskInput = document.getElementById('new-task-input');
     const dueDateInput = document.getElementById('due-date-input');
     const colorPicker = document.getElementById('color-picker');
     const selectedLabelHint = document.getElementById('selected-label-hint');
+
     const stockList = document.getElementById('stock-tasks');
     const todayList = document.getElementById('today-tasks');
     const archiveList = document.getElementById('archive-tasks');
+
     const resetDayButton = document.getElementById('reset-day-button');
     const archiveViewButton = document.getElementById('archive-view-button');
     const backToMainButton = document.getElementById('back-to-main-button');
+
     const manageLabelsButton = document.getElementById('manage-labels-button');
     const labelModalBackdrop = document.getElementById('label-modal-backdrop');
     const closeLabelModalButton = document.getElementById('close-label-modal-button');
@@ -147,8 +144,10 @@
         authContainer.style.display = 'none';
         mainContainer.style.display = 'block';
         userEmailSpan.textContent = user.email;
+
         if (unsubscribeLabels) unsubscribeLabels();
         unsubscribeLabels = loadLabels(currentUserId);
+
         await runDailyAutomation(currentUserId);
         loadTasks(currentUserId);
         activateDragAndDrop();
@@ -191,15 +190,16 @@
       nameSpan.className = 'label-name';
       nameSpan.textContent = label.name;
 
-      const editBtn = createButton('編集','edit-label-btn');
-      const saveBtn = createButton('保存','save-label-btn hidden');
-      const cancelBtn = createButton('取消','cancel-label-btn hidden');
-
       const input = document.createElement('input');
       input.type = 'text';
       input.value = label.name;
       input.maxLength = 12;
       input.className = 'hidden';
+
+      const editBtn = createButton('編集','edit-label-btn');
+      const saveBtn = createButton('保存','save-label-btn hidden');
+      const cancelBtn = createButton('取消','cancel-label-btn hidden');
+      const deleteBtn = createButton('削除','delete-label-btn');
 
       li.appendChild(colorCircle);
       li.appendChild(nameSpan);
@@ -207,8 +207,6 @@
       li.appendChild(editBtn);
       li.appendChild(saveBtn);
       li.appendChild(cancelBtn);
-      // 削除ボタンは右端
-      const deleteBtn = createButton('削除','delete-label-btn');
       li.appendChild(deleteBtn);
 
       labelsList.appendChild(li);
@@ -219,16 +217,18 @@
       colorPicker.innerHTML = '';
       if (labels.length === 0) {
         colorPicker.innerHTML = '<p class="no-labels-message">ラベルがありません。「ラベルを編集」から作成してください。</p>';
-        selectedLabelId = null; return;
+        selectedLabelId = null;
+        return;
       }
       labels.forEach(label => {
         const choice = document.createElement('div');
         choice.className = 'color-choice';
         choice.dataset.labelId = label.id;
         choice.style.backgroundColor = label.color;
-        choice.title = label.name; // PCホバーのツールチップ
+        choice.title = label.name; // PCホバー時のツールチップ
         colorPicker.appendChild(choice);
       });
+
       if (!labels.some(l => l.id === selectedLabelId)) {
         selectedLabelId = labels[0].id;
       }
@@ -247,38 +247,40 @@
       stockList.innerHTML = '';
       todayList.innerHTML = '';
 
-      const q = query(collection(db, "tasks"),
-        where("userId","==", userId),
-        where("status","in",["stock","today","completed"])
+      const q = query(
+        collection(db, "tasks"),
+        where("userId", "==", userId),
+        where("status", "in", ["stock","today","completed"])
       );
       const snap = await getDocs(q);
-      let tasks = [];
-      snap.forEach(d => tasks.push({ id:d.id, ...d.data() }));
+      const tasks = [];
+      snap.forEach(d => tasks.push({ id: d.id, ...d.data() }));
 
       tasks.sort((a,b)=>{
         if(a.status==='stock' && b.status==='stock'){
           const ad=a.dueDate, bd=b.dueDate;
           if(ad && !bd) return -1;
           if(!ad && bd) return 1;
-          if(ad && bd) return ad.toMillis()-bd.toMillis();
+          if(ad && bd) return ad.toMillis() - bd.toMillis();
         }
         const order={today:1, completed:2, stock:3};
         if(order[a.status]!==order[b.status]) return order[a.status]-order[b.status];
         return (a.priority||0)-(b.priority||0);
       });
 
-      tasks.forEach(t=>renderTask(t.id, t));
+      tasks.forEach(t => renderTask(t.id, t));
     }
 
     async function loadArchivedTasks(userId){
       archiveList.innerHTML='';
-      const q = query(collection(db,"tasks"),
+      const q = query(
+        collection(db,"tasks"),
         where("userId","==",userId),
         where("status","==","archived"),
         orderBy("createdAt","desc")
       );
       const snap = await getDocs(q);
-      snap.forEach(d=>renderTask(d.id, d.data(), true));
+      snap.forEach(d => renderTask(d.id, d.data(), true));
     }
 
     /** タスク描画（ラベル再設定セレクト付き） */
@@ -287,7 +289,7 @@
       li.dataset.id = id;
       if(data.status==='completed') li.classList.add('completed');
 
-      const label = labels.find(l=>l.id===data.labelId);
+      const label = labels.find(l => l.id === data.labelId);
       li.style.borderLeftColor = label ? label.color : '#e0e0e0';
       li.style.backgroundColor = label ? `${label.color}20` : '';
 
@@ -312,25 +314,27 @@
       if(!isArchived){
         const select = document.createElement('select');
         select.className='label-select';
-        // 空（なし）も選べる
+
         const optNone = document.createElement('option');
         optNone.value = '';
         optNone.textContent = 'ラベルなし';
         select.appendChild(optNone);
+
         labels.forEach(l=>{
           const o=document.createElement('option');
           o.value=l.id; o.textContent=l.name;
-          if(l.id===data.labelId) o.selected=true;
+          if(l.id===data.labelId) o.selected = true;
           select.appendChild(o);
         });
+
         select.addEventListener('change', async ()=>{
           const newId = select.value || null;
           await updateDoc(doc(db,"tasks",id), { labelId: newId });
-          // 見た目の色も更新
           const lbl = labels.find(l=>l.id===newId);
           li.style.borderLeftColor = lbl ? lbl.color : '#e0e0e0';
           li.style.backgroundColor = lbl ? `${lbl.color}20` : '';
         });
+
         buttons.appendChild(select);
       }
 
@@ -376,9 +380,10 @@
       });
     }
 
-    /** 毎日自動フォーカス移動（既存） */
+    /** 自動フォーカス移動（従来） */
     async function runDailyAutomation(userId){
-      const allTasksQuery = query(collection(db,"tasks"),
+      const allTasksQuery = query(
+        collection(db,"tasks"),
         where("userId","==",userId),
         where("status","in",["stock","today"])
       );
@@ -391,7 +396,7 @@
       tomorrow.setDate(today.getDate()+1);
       today.setHours(0,0,0,0); tomorrow.setHours(0,0,0,0);
 
-      const toMove=[]; const blocked=[];
+      const toMove=[], blocked=[];
       stocks.forEach(t=>{
         if(t.dueDate){
           const dd=t.dueDate.toDate(); dd.setHours(0,0,0,0);
@@ -411,28 +416,9 @@
       }
     }
 
-    /** 新規タスク追加 */
-    addButton.addEventListener('click', async ()=>{
-      const text = taskInput.value.trim();
-      const due = dueDateInput.value;
-      if(text==='' || !currentUserId) return;
-      if(!selectedLabelId && labels.length>0) selectedLabelId = labels[0].id;
-
-      const data = {
-        userId: currentUserId, text, status:'stock',
-        priority: Date.now(), createdAt: serverTimestamp(),
-        labelId: selectedLabelId || null
-      };
-      if(due){ data.dueDate = Timestamp.fromDate(new Date(due)); }
-
-      await addDoc(collection(db,"tasks"), data);
-      loadTasks(currentUserId);
-      taskInput.value=''; dueDateInput.value='';
-    });
-
     /** クリック系の集約 */
     document.body.addEventListener('click', async (event)=>{
-      // カラー選択（ヒント表示）
+      // カラー選択（ヒント表示更新）
       if(event.target.closest('.color-choice')){
         selectedLabelId = event.target.closest('.color-choice').dataset.labelId;
         updateColorPicker();
@@ -517,15 +503,22 @@
         const labelId = row.dataset.id;
         const labelObj = labels.find(l=>l.id===labelId);
         if(!confirm(`ラベル「${labelObj?.name||''}」を削除しますか？\nこのラベルが設定されたタスクのラベルは解除（なし）になります。`)) return;
-        // 参照タスクをnullへ
-        const qTasks = query(collection(db,"tasks"), where("userId","==", currentUserId), where("labelId","==", labelId));
+
+        // 参照タスクをnullへ → その後ラベルdoc削除
+        const qTasks = query(collection(db,"tasks"),
+          where("userId","==", currentUserId),
+          where("labelId","==", labelId)
+        );
         const snap = await getDocs(qTasks);
         const batch = writeBatch(db);
         snap.forEach(d=> batch.update(doc(db,"tasks",d.id), { labelId: null }));
         batch.delete(doc(db,"labels",labelId));
         await batch.commit();
+
         if(selectedLabelId===labelId) selectedLabelId = null;
-        updateColorPicker(); updateSelectedLabelHint(); loadTasks(currentUserId);
+        updateColorPicker();
+        updateSelectedLabelHint();
+        loadTasks(currentUserId);
         return;
       }
 
@@ -572,10 +565,35 @@
       labelNameInput.value='';
     });
 
+    /** 新規タスク追加 */
+    addButton.addEventListener('click', async ()=>{
+      const text = taskInput.value.trim();
+      const due = dueDateInput.value;
+      if(text==='' || !currentUserId) return;
+      if(!selectedLabelId && labels.length>0) selectedLabelId = labels[0].id;
+
+      const data = {
+        userId: currentUserId,
+        text,
+        status:'stock',
+        priority: Date.now(),
+        createdAt: serverTimestamp(),
+        labelId: selectedLabelId || null
+      };
+      if(due){ data.dueDate = Timestamp.fromDate(new Date(due)); }
+
+      await addDoc(collection(db,"tasks"), data);
+      loadTasks(currentUserId);
+      taskInput.value=''; dueDateInput.value='';
+    });
+
     // Reset / アーカイブ表示
     resetDayButton.addEventListener('click', async ()=>{
       if(!currentUserId || !confirm("Resetしますか？\n完了したタスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
-      const q = query(collection(db,"tasks"), where("userId","==",currentUserId), where("status","in",["today","completed"]));
+      const q = query(collection(db,"tasks"),
+        where("userId","==",currentUserId),
+        where("status","in",["today","completed"])
+      );
       const snap = await getDocs(q);
       const batch = writeBatch(db);
       snap.forEach(d=>{
@@ -583,10 +601,20 @@
         if(t.status==='completed') batch.update(d.ref,{ status:'archived' });
         else if(t.status==='today') batch.update(d.ref,{ status:'stock', priority: Date.now() });
       });
-      await batch.commit(); loadTasks(currentUserId);
+      await batch.commit();
+      loadTasks(currentUserId);
     });
-    archiveViewButton.addEventListener('click', ()=>{ mainContainer.style.display='none'; archiveContainer.style.display='block'; loadArchivedTasks(currentUserId); });
-    backToMainButton.addEventListener('click', ()=>{ archiveContainer.style.display='none'; mainContainer.style.display='block'; loadTasks(currentUserId); });
+
+    archiveViewButton.addEventListener('click', ()=>{
+      mainContainer.style.display='none';
+      archiveContainer.style.display='block';
+      loadArchivedTasks(currentUserId);
+    });
+    backToMainButton.addEventListener('click', ()=>{
+      archiveContainer.style.display='none';
+      mainContainer.style.display='block';
+      loadTasks(currentUserId);
+    });
 
     // Auth
     signupButton.addEventListener('click', ()=>{

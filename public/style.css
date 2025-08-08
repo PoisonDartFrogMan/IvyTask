@@ -11,7 +11,7 @@ main, #auth-container, #archive-container {
   max-width: 600px;
   margin: 40px auto;
   padding: 20px 30px;
-  background-color: white;
+  background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
@@ -33,12 +33,12 @@ li {
   display: flex;
   align-items: center;
   gap: 15px;
-  background-color: #ffffff;
+  background-color: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   padding: 12px 15px;
   margin-bottom: 10px;
-  transition: all 0.2s ease-in-out;
+  transition: all .2s ease-in-out;
   border-left-width: 5px; /* 左枠線（ラベル色） */
 }
 li:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -71,7 +71,7 @@ li.completed .task-content span { text-decoration: line-through; color: #aaa; }
   min-height: 1.2em; /* チラつき防止 */
 }
 
-/* 既存の色定義（使わない場合でも互換のため残す） */
+/* 旧クラスの互換（未使用でも残す） */
 .task-color-default { border-left-color: #e0e0e0; }
 .task-color-red { background-color: #fff8f7; border-left-color: #f44336; }
 .task-color-blue { background-color: #e3f2fd; border-left-color: #2196f3; }
@@ -167,8 +167,6 @@ button:hover { opacity: .85; }
 .label-item input[type="text"] {
   flex: 1; padding: 8px 10px; border: 1px solid #cfd6df; border-radius: 6px; font-size: 14px;
 }
-
-/* ラベル編集ボタンのサイズを小さめに */
 .edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn {
   padding: 6px 10px; font-size: 12px; margin: 0;
 }
@@ -181,14 +179,15 @@ button:hover { opacity: .85; }
 .label-color-selector button { flex-grow: 1; margin: 0; }
 
 /* ======== レスポンシブ ======== */
-/* 中程度端末（<=768px） */
+/* タブレット以下（<=768px） */
 @media (max-width: 768px) {
   main, #auth-container, #archive-container { margin: 20px; padding: 15px 20px; }
-  h1 { font-size: 1.8em; } h2 { font-size: 1.3em; }
+  h1 { font-size: 1.8em; }
+  h2 { font-size: 1.3em; }
   .label-select { max-width: 140px; }
 }
 
-/* 極小端末（<=480px） */
+/* スマホ（<=480px） */
 @media (max-width: 480px) {
   .add-task-form { flex-direction: column; align-items: stretch; gap: 15px; }
   #new-task-input, input[type="date"], #add-task-button { width: auto; margin: 0; }
