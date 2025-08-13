@@ -1,121 +1,444 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IvyTask</title>
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Noto+Serif+JP:wght@600;700&display=swap"
-    rel="stylesheet"
-  />
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
 <body>
-  <!-- ===== 認証 ===== -->
+
   <div id="auth-container">
     <h1>IvyTask</h1>
     <p>アカウントを作成、またはログインしてください</p>
-    <input type="email" id="email-input" placeholder="メールアドレス" />
-    <input type="password" id="password-input" placeholder="パスワード" />
-    <div class="auth-buttons">
-      <button id="signup-button">サインアップ</button>
-      <button id="login-button">ログイン</button>
-    </div>
+    <input type="email" id="email-input" placeholder="メールアドレス">
+    <input type="password" id="password-input" placeholder="パスワード">
+    <button id="signup-button">サインアップ</button>
+    <button id="login-button">ログイン</button>
   </div>
 
-  <!-- ===== 本体 ===== -->
-  <main id="app-container" class="hidden">
+  <main id="app-container" style="display: none;">
     <div id="user-info">
       <span id="user-email"></span>
-
-      <!-- FAQ -->
+  
       <a href="/faq.html" target="_blank" id="faq-button" title="FAQ">
-        <svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 0 24 24" width="22" fill="currentColor">
-          <path d="M0 0h24v24H0V0z" fill="none"/>
-          <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24px" height="24px">
+          <path d="M0 0h24v24H0z" fill="none"/>
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.89 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
         </svg>
       </a>
-
       <button id="logout-button">ログアウト</button>
     </div>
-
+    
     <h1>IvyTask</h1>
-
+    
     <div class="main-controls">
-      <button id="manage-labels-button">ラベルを編集</button>
-      <button id="reset-day-button">Reset</button>
-      <button id="archive-view-button">アーカイブ</button>
+        <button id="reset-day-button">リセット</button>
+        <button id="archive-view-button">アーカイブ</button>
     </div>
 
-    <!-- Focalist -->
     <section>
       <h2>Focalist</h2>
       <ul id="today-tasks"></ul>
     </section>
 
-    <!-- ストック -->
     <section>
       <h2>タスクストック</h2>
       <ul id="stock-tasks"></ul>
     </section>
 
-    <!-- 追加フォーム -->
     <section>
       <h2>新しいタスクを追加</h2>
       <div class="add-task-form">
-        <input type="text" id="new-task-input" placeholder="やるべきことを入力..." />
-        <input type="date" id="due-date-input" />
+        <input type="text" id="new-task-input" placeholder="やるべきことを入力...">
+        <input type="date" id="due-date-input">
         <button id="add-task-button">ストックに追加</button>
       </div>
-
-      <!-- カラーピッカー & 選択中ラベル名 -->
-      <div id="color-picker"></div>
-      <div id="selected-label-name" class="selected-label-hint"></div>
+      <div id="color-picker">
+        <div class="color-choice selected" data-color="default" title="デフォルト"></div>
+        <div class="color-choice" data-color="red" title="重要"></div>
+        <div class="color-choice" data-color="blue" title="仕事"></div>
+        <div class="color-choice" data-color="green" title="プライベート"></div>
+        <div class="color-choice" data-color="yellow" title="その他"></div>
+      </div>
     </section>
   </main>
-
-  <!-- ===== アーカイブ ===== -->
-  <div id="archive-container" class="hidden">
-    <h1>アーカイブ</h1>
-    <ul id="archive-tasks"></ul>
-    <button id="back-to-main-button">メイン画面へ戻る</button>
+  
+  <div id="archive-container" style="display: none;">
+      <h1>アーカイブ</h1>
+      <ul id="archive-tasks"></ul>
+      <button id="back-to-main-button">メイン画面へ戻る</button>
   </div>
 
-  <!-- ===== ラベル管理モーダル ===== -->
-  <div id="label-modal-backdrop" class="hidden modal-backdrop">
-    <div id="label-modal" class="modal">
-      <h2>カテゴリーラベルを管理</h2>
-      <ul id="labels-list" class="labels-list"></ul>
 
-      <form id="add-label-form" class="inline-form">
-        <input
-          type="text"
-          id="label-name-input"
-          placeholder="ラベル名 (12文字以内)"
-          maxlength="12"
-          required
-        />
-        <div class="label-color-selector">
-          <input type="color" id="label-color-input" value="#CCCCCC" />
-          <button type="submit">新しいラベルを追加</button>
-        </div>
-      </form>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, doc, deleteDoc, updateDoc, orderBy, writeBatch, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-      <button id="close-label-modal-button">閉じる</button>
-    </div>
-  </div>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
+      authDomain: "ivy-league-app-95a5d.firebaseapp.com",
+      projectId: "ivy-league-app-95a5d",
+      storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
+      messagingSenderId: "470602099850",
+      appId: "1:470602099850:web:1ac19841730eb053341173",
+      measurementId: "G-BE4QS8RP2G"
+    };
 
-  <!-- ===== ロジック（※1本だけ） ===== -->
-  <!-- クエリを更新してキャッシュを確実に無効化 -->
-  <script type="module" src="./main.js?v=20250812-7"></script>
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // (HTML要素の取得は、前回の完全版と同じ)
+    const mainContainer = document.getElementById('app-container');
+    const authContainer = document.getElementById('auth-container');
+    const archiveContainer = document.getElementById('archive-container');
+    const emailInput = document.getElementById('email-input');
+    const passwordInput = document.getElementById('password-input');
+    const signupButton = document.getElementById('signup-button');
+    const loginButton = document.getElementById('login-button');
+    const logoutButton = document.getElementById('logout-button');
+    const userEmailSpan = document.getElementById('user-email');
+    const addButton = document.getElementById('add-task-button');
+    const taskInput = document.getElementById('new-task-input');
+    const dueDateInput = document.getElementById('due-date-input');
+    const colorPicker = document.getElementById('color-picker');
+    const stockList = document.getElementById('stock-tasks');
+    const todayList = document.getElementById('today-tasks');
+    const archiveList = document.getElementById('archive-tasks');
+    const resetDayButton = document.getElementById('reset-day-button');
+    const archiveViewButton = document.getElementById('archive-view-button');
+    const backToMainButton = document.getElementById('back-to-main-button');
+
+    let currentUserId = null;
+    let selectedColor = 'default';
+
+   // 「門番」：ログイン状態の監視
+    onAuthStateChanged(auth, async (user) => { // ★ async を追加
+      if (user) {
+        currentUserId = user.uid;
+        authContainer.style.display = 'none';
+        mainContainer.style.display = 'block';
+        archiveContainer.style.display = 'none';
+        userEmailSpan.textContent = user.email;
+        
+        // ★★★ここからが進化のポイント★★★
+        // まず、自動化処理を実行し、完了を待つ
+        await runDailyAutomation(currentUserId);
+        // ★★★進化はここまで★★★
+        
+        // その後、更新されたタスクリストを読み込む
+        loadTasks(currentUserId);
+        activateDragAndDrop();
+      } else {
+        currentUserId = null;
+        authContainer.style.display = 'block';
+        mainContainer.style.display = 'none';
+        archiveContainer.style.display = 'none';
+      }
+    });
+
+    // ★★★ここからが新しい能力の核心部分★★★
+    // アプリ起動時に、期日が翌日のタスクを自動で移動させる関数
+    async function runDailyAutomation(userId) {
+        console.log("自動化処理を開始…");
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+        
+        // 年月日を比較するために、時刻をリセット
+        today.setHours(0, 0, 0, 0);
+        tomorrow.setHours(0, 0, 0, 0);
+
+        const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "stock"));
+        const querySnapshot = await getDocs(q);
+
+        let todayTasksCount = todayList.getElementsByTagName('li').length;
+        const tasksToMove = [];
+        const blockedTasks = [];
+
+        querySnapshot.forEach(doc => {
+            const task = doc.data();
+            if (task.dueDate) {
+                const taskDueDate = task.dueDate.toDate();
+                taskDueDate.setHours(0, 0, 0, 0);
+
+                if (taskDueDate.getTime() === tomorrow.getTime()) {
+                    if (todayTasksCount < 6) {
+                        tasksToMove.push(doc.ref);
+                        todayTasksCount++;
+                    } else {
+                        blockedTasks.push(task.text);
+                    }
+                }
+            }
+        });
+
+        if (tasksToMove.length > 0) {
+            const batch = writeBatch(db);
+            tasksToMove.forEach((taskRef, index) => {
+                batch.update(taskRef, { status: 'today', priority: todayTasksCount - tasksToMove.length + index });
+            });
+            await batch.commit();
+            console.log(`${tasksToMove.length}件のタスクを自動で「Focalist」へ移動しました。`);
+        }
+
+        if (blockedTasks.length > 0) {
+            alert(`以下のタスクは、期日が明日ですが、「Focalist」が満杯のため移動できませんでした：\n\n- ${blockedTasks.join('\n- ')}`);
+        }
+        console.log("自動化処理を完了。");
+    }
+    // ★★★新しい能力はここまで★★★
+
+    // ▼▼▼ この行から ▼▼▼
+async function loadTasks(userId) {
+  stockList.innerHTML = '';
+  todayList.innerHTML = '';
+  const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today", "completed"]));
+  const querySnapshot = await getDocs(q);
+  
+  let tasks = [];
+  querySnapshot.forEach(doc => tasks.push({ id: doc.id, ...doc.data() }));
+  
+  // ここが新しい並べ替えのロジック
+  tasks.sort((a, b) => {
+    // まずはステータスで並べ替え
+    const statusOrder = { 'today': 1, 'completed': 2, 'stock': 3 };
+    if (statusOrder[a.status] !== statusOrder[b.status]) {
+        return statusOrder[a.status] - statusOrder[b.status];
+    }
+
+    // もし両方が「ストック」のタスクなら、期日で並べ替える
+    if (a.status === 'stock') {
+        const aHasDate = a.dueDate;
+        const bHasDate = b.dueDate;
+
+        if (aHasDate && bHasDate) { // 両方に期日がある場合
+            return a.dueDate.toMillis() - b.dueDate.toMillis(); // 昇順
+        }
+        if (aHasDate) return -1; // aだけ期日があれば、aが先
+        if (bHasDate) return 1;  // bだけ期日があれば、bが先
+    }
+    
+    // それ以外（Focalistなど）は、既存のpriorityで並べ替える
+    return (a.priority || 0) - (b.priority || 0);
+  });
+  
+  tasks.forEach(task => renderTask(task.id, task));
+}
+// ▲▲▲ この行まで ▲▲▲
+    async function loadArchivedTasks(userId) { archiveList.innerHTML = ''; const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"), orderBy("createdAt", "desc")); const querySnapshot = await getDocs(q); querySnapshot.forEach((doc) => { renderTask(doc.id, doc.data(), true); }); }
+
+    // ★★★ここからが「リベンジ」の核心★★★
+    // 画面にタスクを描画する
+    function renderTask(id, data, isArchived = false) {
+      const newTask = document.createElement('li');
+      newTask.dataset.id = id;
+      // 完了状態と色のクラスを、li要素自身に追加する
+      if (data.status === 'completed') newTask.classList.add('completed');
+      newTask.classList.add('task-color-' + (data.tagColor || 'default'));
+
+      const taskContent = document.createElement('div');
+      taskContent.className = 'task-content';
+      const taskLabel = document.createElement('span');
+      taskLabel.textContent = data.text;
+      taskContent.appendChild(taskLabel);
+
+      if (data.dueDate) {
+        const dueDateSpan = document.createElement('small');
+        dueDateSpan.className = 'due-date';
+        dueDateSpan.textContent = `期日: ${data.dueDate.toDate().toLocaleDateString('ja-JP')}`;
+        taskContent.appendChild(dueDateSpan);
+      }
+      newTask.appendChild(taskContent);
+
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.className = 'task-buttons';
+      
+      if (isArchived) {
+          buttonsContainer.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
+      } else {
+          if (data.status === 'stock') buttonsContainer.appendChild(createButton('Focalistへ', 'move-btn'));
+          if (data.status === 'today') {
+            buttonsContainer.appendChild(createButton('完了', 'complete-btn'));
+            buttonsContainer.appendChild(createButton('ストックへ', 'move-to-stock-btn'));
+          }
+      }
+      buttonsContainer.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
+      
+      newTask.appendChild(buttonsContainer);
+
+      if (isArchived) {
+          archiveList.appendChild(newTask);
+      } else if (data.status === 'today' || data.status === 'completed') {
+        todayList.appendChild(newTask);
+      } else {
+        stockList.appendChild(newTask);
+      }
+    }
+    // ★★★リベンジはここまで★★★
+
+    // (createButton, createIconButton, activateDragAndDropは前回の完全版と同じ)
+    function createButton(text, className) { const button = document.createElement('button'); button.textContent = text; button.className = className; return button; }
+    function createIconButton(src, className) { const button = document.createElement('button'); button.className = className; const icon = document.createElement('img'); icon.src = src; icon.alt = className; button.appendChild(icon); return button; }
+    function activateDragAndDrop() { new Sortable(todayList, { animation: 150, onEnd: async (evt) => { const items = evt.to.children; const batch = writeBatch(db); Array.from(items).forEach((item, index) => { if (item.dataset.id) { const taskDocRef = doc(db, "tasks", item.dataset.id); batch.update(taskDocRef, { priority: index }); } }); await batch.commit(); } }); }
+
+    // タスク追加処理（tagColorの保存は前回と同じ）
+    addButton.addEventListener('click', async () => { const taskText = taskInput.value.trim(); const dueDateValue = dueDateInput.value; if (taskText === '' || !currentUserId) return; const newTaskData = { userId: currentUserId, text: taskText, status: 'stock', priority: Date.now(), createdAt: new Date(), tagColor: selectedColor }; if (dueDateValue) { newTaskData.dueDate = Timestamp.fromDate(new Date(dueDateValue)); } await addDoc(collection(db, "tasks"), newTaskData); loadTasks(currentUserId); taskInput.value = ''; dueDateInput.value = ''; });
+    
+    // カラーピッカーのクリック処理（前回と同じ）
+    colorPicker.addEventListener('click', (event) => { if (event.target.classList.contains('color-choice')) { document.querySelectorAll('.color-choice.selected').forEach(el => el.classList.remove('selected')); event.target.classList.add('selected'); selectedColor = event.target.dataset.color; } });
+
+    // (残りのイベントリスナーや認証処理も、前回の完全版と同じ)
+   document.body.addEventListener('click', async (event) => {
+        // クリックされた要素が期日表示（.due-date）の場合の処理
+        if (event.target.classList.contains('due-date')) {
+            const taskItem = event.target.closest('li');
+            if (!taskItem) return;
+            const taskId = taskItem.dataset.id;
+            const taskDocRef = doc(db, "tasks", taskId);
+
+            const originalDateSpan = event.target;
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            
+            try {
+                const docSnap = await getDoc(taskDocRef);
+                if (docSnap.exists() && docSnap.data().dueDate) {
+                    const currentDueDate = docSnap.data().dueDate.toDate();
+                    const year = currentDueDate.getFullYear();
+                    const month = String(currentDueDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentDueDate.getDate()).padStart(2, '0');
+                    dateInput.value = `${year}-${month}-${day}`;
+                }
+            } catch (e) { console.error("日付の読み込みエラー:", e); }
+            
+            originalDateSpan.replaceWith(dateInput);
+            dateInput.focus();
+
+            const saveAndRevert = async () => {
+                if (dateInput.value) {
+                    const newDueDate = Timestamp.fromDate(new Date(dateInput.value));
+                    await updateDoc(taskDocRef, { dueDate: newDueDate });
+                }
+                loadTasks(currentUserId); // 変更を反映して再描画
+            };
+            
+            dateInput.addEventListener('blur', saveAndRevert);
+            dateInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    dateInput.blur(); // Enterキーでも保存して閉じる
+                }
+            });
+
+            return; 
+        }
+
+        // --- 以下、既存のボタンクリック処理 ---
+        const taskItem = event.target.closest('li');
+        if (!taskItem || !currentUserId) return;
+        const taskId = taskItem.dataset.id;
+        const taskDocRef = doc(db, "tasks", taskId);
+        
+        let needsReload = false;
+        let archiveReload = false;
+
+        if (event.target.closest('.delete-btn')) {
+            if(confirm('このタスクを完全に削除しますか？')){
+                await deleteDoc(taskDocRef);
+                taskItem.remove();
+            }
+        } else if (event.target.closest('.move-btn')) {
+            if (todayList.children.length < 6) {
+                await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
+                needsReload = true;
+            } else {
+                alert('「Focalist」は6つまでだッ！');
+            }
+        } else if (event.target.closest('.complete-btn')) {
+            await updateDoc(taskDocRef, { status: 'completed' });
+            needsReload = true;
+        } else if (event.target.closest('.move-to-stock-btn')) {
+            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+            needsReload = true;
+        } else if (event.target.closest('.unarchive-btn')) {
+            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+            archiveReload = true;
+        }
+        
+        if(needsReload) loadTasks(currentUserId);
+        if(archiveReload) loadArchivedTasks(currentUserId);
+    });
+
+   resetDayButton.addEventListener('click', async () => {
+    if (!currentUserId || !confirm("タスクをリセットしますか？\n完了したタスクはアーカイブされ、未完了の「Focalist」はストックに戻ります。")) {
+        return;
+    }
+
+    const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+
+    querySnapshot.forEach(docSnap => {
+        const task = docSnap.data();
+        if (task.status === 'completed') {
+            batch.update(docSnap.ref, {
+                status: 'archived'
+            });
+        } else if (task.status === 'today') {
+            batch.update(docSnap.ref, {
+                status: 'stock',
+                priority: Date.now()
+            });
+        }
+    });
+
+    await batch.commit();
+    loadTasks(currentUserId);
+});
+
+archiveViewButton.addEventListener('click', () => {
+    mainContainer.style.display = 'none';
+    archiveContainer.style.display = 'block';
+    loadArchivedTasks(currentUserId);
+});
+
+backToMainButton.addEventListener('click', () => {
+    archiveContainer.style.display = 'none';
+    mainContainer.style.display = 'block';
+    loadTasks(currentUserId);
+});
+
+signupButton.addEventListener('click', () => {
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        return alert("メールアドレスとパスワードを入力してください。");
+    }
+
+    createUserWithEmailAndPassword(auth, email, password)
+        .catch((error) => alert('サインアップ失敗: ' + error.message));
+});
+
+loginButton.addEventListener('click', () => {
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        return alert("メールアドレスとパスワードを入力してください。");
+    }
+
+    signInWithEmailAndPassword(auth, email, password)
+        .catch((error) => alert('ログイン失敗: ' + error.message));
+});
+
+logoutButton.addEventListener('click', () => {
+    signOut(auth);
+});
+  </script>
+
 </body>
 </html>
