@@ -1,12 +1,31 @@
+alert("main.js が実行されました");
 // ===== Firebase imports =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
-  signInWithEmailAndPassword, signOut
+  getAuth,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, query, where, getDocs, getDoc, doc,
-  deleteDoc, updateDoc, orderBy, writeBatch, Timestamp, onSnapshot, serverTimestamp
+  initializeFirestore, // ★これが必須（getFirestore は不要）
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+  orderBy,
+  writeBatch,
+  Timestamp,
+  onSnapshot,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===== Firebase config =====
@@ -20,10 +39,24 @@ const firebaseConfig = {
   measurementId: "G-BE4QS8RP2G",
 };
 
+
 // ===== Initialize =====
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
+// iOS / Safari 対策：永続化方式を明示（トップレベル await 非対応端末向け）
+(async () => {
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    console.log('Auth persistence set to browserLocalPersistence');
+  } catch (e) {
+    console.error('Auth persistence set failed:', e);
+  }
+})();
 
 // ===== DOM =====
 const authContainer = document.getElementById("auth-container");
@@ -35,10 +68,49 @@ const emailInput = document.getElementById("email-input");
 const passwordInput = document.getElementById("password-input");
 const signupButton = document.getElementById("signup-button");
 const loginButton = document.getElementById("login-button");
+// --- iOS タップ無反応デバッグ: ボタンを最前面 & クリック/タッチ両方で反応させる ---
+if (loginButton) {
+  // ほかの要素に覆われている可能性に備えて前面化
+  loginButton.style.position = 'relative';
+  loginButton.style.zIndex = '9999';
+  loginButton.style.pointerEvents = 'auto';
+
+  const debugTap = () => alert('ログインボタン: タップ/クリック検知');
+  // iOS向けに touch 系も明示的にハンドリング
+  loginButton.addEventListener('touchstart', debugTap, { passive: true });
+  loginButton.addEventListener('touchend', debugTap,   { passive: true });
+}
+// ----------------------------------------------------------------------
 const logoutButton = document.getElementById("logout-button");
 
 const manageLabelsButton = document.getElementById("manage-labels-button");
 const labelModalBackdrop = document.getElementById("label-modal-backdrop");
+// 強制的に隠す（万一表示状態で残っていた場合の保険）
+if (labelModalBackdrop) labelModalBackdrop.classList.add("hidden");
+// ---- 一時診断: 最初の1回だけ、タップ/クリックが当たっている要素を可視化 ----
+(function attachTapSpyOnce() {
+  const once = (ev) => {
+    try {
+      let x = 0, y = 0, target = ev.target;
+      if (ev.type.startsWith('touch') && ev.changedTouches && ev.changedTouches[0]) {
+        x = ev.changedTouches[0].clientX;
+        y = ev.changedTouches[0].clientY;
+        const el = document.elementFromPoint(x, y);
+        if (el) target = el;
+      }
+      const desc = `${target.tagName.toLowerCase()}#${target.id || ''}.${(target.className || '').toString().replace(/\s+/g,'.')}`;
+      alert(`最初にヒットした要素: ${desc}`);
+    } catch (e) {
+      alert('tap-spy error: ' + e);
+    } finally {
+      document.removeEventListener('touchend', once, true);
+      document.removeEventListener('click', once, true);
+    }
+  };
+  document.addEventListener('touchend', once, true);
+  document.addEventListener('click', once, true);
+})();
+// -------------------------------------------------------------------
 const closeLabelModalButton = document.getElementById("close-label-modal-button");
 const addLabelForm = document.getElementById("add-label-form");
 const labelNameInput = document.getElementById("label-name-input");
@@ -124,37 +196,35 @@ signupButton.addEventListener("click", () => {
   if (!email || !pw) return alert("メールアドレスとパスワードを入力してください。");
   createUserWithEmailAndPassword(auth, email, pw).catch((e) => alert("サインアップ失敗: " + e.message));
 });
-loginButton.addEventListener("click", () => {
+loginButton.addEventListener("click", async () => {
+  alert("ログインボタン: ハンドラー起動"); // iPhoneでイベントが届いているか確認
   const email = emailInput.value.trim();
   const pw = passwordInput.value.trim();
   if (!email || !pw) return alert("メールアドレスとパスワードを入力してください。");
-  signInWithEmailAndPassword(auth, email, pw).catch((e) => alert("ログイン失敗: " + e.message));
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+    alert("ログイン成功");
+  } catch (e) {
+    alert("ログイン失敗: " + (e && e.message ? e.message : e));
+    console.error("signIn error:", e);
+  }
 });
 logoutButton.addEventListener("click", () => signOut(auth));
 
-// すべてのタスク行の <select class="task-label-select"> を labels で作り直す
+// すべてのタスク行の <select class="label-select"> を labels で作り直す
 function refreshAllTaskLabelSelects() {
-  // Focalist用 & アーカイブ/在庫のどちらも拾う
-  const selects = document.querySelectorAll('.label-select'); // ←ここに修正
-
+  const selects = document.querySelectorAll('.label-select');
   selects.forEach(sel => {
-    // いまの選択を保持（IDが入っていればそれを優先）
-    const keep = sel.dataset.labelId || sel.value || "";
-
-    // 既存の option を安全に全部削除（Safari 対策）
-    while (sel.options.length) sel.remove(0);
+    const keep = sel.dataset.labelId ?? sel.value ?? ""; // 現在の選択を保存
+    sel.innerHTML = "";
 
     // 「ラベルなし」
-    sel.add(new Option("ラベルなし", "", false, keep === ""));
+    sel.appendChild(new Option("ラベルなし", "", keep === ""));
 
-    // labels 配列から option を再生成
+    // 現在の labels を全部入れる
     labels.forEach(l => {
-      const opt = new Option(l.name, l.id, false, l.id === keep);
-      sel.add(opt);
+      sel.appendChild(new Option(l.name, l.id, false, l.id === keep));
     });
-
-    // 画面側にも change を通知（依存処理があれば動くように）
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
   });
 }
 
@@ -382,7 +452,9 @@ function renderTask(id, data, isArchived = false) {
     const sel = document.createElement("select");
     sel.className = "label-select";
     sel.dataset.taskId = id;
+    sel.dataset.labelId = data.labelId ?? "";
     li.appendChild(sel);
+    buildLabelOptions(sel, sel.dataset.labelId);
   }
 
   // ボタン群
@@ -422,45 +494,10 @@ function iconBtn(src, cls) {
   return b;
 }
 
-// ラベルセレクトへ最新ラベルを反映
-function refreshAllTaskLabelSelects() {
-  document.querySelectorAll("select.label-select").forEach((sel) => {
-    const taskId = sel.dataset.taskId;
-    const li = sel.closest("li");
-    const current = li && li.dataset.id ? getTaskLabelIdFromRow(li) : null;
-    fillLabelSelectOptions(sel, current);
-  });
-}
+
 function getTaskLabelIdFromRow(li) {
   // 背景色からは取らない。Firestoreを再取得しない簡易手段としてdatasetに持たせていないので null でもOK
   return null;
-}
-function fillLabelSelectOptions(selectEl, currentLabelId) {
-  const options = [];
-  const optNone = document.createElement("option");
-  optNone.value = "";
-  optNone.textContent = "ラベルなし";
-  options.push(optNone);
-  labels.forEach((l) => {
-    const o = document.createElement("option");
-    o.value = l.id;
-    o.textContent = l.name;
-    options.push(o);
-  });
-  selectEl.innerHTML = "";
-  options.forEach((o) => selectEl.appendChild(o));
-
-  // できるだけ正しくセット：行の見た目では判別できないため、selectのchangeで保存時に正規化
-  // → 初期値は Firestoreの値をその場で取得して合わせる
-  const taskId = selectEl.dataset.taskId;
-  if (taskId) {
-    getDoc(doc(db, "tasks", taskId)).then((d) => {
-      const val = d.exists() ? d.data().labelId ?? "" : "";
-      selectEl.value = val;
-    });
-  } else {
-    selectEl.value = currentLabelId ?? "";
-  }
 }
 
 // クリック委譲（ボタン類 / dueDate編集 / ラベル変更）
@@ -538,6 +575,7 @@ document.body.addEventListener("change", async (e) => {
   const ref = doc(db, "tasks", taskId);
   const newLabelId = sel.value || null;
   await updateDoc(ref, { labelId: newLabelId });
+  sel.dataset.labelId = newLabelId || "";
   // 見た目の色も更新
   const label = labels.find(l => l.id === newLabelId);
   li.style.borderLeftColor = label ? label.color : "#e0e0e0";
