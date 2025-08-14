@@ -240,3 +240,24 @@ button:hover { opacity: .85; }
   .label-select { flex: 1; max-width: none; }
 }
 
+a {
+  color: var(--primary-color);
+  text-decoration: underline;
+  font-size: 0.9rem;
+}
+
+.auth-form-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.auth-form-footer a {
+  font-size: 0.9rem;
+  color: #1976d2;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-form-footer a:hover {
+  text-decoration: none;
+}
