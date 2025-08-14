@@ -1,3 +1,4 @@
+body { background-color: rgb(251, 251, 254) !important; }
 /* ======== 基本スタイル ======== */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -155,7 +156,23 @@ button:hover { opacity: .85; }
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 #labels-list { list-style: none; padding: 0; max-height: 240px; overflow-y: auto; margin-bottom: 20px; }
-.label-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; }
+
+.label-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  flex-wrap: nowrap; /* <<< 変更点①: 折り返しを禁止 */
+}
+
+/* <<< 変更点②: はみ出しテキストを「...」にする設定を追加 >>> */
+.label-item .label-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .label-color-circle { width: 20px; height: 20px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; border: 1px solid #ddd; }
 .label-name { flex: 1; min-width: 0; }
 .label-item input[type="text"].hidden { display: none; }
@@ -165,8 +182,39 @@ button:hover { opacity: .85; }
 .label-item input[type="text"] {
   flex: 1; padding: 8px 10px; border: 1px solid #cfd6df; border-radius: 6px; font-size: 14px;
 }
+/* === ラベル編集リストのレイアウト強制調整 === */
+#labels-list .label-item {
+  display: flex !important; /* display: flex を最優先で適用 */
+  flex-direction: row !important; /* 念のため row を指定 */
+  align-items: center !important; /* 中央揃えを維持 */
+  flex-wrap: nowrap !important; /* 折り返し禁止を最優先 */
+  gap: 8px !important; /* 隙間を少し小さく */
+  padding: 8px 12px !important; /* パディングも調整 */
+}
+
+#labels-list .label-item .label-name {
+  flex-grow: 1 !important; /* ラベル名を可能な限り広げる */
+  min-width: 0 !important; /* 縮むのを許可 */
+  white-space: nowrap !important; /* 改行禁止を最優先 */
+  overflow: hidden !important; /* はみ出しを隠す */
+  text-overflow: ellipsis !important; /* ... で表示 */
+}
+
+#labels-list .label-item button {
+  flex-shrink: 0 !important; /* ボタンを縮ませない */
+  padding: 5px 8px !important; /* ボタンのパディングを小さく */
+  font-size: 11px !important; /* ボタンのフォントサイズを少し小さく */
+  line-height: 1 !important; /* 行の高さを調整 */
+}
+
+#labels-list .label-item input {
+  flex-grow: 1 !important; /* 入力欄も広げる */
+}
 .edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn {
-  padding: 6px 10px; font-size: 12px; margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  margin: 0;
+  flex-shrink: 0; /* <<< 変更点③: ボタンが縮まないように設定 >>> */
 }
 
 #add-label-form input[type="text"] { width: calc(100% - 24px); margin-bottom: 10px; }
