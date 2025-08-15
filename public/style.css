@@ -14,7 +14,7 @@ main, #auth-container, #archive-container {
   padding: 20px 30px;
   background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.172);
 }
 
 /* ======== 文字のスタイル ======== */
