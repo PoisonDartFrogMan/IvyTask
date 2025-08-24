@@ -28,12 +28,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// <<< 修正: iOSログイン問題を解決したFirestore初期化 >>>
 const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
   useFetchStreams: false,
 });
-// <<< 修正: 永続化設定を改善 >>>
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
 
 
@@ -59,6 +57,7 @@ const stockList = document.getElementById('stock-tasks');
 const todayList = document.getElementById('today-tasks');
 const archiveList = document.getElementById('archive-tasks');
 
+const reloadButton = document.getElementById('reload-button'); // <<< 追加
 const resetDayButton = document.getElementById('reset-day-button');
 const archiveViewButton = document.getElementById('archive-view-button');
 const backToMainButton = document.getElementById('back-to-main-button');
@@ -103,7 +102,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 
-// ===== Labels Functions (移植) =====
+// ===== Labels Functions =====
 function loadLabels(userId) {
   const labelsQuery = query(collection(db, "labels"), where("userId", "==", userId));
   return onSnapshot(labelsQuery, (snapshot) => {
@@ -177,7 +176,7 @@ function updateSelectedLabelHint() {
 }
 
 
-// ===== Tasks Functions (移植) =====
+// ===== Tasks Functions =====
 async function loadTasks(userId) {
   stockList.innerHTML = '';
   todayList.innerHTML = '';
@@ -284,7 +283,7 @@ function renderTask(id, data, isArchived = false) {
 }
 
 
-// ===== Helper Functions (移植) =====
+// ===== Helper Functions =====
 function createButton(text, className) {
   const b = document.createElement('button'); b.textContent = text; b.className = className; return b;
 }
@@ -295,7 +294,7 @@ function createIconButton(src, className) {
 }
 
 
-// ===== Drag & Drop and Automation (移植) =====
+// ===== Drag & Drop and Automation =====
 function activateDragAndDrop() {
   new Sortable(todayList, {
     animation: 150,
@@ -378,19 +377,54 @@ addButton.addEventListener('click', async () => {
 });
 
 // Main controls
+reloadButton.addEventListener('click', () => { // <<< 追加
+  location.reload(true); // trueを指定するとキャッシュを無視してリロード
+});
+
 resetDayButton.addEventListener('click', async () => {
-  if (!currentUserId || !confirm("Resetしますか？\n完了したタスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
-  const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
-  const snap = await getDocs(q);
-  const batch = writeBatch(db);
-  snap.forEach(d => {
-    const t = d.data();
-    if (t.status === 'completed') batch.update(d.ref, { status: 'archived' });
-    else if (t.status === 'today') batch.update(d.ref, { status: 'stock', priority: Date.now() });
-  });
-  await batch.commit();
+  const confirmationMessage = "Resetしますか？\n完了タスクはアーカイブされ、未完了タスクは期日が翌日に変更されストックに戻ります。";
+  if (!currentUserId || !confirm(confirmationMessage)) return;
+
+  console.log('Reset process started...');
+  try {
+    const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      console.log('No tasks to reset.');
+      return;
+    }
+
+    const batch = writeBatch(db);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowTimestamp = Timestamp.fromDate(tomorrow);
+
+    snap.forEach(d => {
+      const t = d.data();
+      if (t.status === 'completed') {
+        console.log(`Archiving task: ${t.text}`);
+        batch.update(d.ref, { status: 'archived' });
+      } else if (t.status === 'today') {
+        console.log(`Moving to stock and setting due date for: ${t.text}`);
+        batch.update(d.ref, {
+          status: 'stock',
+          priority: Date.now(),
+          dueDate: tomorrowTimestamp
+        });
+      }
+    });
+
+    await batch.commit();
+    console.log('Reset batch commit successful.');
+    alert('リセットが完了しました。');
+  } catch (error) {
+    console.error("Reset failed:", error);
+    alert('リセット処理中にエラーが発生しました。詳細はコンソールを確認してください。');
+  }
+  
   loadTasks(currentUserId);
 });
+
 archiveViewButton.addEventListener('click', () => {
   mainContainer.style.display = 'none';
   archiveContainer.style.display = 'block';
