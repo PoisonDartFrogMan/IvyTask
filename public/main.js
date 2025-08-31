@@ -178,7 +178,7 @@ function updateSelectedLabelHint() {
 }
 
 
-// ===== Tasks Functions =====
+// ===== Tasks Functions (renderTask内のアイコン部分のみ変更) =====
 async function loadTasks(userId) {
   stockList.innerHTML = '';
   todayList.innerHTML = '';
@@ -211,14 +211,17 @@ function renderTask(id, data, isArchived = false) {
   const li = document.createElement('li');
   li.dataset.id = id;
   if (data.status === 'completed') li.classList.add('completed');
+
   const label = labels.find(l => l.id === data.labelId);
   li.style.borderLeftColor = label ? label.color : '#e0e0e0';
   li.style.backgroundColor = label ? `${label.color}20` : '';
+
   const content = document.createElement('div');
   content.className = 'task-content';
   const title = document.createElement('span');
   title.textContent = data.title || data.text;
   content.appendChild(title);
+
   if (data.dueDate) {
     const due = document.createElement('small');
     due.className = 'due-date';
@@ -226,6 +229,7 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
+
   content.addEventListener('click', () => {
     currentlyEditingTaskId = id;
     modalTaskTitle.textContent = data.title || data.text;
@@ -233,8 +237,10 @@ function renderTask(id, data, isArchived = false) {
     switchToViewMode();
     taskDetailModalBackdrop.classList.remove('hidden');
   });
+
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
+
   if (!isArchived) {
     const select = document.createElement('select');
     select.className = 'label-select';
@@ -249,30 +255,81 @@ function renderTask(id, data, isArchived = false) {
       select.appendChild(o);
     });
     select.addEventListener('change', async () => {
-      const newId = select.value || null;
-      await updateDoc(doc(db, "tasks", id), { labelId: newId });
-      const lbl = labels.find(l => l.id === newId);
-      li.style.borderLeftColor = lbl ? lbl.color : '#e0e0e0';
-      li.style.backgroundColor = lbl ? `${lbl.color}20` : '';
+      await updateDoc(doc(db, "tasks", id), { labelId: select.value || null });
+      const newLabel = labels.find(l => l.id === (select.value || null));
+      li.style.borderLeftColor = newLabel ? newLabel.color : '#e0e0e0';
+      li.style.backgroundColor = newLabel ? `${newLabel.color}20` : '';
     });
     buttons.appendChild(select);
   }
+
+  const actionsContainer = document.createElement('div');
+  actionsContainer.className = 'task-actions-container';
+
+  const menuButton = document.createElement('button');
+  menuButton.className = 'actions-button';
+  // <<< 変更点: アイコンを三点リーダーから下向き三角に変更 >>>
+  menuButton.innerHTML = '&#9662;';
+  actionsContainer.appendChild(menuButton);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'actions-dropdown';
+
+  const taskActions = [];
   if (isArchived) {
-    buttons.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
+    taskActions.push({ text: 'ストックへ戻す', status: 'stock', priority: Date.now() });
   } else {
-    if (data.status === 'stock') buttons.appendChild(createButton('Focus', 'move-btn'));
+    if (data.status === 'stock') {
+      taskActions.push({ text: 'Focus', status: 'today', priority: todayList.children.length });
+    }
     if (data.status === 'today') {
-      buttons.appendChild(createButton('完了', 'complete-btn'));
-      buttons.appendChild(createButton('ストックへ', 'move-to-stock-btn'));
+      taskActions.push({ text: '完了', status: 'completed' });
+      taskActions.push({ text: 'ストックへ', status: 'stock', priority: Date.now() });
     }
   }
-  buttons.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
+  taskActions.push({ text: '削除', action: 'delete' });
+
+  taskActions.forEach(action => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.textContent = action.text;
+    item.addEventListener('click', async () => {
+      if (action.action === 'delete') {
+        if (confirm('このタスクを完全に削除しますか？')) {
+          await deleteDoc(doc(db, "tasks", id));
+          loadTasks(currentUserId);
+        }
+      } else {
+        if (action.status === 'today' && todayList.children.length >= 6) {
+            alert('「Focalist」は6つまでです。');
+        } else {
+            const updateData = { status: action.status };
+            if (action.priority !== undefined) {
+                updateData.priority = action.priority;
+            }
+            await updateDoc(doc(db, "tasks", id), updateData);
+            loadTasks(currentUserId);
+        }
+      }
+      dropdown.classList.remove('visible');
+    });
+    dropdown.appendChild(item);
+  });
+
+  actionsContainer.appendChild(dropdown);
+  buttons.appendChild(actionsContainer);
   li.appendChild(buttons);
+
+  menuButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeAllDropdowns();
+    dropdown.classList.toggle('visible');
+  });
+
   if (isArchived) archiveList.appendChild(li);
   else if (data.status === 'today' || data.status === 'completed') todayList.appendChild(li);
   else stockList.appendChild(li);
 }
-
 
 // ===== Helper Functions =====
 function createButton(text, className) {
@@ -438,6 +495,15 @@ function switchToEditMode() {
     cancelEditButton.classList.remove('hidden');
 }
 
+document.addEventListener('click', () => {
+    closeAllDropdowns();
+});
+function closeAllDropdowns() {
+    document.querySelectorAll('.actions-dropdown.visible').forEach(dropdown => {
+        dropdown.classList.remove('visible');
+    });
+}
+
 document.body.addEventListener('click', async (event) => {
     const target = event.target;
     const colorChoice = target.closest('.color-choice');
@@ -507,7 +573,7 @@ document.body.addEventListener('click', async (event) => {
     }
     const taskItem = target.closest('li[data-id]');
     if (taskItem) {
-        if (!target.closest('.task-content')) { // content(詳細表示)以外をクリック
+        if (!target.closest('.task-content') && !target.closest('.actions-button')) {
             const taskId = taskItem.dataset.id;
             const taskDocRef = doc(db, "tasks", taskId);
             let needsReload = false, archiveReload = false;
