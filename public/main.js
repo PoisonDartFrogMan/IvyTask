@@ -69,6 +69,13 @@ const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backd
 const modalTaskTitle = document.getElementById('modal-task-title');
 const modalTaskMemo = document.getElementById('modal-task-memo');
 const closeTaskDetailModalButton = document.getElementById('close-task-detail-modal-button');
+const modalViewMode = taskDetailModalBackdrop.querySelector('.view-mode');
+const modalEditMode = taskDetailModalBackdrop.querySelector('.edit-mode');
+const modalEditTitleInput = document.getElementById('modal-edit-title-input');
+const modalEditMemoInput = document.getElementById('modal-edit-memo-input');
+const editTaskButton = document.getElementById('edit-task-button');
+const saveTaskButton = document.getElementById('save-task-button');
+const cancelEditButton = document.getElementById('cancel-edit-button');
 
 
 // ===== Global State =====
@@ -76,6 +83,7 @@ let currentUserId = null;
 let selectedLabelId = null;
 let labels = [];
 let unsubscribeLabels = () => {};
+let currentlyEditingTaskId = null;
 
 
 // ===== Auth State Change (Top Level Controller) =====
@@ -122,26 +130,21 @@ function renderLabelInModal(label) {
   const li = document.createElement('li');
   li.className = 'label-item';
   li.dataset.id = label.id;
-
   const colorCircle = document.createElement('div');
   colorCircle.className = 'label-color-circle';
   colorCircle.style.backgroundColor = label.color;
-
   const nameSpan = document.createElement('span');
   nameSpan.className = 'label-name';
   nameSpan.textContent = label.name;
-
   const input = document.createElement('input');
   input.type = 'text';
   input.value = label.name;
   input.maxLength = 12;
   input.className = 'hidden';
-
   const editBtn = createButton('編集', 'edit-label-btn');
   const saveBtn = createButton('保存', 'save-label-btn hidden');
   const cancelBtn = createButton('取消', 'cancel-label-btn hidden');
   const deleteBtn = createButton('削除', 'delete-label-btn');
-
   li.append(colorCircle, nameSpan, input, editBtn, saveBtn, cancelBtn, deleteBtn);
   labelsList.appendChild(li);
 }
@@ -161,7 +164,6 @@ function updateColorPicker() {
     choice.title = label.name;
     colorPicker.appendChild(choice);
   });
-
   if (!labels.some(l => l.id === selectedLabelId) && labels.length > 0) {
     selectedLabelId = labels[0].id;
   }
@@ -180,15 +182,10 @@ function updateSelectedLabelHint() {
 async function loadTasks(userId) {
   stockList.innerHTML = '';
   todayList.innerHTML = '';
-
-  const q = query(collection(db, "tasks"),
-    where("userId", "==", userId),
-    where("status", "in", ["stock", "today", "completed"])
-  );
+  const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today", "completed"]));
   const snap = await getDocs(q);
   const tasks = [];
   snap.forEach(d => tasks.push({ id: d.id, ...d.data() }));
-
   tasks.sort((a, b) => {
     if (a.status === 'stock' && b.status === 'stock') {
       const ad = a.dueDate, bd = b.dueDate;
@@ -200,17 +197,12 @@ async function loadTasks(userId) {
     if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
     return (a.priority || 0) - (b.priority || 0);
   });
-
   tasks.forEach(t => renderTask(t.id, t));
 }
 
 async function loadArchivedTasks(userId) {
   archiveList.innerHTML = '';
-  const q = query(collection(db, "tasks"),
-    where("userId", "==", userId),
-    where("status", "==", "archived"),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
   snap.forEach(d => renderTask(d.id, d.data(), true));
 }
@@ -219,17 +211,14 @@ function renderTask(id, data, isArchived = false) {
   const li = document.createElement('li');
   li.dataset.id = id;
   if (data.status === 'completed') li.classList.add('completed');
-
   const label = labels.find(l => l.id === data.labelId);
   li.style.borderLeftColor = label ? label.color : '#e0e0e0';
   li.style.backgroundColor = label ? `${label.color}20` : '';
-
   const content = document.createElement('div');
   content.className = 'task-content';
   const title = document.createElement('span');
-  title.textContent = data.title || data.text; // 古いデータ形式にも対応
+  title.textContent = data.title || data.text;
   content.appendChild(title);
-
   if (data.dueDate) {
     const due = document.createElement('small');
     due.className = 'due-date';
@@ -237,16 +226,15 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
-
   content.addEventListener('click', () => {
+    currentlyEditingTaskId = id;
     modalTaskTitle.textContent = data.title || data.text;
     modalTaskMemo.textContent = data.memo || '(メモはありません)';
+    switchToViewMode();
     taskDetailModalBackdrop.classList.remove('hidden');
   });
-
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
-
   if (!isArchived) {
     const select = document.createElement('select');
     select.className = 'label-select';
@@ -254,7 +242,6 @@ function renderTask(id, data, isArchived = false) {
     optNone.value = '';
     optNone.textContent = 'ラベルなし';
     select.appendChild(optNone);
-
     labels.forEach(l => {
       const o = document.createElement('option');
       o.value = l.id; o.textContent = l.name;
@@ -270,7 +257,6 @@ function renderTask(id, data, isArchived = false) {
     });
     buttons.appendChild(select);
   }
-
   if (isArchived) {
     buttons.appendChild(createButton('ストックへ戻す', 'unarchive-btn'));
   } else {
@@ -282,7 +268,6 @@ function renderTask(id, data, isArchived = false) {
   }
   buttons.appendChild(createIconButton('trash-icon.png', 'delete-btn'));
   li.appendChild(buttons);
-
   if (isArchived) archiveList.appendChild(li);
   else if (data.status === 'today' || data.status === 'completed') todayList.appendChild(li);
   else stockList.appendChild(li);
@@ -323,11 +308,9 @@ async function runDailyAutomation(userId) {
   let all = []; snap.forEach(d => all.push({ ref: d.ref, ...d.data() }));
   let todayCount = all.filter(t => t.status === 'today').length;
   const stocks = all.filter(t => t.status === 'stock');
-
   const today = new Date(), tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   today.setHours(0, 0, 0, 0); tomorrow.setHours(0, 0, 0, 0);
-
   const toMove = [], blocked = [];
   stocks.forEach(t => {
     if (t.dueDate) {
@@ -350,7 +333,6 @@ async function runDailyAutomation(userId) {
 
 
 // ===== Event Listeners =====
-// Auth buttons
 signupButton.addEventListener('click', () => {
   const email = emailInput.value, password = passwordInput.value;
   if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
@@ -363,26 +345,18 @@ loginButton.addEventListener('click', () => {
 });
 logoutButton.addEventListener('click', () => signOut(auth));
 
-// New Task Add Button
 addButton.addEventListener('click', async () => {
   const title = titleInput.value.trim();
   const memo = memoInput.value.trim();
   const due = dueDateInput.value;
-
   if (title === '' || !currentUserId) return;
   if (!selectedLabelId && labels.length > 0) selectedLabelId = labels[0].id;
-
   const data = {
-    userId: currentUserId,
-    title: title,
-    memo: memo,
-    status: 'stock',
-    priority: Date.now(),
-    createdAt: serverTimestamp(),
+    userId: currentUserId, title, memo, status: 'stock',
+    priority: Date.now(), createdAt: serverTimestamp(),
     labelId: selectedLabelId || null
   };
   if (due) { data.dueDate = Timestamp.fromDate(new Date(due)); }
-
   await addDoc(collection(db, "tasks"), data);
   loadTasks(currentUserId);
   titleInput.value = '';
@@ -390,10 +364,7 @@ addButton.addEventListener('click', async () => {
   dueDateInput.value = '';
 });
 
-// Main controls
-reloadButton.addEventListener('click', () => {
-  location.reload(true);
-});
+reloadButton.addEventListener('click', () => { location.reload(true); });
 resetDayButton.addEventListener('click', async () => {
   if (!currentUserId || !confirm("Resetしますか？\n完了タスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
   const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
@@ -418,7 +389,6 @@ backToMainButton.addEventListener('click', () => {
   loadTasks(currentUserId);
 });
 
-// Label Modal Controls
 manageLabelsButton.addEventListener('click', () => labelModalBackdrop.classList.remove('hidden'));
 closeLabelModalButton.addEventListener('click', () => labelModalBackdrop.classList.add('hidden'));
 addLabelForm.addEventListener('submit', async (e) => {
@@ -431,20 +401,45 @@ addLabelForm.addEventListener('submit', async (e) => {
   labelNameInput.value = '';
 });
 
-// Task Detail Modal Controls
-closeTaskDetailModalButton.addEventListener('click', () => {
-  taskDetailModalBackdrop.classList.add('hidden');
+editTaskButton.addEventListener('click', () => {
+  modalEditTitleInput.value = modalTaskTitle.textContent;
+  modalEditMemoInput.value = modalTaskMemo.textContent === '(メモはありません)' ? '' : modalTaskMemo.textContent;
+  switchToEditMode();
 });
+saveTaskButton.addEventListener('click', async () => {
+  if (!currentlyEditingTaskId) return;
+  const newTitle = modalEditTitleInput.value.trim();
+  if (!newTitle) return alert('タイトルは必須です。');
+  const newMemo = modalEditMemoInput.value.trim();
+  const taskDocRef = doc(db, "tasks", currentlyEditingTaskId);
+  await updateDoc(taskDocRef, { title: newTitle, memo: newMemo });
+  taskDetailModalBackdrop.classList.add('hidden');
+  loadTasks(currentUserId);
+});
+cancelEditButton.addEventListener('click', () => { switchToViewMode(); });
+closeTaskDetailModalButton.addEventListener('click', () => { taskDetailModalBackdrop.classList.add('hidden'); });
 taskDetailModalBackdrop.addEventListener('click', (event) => {
     if (event.target === taskDetailModalBackdrop) {
         taskDetailModalBackdrop.classList.add('hidden');
     }
 });
+function switchToViewMode() {
+    modalViewMode.classList.remove('hidden');
+    editTaskButton.classList.remove('hidden');
+    modalEditMode.classList.add('hidden');
+    saveTaskButton.classList.add('hidden');
+    cancelEditButton.classList.add('hidden');
+}
+function switchToEditMode() {
+    modalViewMode.classList.add('hidden');
+    editTaskButton.classList.add('hidden');
+    modalEditMode.classList.remove('hidden');
+    saveTaskButton.classList.remove('hidden');
+    cancelEditButton.classList.remove('hidden');
+}
 
-// Delegated Event Listener for dynamic elements
 document.body.addEventListener('click', async (event) => {
     const target = event.target;
-
     const colorChoice = target.closest('.color-choice');
     if (colorChoice) {
       selectedLabelId = colorChoice.dataset.labelId;
@@ -452,7 +447,6 @@ document.body.addEventListener('click', async (event) => {
       updateSelectedLabelHint();
       return;
     }
-
     if (target.classList.contains('due-date')) {
       const li = target.closest('li'); if (!li) return;
       const taskId = li.dataset.id; const ref = doc(db, "tasks", taskId);
@@ -474,13 +468,11 @@ document.body.addEventListener('click', async (event) => {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
       return;
     }
-
     const labelRow = target.closest('.label-item');
     if(labelRow){
         const id = labelRow.dataset.id;
         const nameSpan = labelRow.querySelector('.label-name');
         const input = labelRow.querySelector('input[type="text"]');
-
         if(target.classList.contains('edit-label-btn')){
             labelRow.querySelectorAll('.label-name, .edit-label-btn').forEach(el=>el.classList.add('hidden'));
             labelRow.querySelectorAll('input[type="text"], .save-label-btn, .cancel-label-btn').forEach(el=>el.classList.remove('hidden'));
@@ -513,35 +505,34 @@ document.body.addEventListener('click', async (event) => {
             return;
         }
     }
-
     const taskItem = target.closest('li[data-id]');
-    if (taskItem && !target.closest('.task-buttons') && !target.closest('.task-content')) {
-        const taskId = taskItem.dataset.id;
-        const taskDocRef = doc(db, "tasks", taskId);
-        let needsReload = false, archiveReload = false;
-
-        if (target.closest('.delete-btn')) {
-            if (confirm('このタスクを完全に削除しますか？')) {
-                await deleteDoc(taskDocRef);
-                taskItem.remove();
-            }
-        } else if (target.closest('.move-btn')) {
-            if (todayList.children.length < 6) {
-                await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
+    if (taskItem) {
+        if (!target.closest('.task-content')) { // content(詳細表示)以外をクリック
+            const taskId = taskItem.dataset.id;
+            const taskDocRef = doc(db, "tasks", taskId);
+            let needsReload = false, archiveReload = false;
+            if (target.closest('.delete-btn')) {
+                if (confirm('このタスクを完全に削除しますか？')) {
+                    await deleteDoc(taskDocRef);
+                    taskItem.remove();
+                }
+            } else if (target.closest('.move-btn')) {
+                if (todayList.children.length < 6) {
+                    await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
+                    needsReload = true;
+                } else alert('「Focalist」は6つまでです。');
+            } else if (target.closest('.complete-btn')) {
+                await updateDoc(taskDocRef, { status: 'completed' });
                 needsReload = true;
-            } else alert('「Focalist」は6つまでです。');
-        } else if (target.closest('.complete-btn')) {
-            await updateDoc(taskDocRef, { status: 'completed' });
-            needsReload = true;
-        } else if (target.closest('.move-to-stock-btn')) {
-            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-            needsReload = true;
-        } else if (target.closest('.unarchive-btn')) {
-            await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-            archiveReload = true;
+            } else if (target.closest('.move-to-stock-btn')) {
+                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+                needsReload = true;
+            } else if (target.closest('.unarchive-btn')) {
+                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
+                archiveReload = true;
+            }
+            if (needsReload) loadTasks(currentUserId);
+            if (archiveReload) loadArchivedTasks(currentUserId);
         }
-
-        if (needsReload) loadTasks(currentUserId);
-        if (archiveReload) loadArchivedTasks(currentUserId);
     }
 });

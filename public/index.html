@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IvyTask</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20250831">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#3f51b5">
@@ -88,9 +89,21 @@
 
   <div id="task-detail-modal-backdrop" class="hidden">
     <div id="task-detail-modal">
-      <h2 id="modal-task-title"></h2>
-      <p id="modal-task-memo"></p>
-      <button id="close-task-detail-modal-button">閉じる</button>
+      <div class="view-mode">
+        <h2 id="modal-task-title"></h2>
+        <p id="modal-task-memo"></p>
+      </div>
+      <div class="edit-mode hidden">
+        <input type="text" id="modal-edit-title-input" placeholder="タスクのタイトル">
+        <textarea id="modal-edit-memo-input" placeholder="内容やメモ"></textarea>
+      </div>
+
+      <div class="modal-buttons">
+        <button id="edit-task-button" class="view-mode">編集</button>
+        <button id="save-task-button" class="edit-mode hidden">保存</button>
+        <button id="cancel-edit-button" class="edit-mode hidden">キャンセル</button>
+        <button id="close-task-detail-modal-button">閉じる</button>
+      </div>
     </div>
   </div>
 
