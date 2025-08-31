@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IvyTask</title>
-  <link rel="stylesheet" href="style.css?v=finalfix">
+  <link rel="stylesheet" href="style.css?v=settings_modal_v1">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#3f51b5">
+  <meta name="theme-color" content="#AEC6CF">
   <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
@@ -27,10 +27,7 @@
   <main id="app-container" style="display: none;">
     <div id="user-info">
       <span id="user-email"></span>
-      <a href="/faq.html" target="_blank" id="faq-button" title="FAQ">
-        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
-      </a>
-      <button id="logout-button">ログアウト</button>
+      <button id="settings-button" class="icon-button" title="設定">⚙️</button>
     </div>
 
     <h1>IvyTask</h1>
@@ -78,7 +75,7 @@
       <form id="add-label-form">
         <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required/>
         <div class="label-color-selector">
-          <input type="color" id="label-color-input" value="#CCCCCC"/>
+          <div id="label-color-palette"></div>
           <button type="submit">新しいラベルを追加</button>
         </div>
       </form>
@@ -102,6 +99,47 @@
         <button id="cancel-edit-button" class="edit-mode hidden">キャンセル</button>
         <button id="close-task-detail-modal-button">閉じる</button>
       </div>
+    </div>
+  </div>
+
+  <div id="settings-modal-backdrop" class="hidden">
+    <div id="settings-modal">
+      <h2>設定</h2>
+      
+      <div class="settings-section">
+        <h3>アカウント</h3>
+        <div class="settings-item">
+          <span>ユーザーID</span>
+          <span id="settings-user-id"></span>
+        </div>
+        <div class="settings-item">
+          <a href="/faq.html" target="_blank">FAQを見る</a>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>壁紙設定</h3>
+        <div id="wallpaper-choices">
+          <div class="wallpaper-choice" data-theme="default" title="デフォルト">
+            <div class="wallpaper-thumbnail default"></div>
+            <span>デフォルト</span>
+          </div>
+          <div class="wallpaper-choice" data-theme="pastel" title="パステルビーチ">
+            <div class="wallpaper-thumbnail pastel"></div>
+            <span>パステル</span>
+          </div>
+          <div class="wallpaper-choice" data-theme="okinawa" title="沖縄ビーチ">
+            <div class="wallpaper-thumbnail okinawa"></div>
+            <span>沖縄</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <button id="logout-button-modal" class="danger">ログアウト</button>
+      </div>
+
+      <button id="close-settings-modal-button">閉じる</button>
     </div>
   </div>
 

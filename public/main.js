@@ -6,7 +6,7 @@ import {
 import {
   initializeFirestore, collection, addDoc, query, where, getDocs,
   getDoc, doc, deleteDoc, updateDoc, orderBy, writeBatch,
-  Timestamp, onSnapshot, serverTimestamp
+  Timestamp, onSnapshot, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===== Firebase config & Initialize =====
@@ -34,12 +34,17 @@ const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
 const userEmailSpan = document.getElementById('user-email');
+const settingsButton = document.getElementById('settings-button');
+const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
+const closeSettingsModalButton = document.getElementById('close-settings-modal-button');
+const wallpaperChoices = document.getElementById('wallpaper-choices');
+const settingsUserIdSpan = document.getElementById('settings-user-id');
+const logoutButtonModal = document.getElementById('logout-button-modal');
 
 const emailInput = document.getElementById('email-input');
 const passwordInput = document.getElementById('password-input');
 const signupButton = document.getElementById('signup-button');
 const loginButton = document.getElementById('login-button');
-const logoutButton = document.getElementById('logout-button');
 
 const addButton = document.getElementById('add-task-button');
 const titleInput = document.getElementById('new-task-title-input');
@@ -62,7 +67,7 @@ const labelModalBackdrop = document.getElementById('label-modal-backdrop');
 const closeLabelModalButton = document.getElementById('close-label-modal-button');
 const addLabelForm = document.getElementById('add-label-form');
 const labelNameInput = document.getElementById('label-name-input');
-const labelColorInput = document.getElementById('label-color-input');
+const labelColorPalette = document.getElementById('label-color-palette');
 const labelsList = document.getElementById('labels-list');
 
 const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backdrop');
@@ -78,12 +83,18 @@ const saveTaskButton = document.getElementById('save-task-button');
 const cancelEditButton = document.getElementById('cancel-edit-button');
 
 
-// ===== Global State =====
+// ===== Global State & Constants =====
 let currentUserId = null;
 let selectedLabelId = null;
 let labels = [];
 let unsubscribeLabels = () => {};
 let currentlyEditingTaskId = null;
+let selectedLabelColor = null;
+const PASTEL_COLORS = [
+  '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
+  '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+  '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
+];
 
 
 // ===== Auth State Change (Top Level Controller) =====
@@ -96,7 +107,8 @@ onAuthStateChanged(auth, async (user) => {
 
     if (unsubscribeLabels) unsubscribeLabels();
     unsubscribeLabels = loadLabels(currentUserId);
-
+    
+    await loadWallpaperPreference(currentUserId);
     await runDailyAutomation(currentUserId);
     loadTasks(currentUserId);
     activateDragAndDrop();
@@ -106,11 +118,75 @@ onAuthStateChanged(auth, async (user) => {
     mainContainer.style.display = 'none';
     archiveContainer.style.display = 'none';
     if (unsubscribeLabels) unsubscribeLabels();
+    applyWallpaper('default');
   }
 });
 
+// ===== Wallpaper Functions =====
+async function loadWallpaperPreference(userId) {
+    if (!userId) {
+        applyWallpaper('default');
+        return;
+    }
+    const settingsRef = doc(db, 'settings', userId);
+    try {
+        const docSnap = await getDoc(settingsRef);
+        if (docSnap.exists() && docSnap.data().theme) {
+            applyWallpaper(docSnap.data().theme);
+        } else {
+            applyWallpaper('default');
+        }
+    } catch (error) {
+        console.error("Error loading wallpaper preference:", error);
+        applyWallpaper('default');
+    }
+}
+
+async function saveWallpaperPreference(userId, theme) {
+    if (!userId) return;
+    const settingsRef = doc(db, 'settings', userId);
+    try {
+        await setDoc(settingsRef, { theme: theme });
+    } catch (error) {
+        console.error("Error saving wallpaper preference:", error);
+    }
+}
+
+function applyWallpaper(theme) {
+    document.body.className = '';
+    if (theme && theme !== 'default') {
+        document.body.classList.add(`theme-${theme}`);
+    }
+    document.querySelectorAll('.wallpaper-choice').forEach(choice => {
+        choice.classList.toggle('selected', choice.dataset.theme === theme);
+    });
+}
+
 
 // ===== Labels Functions =====
+function initializeLabelColorPalette() {
+  labelColorPalette.innerHTML = '';
+  PASTEL_COLORS.forEach((color, index) => {
+    const choice = document.createElement('div');
+    choice.className = 'palette-choice';
+    choice.style.backgroundColor = color;
+    choice.dataset.color = color;
+
+    if (index === 0) {
+      choice.classList.add('selected');
+      selectedLabelColor = color;
+    }
+
+    choice.addEventListener('click', () => {
+      labelColorPalette.querySelectorAll('.palette-choice').forEach(c => c.classList.remove('selected'));
+      choice.classList.add('selected');
+      selectedLabelColor = color;
+    });
+
+    labelColorPalette.appendChild(choice);
+  });
+}
+
 function loadLabels(userId) {
   const labelsQuery = query(collection(db, "labels"), where("userId", "==", userId));
   return onSnapshot(labelsQuery, (snapshot) => {
@@ -130,22 +206,51 @@ function renderLabelInModal(label) {
   const li = document.createElement('li');
   li.className = 'label-item';
   li.dataset.id = label.id;
+
+  const viewContainer = document.createElement('div');
+  viewContainer.className = 'label-view-container';
   const colorCircle = document.createElement('div');
   colorCircle.className = 'label-color-circle';
   colorCircle.style.backgroundColor = label.color;
   const nameSpan = document.createElement('span');
   nameSpan.className = 'label-name';
   nameSpan.textContent = label.name;
+  viewContainer.append(colorCircle, nameSpan);
+
+  const editContainer = document.createElement('div');
+  editContainer.className = 'label-edit-container hidden';
   const input = document.createElement('input');
   input.type = 'text';
   input.value = label.name;
   input.maxLength = 12;
-  input.className = 'hidden';
+  input.className = 'label-edit-input';
+  const editPalette = document.createElement('div');
+  editPalette.className = 'edit-color-palette';
+  PASTEL_COLORS.forEach(color => {
+      const choice = document.createElement('div');
+      choice.className = 'palette-choice';
+      choice.style.backgroundColor = color;
+      choice.dataset.color = color;
+      if (color === label.color) {
+          choice.classList.add('selected');
+      }
+      choice.addEventListener('click', () => {
+          editPalette.querySelectorAll('.palette-choice').forEach(c => c.classList.remove('selected'));
+          choice.classList.add('selected');
+      });
+      editPalette.appendChild(choice);
+  });
+  editContainer.append(input, editPalette);
+  
+  const buttonsContainer = document.createElement('div');
+  buttonsContainer.className = 'label-buttons-container';
   const editBtn = createButton('編集', 'edit-label-btn');
   const saveBtn = createButton('保存', 'save-label-btn hidden');
   const cancelBtn = createButton('取消', 'cancel-label-btn hidden');
   const deleteBtn = createButton('削除', 'delete-label-btn');
-  li.append(colorCircle, nameSpan, input, editBtn, saveBtn, cancelBtn, deleteBtn);
+  buttonsContainer.append(editBtn, saveBtn, cancelBtn, deleteBtn);
+
+  li.append(viewContainer, editContainer, buttonsContainer);
   labelsList.appendChild(li);
 }
 
@@ -178,7 +283,7 @@ function updateSelectedLabelHint() {
 }
 
 
-// ===== Tasks Functions (renderTask内のアイコン部分のみ変更) =====
+// ===== Tasks Functions =====
 async function loadTasks(userId) {
   stockList.innerHTML = '';
   todayList.innerHTML = '';
@@ -211,17 +316,14 @@ function renderTask(id, data, isArchived = false) {
   const li = document.createElement('li');
   li.dataset.id = id;
   if (data.status === 'completed') li.classList.add('completed');
-
   const label = labels.find(l => l.id === data.labelId);
   li.style.borderLeftColor = label ? label.color : '#e0e0e0';
   li.style.backgroundColor = label ? `${label.color}20` : '';
-
   const content = document.createElement('div');
   content.className = 'task-content';
   const title = document.createElement('span');
   title.textContent = data.title || data.text;
   content.appendChild(title);
-
   if (data.dueDate) {
     const due = document.createElement('small');
     due.className = 'due-date';
@@ -229,7 +331,6 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
-
   content.addEventListener('click', () => {
     currentlyEditingTaskId = id;
     modalTaskTitle.textContent = data.title || data.text;
@@ -237,10 +338,8 @@ function renderTask(id, data, isArchived = false) {
     switchToViewMode();
     taskDetailModalBackdrop.classList.remove('hidden');
   });
-
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
-
   if (!isArchived) {
     const select = document.createElement('select');
     select.className = 'label-select';
@@ -256,25 +355,17 @@ function renderTask(id, data, isArchived = false) {
     });
     select.addEventListener('change', async () => {
       await updateDoc(doc(db, "tasks", id), { labelId: select.value || null });
-      const newLabel = labels.find(l => l.id === (select.value || null));
-      li.style.borderLeftColor = newLabel ? newLabel.color : '#e0e0e0';
-      li.style.backgroundColor = newLabel ? `${newLabel.color}20` : '';
     });
     buttons.appendChild(select);
   }
-
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'task-actions-container';
-
   const menuButton = document.createElement('button');
   menuButton.className = 'actions-button';
-  // <<< 変更点: アイコンを三点リーダーから下向き三角に変更 >>>
   menuButton.innerHTML = '&#9662;';
   actionsContainer.appendChild(menuButton);
-
   const dropdown = document.createElement('div');
   dropdown.className = 'actions-dropdown';
-
   const taskActions = [];
   if (isArchived) {
     taskActions.push({ text: 'ストックへ戻す', status: 'stock', priority: Date.now() });
@@ -288,16 +379,15 @@ function renderTask(id, data, isArchived = false) {
     }
   }
   taskActions.push({ text: '削除', action: 'delete' });
-
   taskActions.forEach(action => {
     const item = document.createElement('div');
     item.className = 'dropdown-item';
     item.textContent = action.text;
     item.addEventListener('click', async () => {
+      dropdown.classList.remove('visible');
       if (action.action === 'delete') {
         if (confirm('このタスクを完全に削除しますか？')) {
           await deleteDoc(doc(db, "tasks", id));
-          loadTasks(currentUserId);
         }
       } else {
         if (action.status === 'today' && todayList.children.length >= 6) {
@@ -308,37 +398,28 @@ function renderTask(id, data, isArchived = false) {
                 updateData.priority = action.priority;
             }
             await updateDoc(doc(db, "tasks", id), updateData);
-            loadTasks(currentUserId);
         }
       }
-      dropdown.classList.remove('visible');
     });
     dropdown.appendChild(item);
   });
-
   actionsContainer.appendChild(dropdown);
   buttons.appendChild(actionsContainer);
   li.appendChild(buttons);
-
   menuButton.addEventListener('click', (e) => {
     e.stopPropagation();
     closeAllDropdowns();
     dropdown.classList.toggle('visible');
   });
-
   if (isArchived) archiveList.appendChild(li);
   else if (data.status === 'today' || data.status === 'completed') todayList.appendChild(li);
   else stockList.appendChild(li);
 }
 
+
 // ===== Helper Functions =====
 function createButton(text, className) {
   const b = document.createElement('button'); b.textContent = text; b.className = className; return b;
-}
-function createIconButton(src, className) {
-  const b = document.createElement('button'); b.className = className;
-  const i = document.createElement('img'); i.src = src; i.alt = className;
-  b.appendChild(i); return b;
 }
 
 
@@ -360,8 +441,8 @@ function activateDragAndDrop() {
 }
 
 async function runDailyAutomation(userId) {
-  const allTasksQuery = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
-  const snap = await getDocs(allTasksQuery);
+  const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
+  const snap = await getDocs(q);
   let all = []; snap.forEach(d => all.push({ ref: d.ref, ...d.data() }));
   let todayCount = all.filter(t => t.status === 'today').length;
   const stocks = all.filter(t => t.status === 'stock');
@@ -390,6 +471,13 @@ async function runDailyAutomation(userId) {
 
 
 // ===== Event Listeners =====
+document.addEventListener('click', () => { closeAllDropdowns(); });
+function closeAllDropdowns() {
+    document.querySelectorAll('.actions-dropdown.visible').forEach(dropdown => {
+        dropdown.classList.remove('visible');
+    });
+}
+
 signupButton.addEventListener('click', () => {
   const email = emailInput.value, password = passwordInput.value;
   if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
@@ -400,7 +488,9 @@ loginButton.addEventListener('click', () => {
   if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
   signInWithEmailAndPassword(auth, email, password).catch(err => alert('ログイン失敗: ' + err.message));
 });
-logoutButton.addEventListener('click', () => signOut(auth));
+logoutButtonModal.addEventListener('click', () => {
+    signOut(auth);
+});
 
 addButton.addEventListener('click', async () => {
   const title = titleInput.value.trim();
@@ -415,7 +505,6 @@ addButton.addEventListener('click', async () => {
   };
   if (due) { data.dueDate = Timestamp.fromDate(new Date(due)); }
   await addDoc(collection(db, "tasks"), data);
-  loadTasks(currentUserId);
   titleInput.value = '';
   memoInput.value = '';
   dueDateInput.value = '';
@@ -433,7 +522,6 @@ resetDayButton.addEventListener('click', async () => {
     else if (t.status === 'today') batch.update(d.ref, { status: 'stock', priority: Date.now() });
   });
   await batch.commit();
-  loadTasks(currentUserId);
 });
 archiveViewButton.addEventListener('click', () => {
   mainContainer.style.display = 'none';
@@ -443,16 +531,18 @@ archiveViewButton.addEventListener('click', () => {
 backToMainButton.addEventListener('click', () => {
   archiveContainer.style.display = 'none';
   mainContainer.style.display = 'block';
-  loadTasks(currentUserId);
 });
 
-manageLabelsButton.addEventListener('click', () => labelModalBackdrop.classList.remove('hidden'));
+manageLabelsButton.addEventListener('click', () => {
+  initializeLabelColorPalette();
+  labelModalBackdrop.classList.remove('hidden');
+});
 closeLabelModalButton.addEventListener('click', () => labelModalBackdrop.classList.add('hidden'));
 addLabelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = labelNameInput.value.trim();
-  const color = labelColorInput.value;
-  if (!name || !currentUserId) return;
+  const color = selectedLabelColor;
+  if (!name || !color || !currentUserId) return;
   if (labels.some(l => l.name === name)) return alert('同じ名前のラベルは既に存在します。');
   await addDoc(collection(db, "labels"), { userId: currentUserId, name, color, createdAt: serverTimestamp() });
   labelNameInput.value = '';
@@ -471,7 +561,6 @@ saveTaskButton.addEventListener('click', async () => {
   const taskDocRef = doc(db, "tasks", currentlyEditingTaskId);
   await updateDoc(taskDocRef, { title: newTitle, memo: newMemo });
   taskDetailModalBackdrop.classList.add('hidden');
-  loadTasks(currentUserId);
 });
 cancelEditButton.addEventListener('click', () => { switchToViewMode(); });
 closeTaskDetailModalButton.addEventListener('click', () => { taskDetailModalBackdrop.classList.add('hidden'); });
@@ -495,14 +584,29 @@ function switchToEditMode() {
     cancelEditButton.classList.remove('hidden');
 }
 
-document.addEventListener('click', () => {
-    closeAllDropdowns();
+settingsButton.addEventListener('click', () => {
+    if(auth.currentUser){
+        settingsUserIdSpan.textContent = auth.currentUser.email;
+    }
+    settingsModalBackdrop.classList.remove('hidden');
 });
-function closeAllDropdowns() {
-    document.querySelectorAll('.actions-dropdown.visible').forEach(dropdown => {
-        dropdown.classList.remove('visible');
-    });
-}
+closeSettingsModalButton.addEventListener('click', () => {
+    settingsModalBackdrop.classList.add('hidden');
+});
+settingsModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === settingsModalBackdrop) {
+        settingsModalBackdrop.classList.add('hidden');
+    }
+});
+wallpaperChoices.addEventListener('click', (e) => {
+    const choice = e.target.closest('.wallpaper-choice');
+    if (choice) {
+        const theme = choice.dataset.theme;
+        applyWallpaper(theme);
+        saveWallpaperPreference(currentUserId, theme);
+    }
+});
+
 
 document.body.addEventListener('click', async (event) => {
     const target = event.target;
@@ -528,7 +632,6 @@ document.body.addEventListener('click', async (event) => {
       span.replaceWith(input); input.focus();
       const save = async () => {
         if (input.value) await updateDoc(ref, { dueDate: Timestamp.fromDate(new Date(input.value)) });
-        loadTasks(currentUserId);
       };
       input.addEventListener('blur', save);
       input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
@@ -537,24 +640,39 @@ document.body.addEventListener('click', async (event) => {
     const labelRow = target.closest('.label-item');
     if(labelRow){
         const id = labelRow.dataset.id;
-        const nameSpan = labelRow.querySelector('.label-name');
-        const input = labelRow.querySelector('input[type="text"]');
+        const viewContainer = labelRow.querySelector('.label-view-container');
+        const editContainer = labelRow.querySelector('.label-edit-container');
+        const buttonsContainer = labelRow.querySelector('.label-buttons-container');
+
         if(target.classList.contains('edit-label-btn')){
-            labelRow.querySelectorAll('.label-name, .edit-label-btn').forEach(el=>el.classList.add('hidden'));
-            labelRow.querySelectorAll('input[type="text"], .save-label-btn, .cancel-label-btn').forEach(el=>el.classList.remove('hidden'));
+            viewContainer.classList.add('hidden');
+            editContainer.classList.remove('hidden');
+            buttonsContainer.querySelector('.edit-label-btn').classList.add('hidden');
+            buttonsContainer.querySelector('.delete-label-btn').classList.add('hidden');
+            buttonsContainer.querySelector('.save-label-btn').classList.remove('hidden');
+            buttonsContainer.querySelector('.cancel-label-btn').classList.remove('hidden');
             return;
         }
         if(target.classList.contains('cancel-label-btn')){
-            input.value = nameSpan.textContent;
-            labelRow.querySelectorAll('.label-name, .edit-label-btn').forEach(el=>el.classList.remove('hidden'));
-            labelRow.querySelectorAll('input[type="text"], .save-label-btn, .cancel-label-btn').forEach(el=>el.classList.add('hidden'));
+            viewContainer.classList.remove('hidden');
+            editContainer.classList.add('hidden');
+            buttonsContainer.querySelector('.edit-label-btn').classList.remove('hidden');
+            buttonsContainer.querySelector('.delete-label-btn').classList.remove('hidden');
+            buttonsContainer.querySelector('.save-label-btn').classList.add('hidden');
+            buttonsContainer.querySelector('.cancel-label-btn').classList.add('hidden');
+            const originalColor = labels.find(l=>l.id===id).color;
+            editContainer.querySelectorAll('.palette-choice').forEach(c => {
+                c.classList.toggle('selected', c.dataset.color === originalColor);
+            });
             return;
         }
         if(target.classList.contains('save-label-btn')){
-            const newName = input.value.trim();
+            const newName = editContainer.querySelector('.label-edit-input').value.trim();
+            const selectedColorEl = editContainer.querySelector('.palette-choice.selected');
+            const newColor = selectedColorEl ? selectedColorEl.dataset.color : labels.find(l=>l.id===id).color;
             if(!newName) return alert('ラベル名を入力してください。');
             if(labels.some(l=>l.name===newName && l.id!==id)) return alert('同名のラベルが存在します。');
-            await updateDoc(doc(db, "labels", id), { name: newName });
+            await updateDoc(doc(db, "labels", id), { name: newName, color: newColor });
             return;
         }
         if(target.classList.contains('delete-label-btn')){
@@ -567,38 +685,7 @@ document.body.addEventListener('click', async (event) => {
             batch.delete(doc(db, "labels", id));
             await batch.commit();
             if (selectedLabelId === id) selectedLabelId = null;
-            loadTasks(currentUserId);
             return;
-        }
-    }
-    const taskItem = target.closest('li[data-id]');
-    if (taskItem) {
-        if (!target.closest('.task-content') && !target.closest('.actions-button')) {
-            const taskId = taskItem.dataset.id;
-            const taskDocRef = doc(db, "tasks", taskId);
-            let needsReload = false, archiveReload = false;
-            if (target.closest('.delete-btn')) {
-                if (confirm('このタスクを完全に削除しますか？')) {
-                    await deleteDoc(taskDocRef);
-                    taskItem.remove();
-                }
-            } else if (target.closest('.move-btn')) {
-                if (todayList.children.length < 6) {
-                    await updateDoc(taskDocRef, { status: 'today', priority: todayList.children.length });
-                    needsReload = true;
-                } else alert('「Focalist」は6つまでです。');
-            } else if (target.closest('.complete-btn')) {
-                await updateDoc(taskDocRef, { status: 'completed' });
-                needsReload = true;
-            } else if (target.closest('.move-to-stock-btn')) {
-                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-                needsReload = true;
-            } else if (target.closest('.unarchive-btn')) {
-                await updateDoc(taskDocRef, { status: 'stock', priority: Date.now() });
-                archiveReload = true;
-            }
-            if (needsReload) loadTasks(currentUserId);
-            if (archiveReload) loadArchivedTasks(currentUserId);
         }
     }
 });
