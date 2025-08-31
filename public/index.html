@@ -19,10 +19,10 @@
     <input type="password" id="password-input" placeholder="パスワード">
     <button id="signup-button">サインアップ</button>
     <button id="login-button">ログイン</button>
+    <div class="auth-form-footer">
+      <a href="reset-password.html">パスワードをお忘れですか？</a>
+    </div>
   </div>
-  <div class="auth-form-footer">
-  <a href="reset-password.html">パスワードをお忘れですか？</a>
-</div>
 
   <main id="app-container" style="display: none;">
     <div id="user-info">
@@ -55,7 +55,8 @@
     <section>
       <h2>新しいタスクを追加</h2>
       <div class="add-task-form">
-        <input type="text" id="new-task-input" placeholder="やるべきことを入力...">
+        <input type="text" id="new-task-title-input" placeholder="タスクのタイトルを入力...">
+        <textarea id="new-task-memo-input" placeholder="内容やメモ...（任意）"></textarea>
         <input type="date" id="due-date-input">
         <button id="add-task-button">ストックに追加</button>
       </div>
@@ -82,6 +83,14 @@
         </div>
       </form>
       <button id="close-label-modal-button">閉じる</button>
+    </div>
+  </div>
+
+  <div id="task-detail-modal-backdrop" class="hidden">
+    <div id="task-detail-modal">
+      <h2 id="modal-task-title"></h2>
+      <p id="modal-task-memo"></p>
+      <button id="close-task-detail-modal-button">閉じる</button>
     </div>
   </div>
 

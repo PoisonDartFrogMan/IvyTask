@@ -49,8 +49,15 @@ li.completed .task-content span { text-decoration: line-through; color: #aaa; }
   flex-direction: column;
   gap: 4px;
   flex-grow: 1;
+  cursor: pointer; /* <<< 追加: クリックできることを示す */
+  min-width: 0;
 }
-.due-date { font-size: 0.8em; color: #666; cursor: pointer; }
+.task-content span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.due-date { font-size: 0.8em; color: #666; }
 
 /* ======== 色選択とラベル名ヒント ======== */
 #color-picker { display: flex; gap: 10px; margin-top: 15px; padding-left: 5px; flex-wrap: wrap; }
@@ -69,25 +76,28 @@ li.completed .task-content span { text-decoration: line-through; color: #aaa; }
   margin-top: 8px;
   font-size: .9rem;
   color: #444;
-  min-height: 1.2em; /* チラつき防止 */
+  min-height: 1.2em;
 }
 
 /* ======== 入力欄 ======== */
 input[type="text"],
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+textarea {
   width: calc(100% - 24px);
   padding: 12px;
   border: 1px solid #ccc;
   border-radius: 6px;
   font-size: 16px;
   margin-bottom: 10px;
+  font-family: inherit;
+  resize: vertical;
 }
-.add-task-form { display: flex; gap: 10px; align-items: center; }
-#new-task-input { flex-grow: 1; margin-bottom: 0; }
-input[type="date"] {
-  padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px;
-}
+.add-task-form { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+#new-task-title-input { margin-bottom: 0; }
+#new-task-memo-input { min-height: 60px; margin-bottom: 0; }
+.add-task-form input[type="date"] { margin-bottom: 0; }
+.add-task-form button { margin: 0; }
 
 /* ======== ボタン ======== */
 button {
@@ -127,18 +137,17 @@ button:hover { opacity: .85; }
 }
 #user-info span { margin-right: 10px; }
 .main-controls {
-  display: grid; /* FlexboxからGridレイアウトに変更 */
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); /* ボタンの最小幅を80pxとし、画面に合わせて列数を自動調整 */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
 }
-
 .main-controls button {
-  width: 100%; /* ボタンの幅を親要素（gridセル）いっぱいに広げる */
-  box-sizing: border-box; /* paddingやborderをwidthに含める */
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #6c757d;
 }
-.main-controls button { background-color: #6c757d; }
-#reload-button { background-color: #28a745; } /* <<< 追加 */
+#reload-button { background-color: #28a745; }
 
 #archive-container { display: none; }
 #archive-container button { display: block; margin: 20px auto 0; }
@@ -151,20 +160,38 @@ button:hover { opacity: .85; }
 }
 #faq-button:hover { opacity: 1; transform: scale(1.15); }
 
-/* ======== ラベル管理モーダル ======== */
+/* ======== ラベル管理モーダル & タスク詳細モーダル ======== */
 .hidden { display: none !important; }
 
-#label-modal-backdrop {
+#label-modal-backdrop,
+#task-detail-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal {
+#label-modal,
+#task-detail-modal {
   background-color: #fff; padding: 30px; border-radius: 12px;
   width: 90%; max-width: 520px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
+
+#task-detail-modal h2 {
+    margin-top: 0;
+    font-size: 1.4em;
+}
+#task-detail-modal p {
+    white-space: pre-wrap;
+    line-height: 1.7;
+    max-height: 60vh;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
 #labels-list { list-style: none; padding: 0; max-height: 240px; overflow-y: auto; margin-bottom: 20px; }
 
 .label-item {
@@ -173,10 +200,9 @@ button:hover { opacity: .85; }
   gap: 10px;
   padding: 10px;
   border-bottom: 1px solid #eee;
-  flex-wrap: nowrap; /* <<< 変更点①: 折り返しを禁止 */
+  flex-wrap: nowrap;
 }
 
-/* <<< 変更点②: はみ出しテキストを「...」にする設定を追加 >>> */
 .label-item .label-name {
   white-space: nowrap;
   overflow: hidden;
@@ -192,39 +218,38 @@ button:hover { opacity: .85; }
 .label-item input[type="text"] {
   flex: 1; padding: 8px 10px; border: 1px solid #cfd6df; border-radius: 6px; font-size: 14px;
 }
-/* === ラベル編集リストのレイアウト強制調整 === */
 #labels-list .label-item {
-  display: flex !important; /* display: flex を最優先で適用 */
-  flex-direction: row !important; /* 念のため row を指定 */
-  align-items: center !important; /* 中央揃えを維持 */
-  flex-wrap: nowrap !important; /* 折り返し禁止を最優先 */
-  gap: 8px !important; /* 隙間を少し小さく */
-  padding: 8px 12px !important; /* パディングも調整 */
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
 }
 
 #labels-list .label-item .label-name {
-  flex-grow: 1 !important; /* ラベル名を可能な限り広げる */
-  min-width: 0 !important; /* 縮むのを許可 */
-  white-space: nowrap !important; /* 改行禁止を最優先 */
-  overflow: hidden !important; /* はみ出しを隠す */
-  text-overflow: ellipsis !important; /* ... で表示 */
+  flex-grow: 1 !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 #labels-list .label-item button {
-  flex-shrink: 0 !important; /* ボタンを縮ませない */
-  padding: 5px 8px !important; /* ボタンのパディングを小さく */
-  font-size: 11px !important; /* ボタンのフォントサイズを少し小さく */
-  line-height: 1 !important; /* 行の高さを調整 */
+  flex-shrink: 0 !important;
+  padding: 5px 8px !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
 }
 
 #labels-list .label-item input {
-  flex-grow: 1 !important; /* 入力欄も広げる */
+  flex-grow: 1 !important;
 }
 .edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn {
   padding: 6px 10px;
   font-size: 12px;
   margin: 0;
-  flex-shrink: 0; /* <<< 変更点③: ボタンが縮まないように設定 >>> */
+  flex-shrink: 0;
 }
 
 #add-label-form input[type="text"] { width: calc(100% - 24px); margin-bottom: 10px; }
@@ -233,6 +258,12 @@ button:hover { opacity: .85; }
   width: 50px; height: 40px; padding: 0; border: 1px solid #ccc; border-radius: 6px;
 }
 .label-color-selector button { flex-grow: 1; margin: 0; }
+
+.auth-form-footer {
+  max-width: 600px;
+  margin: -30px auto 40px;
+  text-align: center;
+}
 
 /* ======== レスポンシブ ======== */
 @media (max-width: 768px) {
@@ -243,31 +274,12 @@ button:hover { opacity: .85; }
 }
 
 @media (max-width: 480px) {
-  .add-task-form { flex-direction: column; align-items: stretch; gap: 15px; }
-  #new-task-input, input[type="date"], #add-task-button { width: auto; margin: 0; }
+  .add-task-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
   li { flex-direction: column; align-items: flex-start; gap: 12px; }
   .task-buttons { width: 100%; justify-content: space-between; gap: 10px; }
   .label-select { flex: 1; max-width: none; }
-}
-
-a {
-  color: var(--primary-color);
-  text-decoration: underline;
-  font-size: 0.9rem;
-}
-
-.auth-form-footer {
-  margin-top: 12px;
-  text-align: center;
-}
-
-.auth-form-footer a {
-  font-size: 0.9rem;
-  color: #1976d2;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.auth-form-footer a:hover {
-  text-decoration: none;
 }

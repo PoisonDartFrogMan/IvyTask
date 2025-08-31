@@ -9,12 +9,6 @@ import {
   Timestamp, onSnapshot, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(console.error);
-  });
-}
-
 // ===== Firebase config & Initialize =====
 const firebaseConfig = {
     apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
@@ -48,7 +42,8 @@ const loginButton = document.getElementById('login-button');
 const logoutButton = document.getElementById('logout-button');
 
 const addButton = document.getElementById('add-task-button');
-const taskInput = document.getElementById('new-task-input');
+const titleInput = document.getElementById('new-task-title-input');
+const memoInput = document.getElementById('new-task-memo-input');
 const dueDateInput = document.getElementById('due-date-input');
 const colorPicker = document.getElementById('color-picker');
 const selectedLabelHint = document.getElementById('selected-label-hint');
@@ -57,7 +52,7 @@ const stockList = document.getElementById('stock-tasks');
 const todayList = document.getElementById('today-tasks');
 const archiveList = document.getElementById('archive-tasks');
 
-const reloadButton = document.getElementById('reload-button'); // <<< 追加
+const reloadButton = document.getElementById('reload-button');
 const resetDayButton = document.getElementById('reset-day-button');
 const archiveViewButton = document.getElementById('archive-view-button');
 const backToMainButton = document.getElementById('back-to-main-button');
@@ -69,6 +64,11 @@ const addLabelForm = document.getElementById('add-label-form');
 const labelNameInput = document.getElementById('label-name-input');
 const labelColorInput = document.getElementById('label-color-input');
 const labelsList = document.getElementById('labels-list');
+
+const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backdrop');
+const modalTaskTitle = document.getElementById('modal-task-title');
+const modalTaskMemo = document.getElementById('modal-task-memo');
+const closeTaskDetailModalButton = document.getElementById('close-task-detail-modal-button');
 
 
 // ===== Global State =====
@@ -227,7 +227,7 @@ function renderTask(id, data, isArchived = false) {
   const content = document.createElement('div');
   content.className = 'task-content';
   const title = document.createElement('span');
-  title.textContent = data.text;
+  title.textContent = data.title || data.text; // 古いデータ形式にも対応
   content.appendChild(title);
 
   if (data.dueDate) {
@@ -237,6 +237,12 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
+
+  content.addEventListener('click', () => {
+    modalTaskTitle.textContent = data.title || data.text;
+    modalTaskMemo.textContent = data.memo || '(メモはありません)';
+    taskDetailModalBackdrop.classList.remove('hidden');
+  });
 
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
@@ -328,7 +334,7 @@ async function runDailyAutomation(userId) {
       const dd = t.dueDate.toDate(); dd.setHours(0, 0, 0, 0);
       if (dd.getTime() === tomorrow.getTime()) {
         if (todayCount < 6) { toMove.push(t.ref); todayCount++; }
-        else { blocked.push(t.text); }
+        else { blocked.push(t.title || t.text); }
       }
     }
   });
@@ -359,72 +365,48 @@ logoutButton.addEventListener('click', () => signOut(auth));
 
 // New Task Add Button
 addButton.addEventListener('click', async () => {
-  const text = taskInput.value.trim();
+  const title = titleInput.value.trim();
+  const memo = memoInput.value.trim();
   const due = dueDateInput.value;
-  if (text === '' || !currentUserId) return;
+
+  if (title === '' || !currentUserId) return;
   if (!selectedLabelId && labels.length > 0) selectedLabelId = labels[0].id;
 
   const data = {
-    userId: currentUserId, text, status: 'stock',
-    priority: Date.now(), createdAt: serverTimestamp(),
+    userId: currentUserId,
+    title: title,
+    memo: memo,
+    status: 'stock',
+    priority: Date.now(),
+    createdAt: serverTimestamp(),
     labelId: selectedLabelId || null
   };
   if (due) { data.dueDate = Timestamp.fromDate(new Date(due)); }
 
   await addDoc(collection(db, "tasks"), data);
   loadTasks(currentUserId);
-  taskInput.value = ''; dueDateInput.value = '';
+  titleInput.value = '';
+  memoInput.value = '';
+  dueDateInput.value = '';
 });
 
 // Main controls
-reloadButton.addEventListener('click', () => { // <<< 追加
-  location.reload(true); // trueを指定するとキャッシュを無視してリロード
+reloadButton.addEventListener('click', () => {
+  location.reload(true);
 });
-
 resetDayButton.addEventListener('click', async () => {
-  const confirmationMessage = "Resetしますか？\n完了タスクはアーカイブされ、未完了タスクは期日が翌日に変更されストックに戻ります。";
-  if (!currentUserId || !confirm(confirmationMessage)) return;
-
-  console.log('Reset process started...');
-  try {
-    const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
-    const snap = await getDocs(q);
-    if (snap.empty) {
-      console.log('No tasks to reset.');
-      return;
-    }
-
-    const batch = writeBatch(db);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowTimestamp = Timestamp.fromDate(tomorrow);
-
-    snap.forEach(d => {
-      const t = d.data();
-      if (t.status === 'completed') {
-        console.log(`Archiving task: ${t.text}`);
-        batch.update(d.ref, { status: 'archived' });
-      } else if (t.status === 'today') {
-        console.log(`Moving to stock and setting due date for: ${t.text}`);
-        batch.update(d.ref, {
-          status: 'stock',
-          priority: Date.now(),
-          dueDate: tomorrowTimestamp
-        });
-      }
-    });
-
-    await batch.commit();
-    console.log('Reset batch commit successful.');
-    alert('リセットが完了しました。');
-  } catch (error) {
-    console.error("Reset failed:", error);
-    alert('リセット処理中にエラーが発生しました。詳細はコンソールを確認してください。');
-  }
-  
+  if (!currentUserId || !confirm("Resetしますか？\n完了タスクはアーカイブされ、未完了のFocalistはストックに戻ります。")) return;
+  const q = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("status", "in", ["today", "completed"]));
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.forEach(d => {
+    const t = d.data();
+    if (t.status === 'completed') batch.update(d.ref, { status: 'archived' });
+    else if (t.status === 'today') batch.update(d.ref, { status: 'stock', priority: Date.now() });
+  });
+  await batch.commit();
   loadTasks(currentUserId);
 });
-
 archiveViewButton.addEventListener('click', () => {
   mainContainer.style.display = 'none';
   archiveContainer.style.display = 'block';
@@ -439,7 +421,6 @@ backToMainButton.addEventListener('click', () => {
 // Label Modal Controls
 manageLabelsButton.addEventListener('click', () => labelModalBackdrop.classList.remove('hidden'));
 closeLabelModalButton.addEventListener('click', () => labelModalBackdrop.classList.add('hidden'));
-
 addLabelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = labelNameInput.value.trim();
@@ -450,11 +431,20 @@ addLabelForm.addEventListener('submit', async (e) => {
   labelNameInput.value = '';
 });
 
+// Task Detail Modal Controls
+closeTaskDetailModalButton.addEventListener('click', () => {
+  taskDetailModalBackdrop.classList.add('hidden');
+});
+taskDetailModalBackdrop.addEventListener('click', (event) => {
+    if (event.target === taskDetailModalBackdrop) {
+        taskDetailModalBackdrop.classList.add('hidden');
+    }
+});
+
 // Delegated Event Listener for dynamic elements
 document.body.addEventListener('click', async (event) => {
     const target = event.target;
 
-    // カラー選択
     const colorChoice = target.closest('.color-choice');
     if (colorChoice) {
       selectedLabelId = colorChoice.dataset.labelId;
@@ -463,7 +453,6 @@ document.body.addEventListener('click', async (event) => {
       return;
     }
 
-    // 期日インライン編集
     if (target.classList.contains('due-date')) {
       const li = target.closest('li'); if (!li) return;
       const taskId = li.dataset.id; const ref = doc(db, "tasks", taskId);
@@ -473,8 +462,7 @@ document.body.addEventListener('click', async (event) => {
       try {
         const d = await getDoc(ref);
         if (d.exists() && d.data().dueDate) {
-          const dt = d.data().dueDate.toDate();
-          input.value = dt.toISOString().split('T')[0];
+          input.value = d.data().dueDate.toDate().toISOString().split('T')[0];
         }
       } catch (e) { console.error(e); }
       span.replaceWith(input); input.focus();
@@ -487,7 +475,6 @@ document.body.addEventListener('click', async (event) => {
       return;
     }
 
-    // ラベル編集モード切替
     const labelRow = target.closest('.label-item');
     if(labelRow){
         const id = labelRow.dataset.id;
@@ -510,7 +497,7 @@ document.body.addEventListener('click', async (event) => {
             if(!newName) return alert('ラベル名を入力してください。');
             if(labels.some(l=>l.name===newName && l.id!==id)) return alert('同名のラベルが存在します。');
             await updateDoc(doc(db, "labels", id), { name: newName });
-            return; // onSnapshotがUIを更新
+            return;
         }
         if(target.classList.contains('delete-label-btn')){
             const labelObj = labels.find(l => l.id === id);
@@ -527,9 +514,8 @@ document.body.addEventListener('click', async (event) => {
         }
     }
 
-    // 既存タスクの各種操作
     const taskItem = target.closest('li[data-id]');
-    if (taskItem) {
+    if (taskItem && !target.closest('.task-buttons') && !target.closest('.task-content')) {
         const taskId = taskItem.dataset.id;
         const taskDocRef = doc(db, "tasks", taskId);
         let needsReload = false, archiveReload = false;
