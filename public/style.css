@@ -1,13 +1,12 @@
-/* ======== カラーパレットと基本設定 ======== */
 :root {
   --bg-color: #fdfdff;
   --surface-color: #ffffff;
   --text-primary: #333740;
   --text-secondary: #8A94A8;
-  --primary-color: #AEC6CF; /* Pastel Blue */
-  --danger-color: #FF6961;  /* Pastel Red */
-  --warning-color: #FDFD96; /* Pastel Yellow */
-  --success-color: #77DD77; /* Pastel Green */
+  --primary-color: #AEC6CF;
+  --danger-color: #FF6961;
+  --warning-color: #FDFD96;
+  --success-color: #77DD77;
   --border-color: #e9ecef;
 }
 
@@ -21,27 +20,22 @@ body {
   background-attachment: fixed;
   transition: background-image 0.5s ease-in-out;
 }
-body.theme-pastel {
-  background-image: url('/images/wallpaper-pastel.jpg');
-}
-body.theme-okinawa {
-  background-image: url('/images/wallpaper-okinawa.jpg');
-}
+body.theme-pastel { background-image: url('/images/wallpaper-pastel.jpg'); }
+body.theme-okinawa { background-image: url('/images/wallpaper-okinawa.jpg'); }
+body.theme-jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
+body.theme-dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
 
-/* ======== 全体のレイアウト ======== */
 main, #auth-container, #archive-container {
   max-width: 600px;
   margin: 40px auto;
   padding: 30px 40px;
-  /* 変更点: 背景色をRGBAで透過させ、backdrop-filterを追加 */
-  background-color: rgba(255, 255, 255, 0.7); /* 白を70%の不透明度で */
-  backdrop-filter: blur(8px); /* 背景を少しぼかす */
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
 }
 
-/* ======== 文字のスタイル ======== */
 h1, h2 {
   color: var(--text-primary);
   border-bottom: 2px solid var(--primary-color);
@@ -52,7 +46,6 @@ h1, h2 {
 }
 h1 { text-align: center; }
 
-/* ======== リストのスタイル ======== */
 ul { list-style: none; padding: 0; min-height: 40px; }
 
 li {
@@ -60,10 +53,8 @@ li {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
-  /* 変更点: 背景色をRGBAで透過させ、backdrop-filterを追加 */
-  background-color: rgba(255, 255, 255, 0.75); /* 白を75%の不透明度で */
-  backdrop-filter: blur(5px); /* 背景を少しぼかす */
-  border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   padding: 12px 15px;
   margin-bottom: 10px;
@@ -88,7 +79,6 @@ li.completed .task-content span { text-decoration: line-through; color: var(--te
 }
 .due-date { font-size: 0.8em; color: var(--text-secondary); }
 
-/* ======== 色選択とラベル名ヒント ======== */
 #color-picker { display: flex; gap: 10px; margin-top: 15px; padding-left: 5px; flex-wrap: wrap; }
 .color-choice {
   width: 28px; height: 28px;
@@ -100,19 +90,9 @@ li.completed .task-content span { text-decoration: line-through; color: var(--te
 .color-choice:hover { transform: scale(1.1); }
 .color-choice.selected { border-color: var(--primary-color); }
 .no-labels-message { font-size: 0.9em; color: var(--text-secondary); }
+#selected-label-hint { margin-top: 8px; font-size: .9rem; color: var(--text-primary); min-height: 1.2em; }
 
-#selected-label-hint {
-  margin-top: 8px;
-  font-size: .9rem;
-  color: var(--text-primary);
-  min-height: 1.2em;
-}
-
-/* ======== 入力欄 ======== */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-textarea {
+input[type="text"], input[type="email"], input[type="password"], textarea {
   width: calc(100% - 24px);
   padding: 12px;
   border: 1px solid var(--border-color);
@@ -120,25 +100,17 @@ textarea {
   font-size: 16px;
   margin-bottom: 10px;
   font-family: inherit;
-  /* 変更点: 背景色をRGBAで透過 */
-  background-color: rgba(248, 249, 250, 0.8); /* 少し透過 */
+  background-color: rgba(248, 249, 250, 0.9);
   box-shadow: none;
 }
-input:focus, textarea:focus {
-  outline: 2px solid var(--primary-color);
-  border-color: var(--primary-color);
-}
+input:focus, textarea:focus { outline: 2px solid var(--primary-color); border-color: var(--primary-color); }
 .add-task-form { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
-#new-task-title-input { margin-bottom: 0; }
-#new-task-memo-input { min-height: 60px; margin-bottom: 0; }
-.add-task-form input[type="date"] { margin-bottom: 0; }
-.add-task-form button { margin: 0; }
+#new-task-title-input, #new-task-memo-input, .add-task-form input[type="date"], .add-task-form button { margin: 0; }
+#new-task-memo-input { min-height: 60px; }
 
-/* ======== ボタン ======== */
 button {
   padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
+  border: none; border-radius: 4px;
   background-color: var(--primary-color);
   color: #fff;
   font-size: 14px;
@@ -150,25 +122,18 @@ button {
 }
 button:hover { filter: brightness(95%); }
 
-.task-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.task-buttons { display: flex; align-items: center; gap: 8px; }
 
-/* ======== タスクのラベル再設定セレクト ======== */
 .label-select {
   appearance: none;
   padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  /* 変更点: 背景色をRGBAで透過 */
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   max-width: 160px;
 }
 
-/* ======== アクションメニューのスタイル ======== */
 .task-actions-container { position: relative; }
 .actions-button {
   background-color: var(--warning-color);
@@ -183,9 +148,8 @@ button:hover { filter: brightness(95%); }
   position: absolute;
   right: 0;
   top: 100%;
-  /* 変更点: 背景色をRGBAで透過 */
-  background-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(5px); /* 背景を少しぼかす */
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(5px);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 10;
@@ -194,38 +158,22 @@ button:hover { filter: brightness(95%); }
   border: 1px solid var(--border-color);
 }
 .actions-dropdown.visible { display: block; }
-.dropdown-item {
-  padding: 12px 15px;
-  cursor: pointer;
-  font-size: 14px;
-}
+.dropdown-item { padding: 12px 15px; cursor: pointer; font-size: 14px; }
 .dropdown-item:hover { background-color: #f1f3f5; }
 
-/* ======== ヘッダー ======== */
 #user-info {
   text-align: right; margin-bottom: 20px; color: var(--text-secondary);
   display: flex; justify-content: flex-end; align-items: center;
   gap: 10px;
 }
-#user-info span {
-  font-weight: 500;
-  color: var(--text-primary);
-}
+#user-info span { font-weight: 500; color: var(--text-primary); }
 .icon-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 5px;
-    margin: 0;
-    font-size: 24px;
-    line-height: 1;
-    opacity: 0.6;
-    transition: opacity 0.2s, transform 0.2s;
+    background: none; border: none; cursor: pointer;
+    padding: 5px; margin: 0; font-size: 24px; line-height: 1;
+    opacity: 0.6; transition: opacity 0.2s, transform 0.2s;
 }
-.icon-button:hover {
-    opacity: 1;
-    transform: scale(1.1);
-}
+.icon-button:hover { opacity: 1; transform: scale(1.1); }
+
 .main-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
@@ -242,23 +190,17 @@ button:hover { filter: brightness(95%); }
 #archive-container { display: none; }
 #archive-container button { display: block; margin: 20px auto 0; }
 
-/* ======== ラベル管理モーダル & タスク詳細モーダル & 設定モーダル ======== */
 .hidden { display: none !important; }
 
-#label-modal-backdrop,
-#task-detail-modal-backdrop,
-#settings-modal-backdrop {
+#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal,
-#task-detail-modal,
-#settings-modal {
-  /* 変更点: 背景色をRGBAで透過させ、backdrop-filterを追加 */
-  background-color: rgba(255, 255, 255, 0.7); /* 白を70%の不透明度で */
-  backdrop-filter: blur(8px); /* 背景を少しぼかす */
+#label-modal, #task-detail-modal, #settings-modal {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
   padding: 30px; border-radius: 4px;
   width: 90%; max-width: 520px;
   box-shadow: none;
@@ -267,37 +209,17 @@ button:hover { filter: brightness(95%); }
   flex-direction: column;
 }
 
-#task-detail-modal .view-mode,
-#task-detail-modal .edit-mode { flex-grow: 1; }
-#task-detail-modal h2 {
-    margin-top: 0;
-    font-size: 1.4em;
-    word-break: break-all;
-}
+#task-detail-modal .view-mode, #task-detail-modal .edit-mode { flex-grow: 1; }
+#task-detail-modal h2 { margin-top: 0; font-size: 1.4em; word-break: break-all; }
 #task-detail-modal p {
-    white-space: pre-wrap;
-    line-height: 1.7;
-    max-height: 60vh;
-    overflow-y: auto;
-    /* 変更点: 背景色をRGBAで透過 */
-    background-color: rgba(248, 249, 250, 0.8);
-    padding: 15px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
+    white-space: pre-wrap; line-height: 1.7; max-height: 60vh;
+    overflow-y: auto; background-color: rgba(248, 249, 250, 0.9);
+    padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);
     word-break: break-all;
 }
-#task-detail-modal .edit-mode input,
-#task-detail-modal .edit-mode textarea {
-    width: calc(100% - 24px);
-    margin-bottom: 15px;
-}
+#task-detail-modal .edit-mode input, #task-detail-modal .edit-mode textarea { width: calc(100% - 24px); margin-bottom: 15px; }
 #modal-edit-memo-input { min-height: 200px; }
-.modal-buttons {
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
+.modal-buttons { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
 #save-task-button { background-color: var(--success-color); }
 #cancel-edit-button { background-color: var(--text-secondary); }
 
@@ -305,154 +227,57 @@ button:hover { filter: brightness(95%); }
 .label-item {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
+  align-items: center; gap: 10px; padding: 10px;
   border-bottom: 1px solid var(--border-color);
 }
 .label-color-circle { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
-.label-view-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-.label-edit-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 0;
-}
-.label-edit-input {
-    width: calc(100% - 20px);
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
-}
-.edit-color-palette {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.edit-color-palette .palette-choice {
-    width: 24px;
-    height: 24px;
-}
-.label-buttons-container {
-    display: flex;
-    gap: 8px;
-}
-.label-edit-container.hidden,
-.label-view-container.hidden {
-    display: none;
-}
-.edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn {
-  padding: 6px 10px; font-size: 12px; margin: 0; flex-shrink: 0; }
+.label-view-container { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.label-edit-container { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.label-edit-input { width: calc(100% - 20px); padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.edit-color-palette { display: flex; gap: 8px; flex-wrap: wrap; }
+.edit-color-palette .palette-choice { width: 24px; height: 24px; }
+.label-buttons-container { display: flex; gap: 8px; }
+.label-edit-container.hidden, .label-view-container.hidden { display: none; }
+.edit-label-btn, .save-label-btn, .cancel-label-btn, .delete-label-btn { padding: 6px 10px; font-size: 12px; margin: 0; flex-shrink: 0; }
 .label-name { flex: 1; min-width: 0; }
-
 .label-item button.hidden { display: none; }
 
 #add-label-form input[type="text"] { width: calc(100% - 24px); margin-bottom: 10px; }
 .label-color-selector { display: flex; align-items: center; gap: 10px; }
-#label-color-palette {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+#label-color-palette { display: flex; gap: 8px; flex-wrap: wrap; }
 .palette-choice {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 3px solid transparent;
-  transition: border-color 0.2s;
+  width: 28px; height: 28px; border-radius: 4px;
+  cursor: pointer; border: 3px solid transparent; transition: border-color 0.2s;
 }
-.palette-choice.selected {
-  border-color: var(--primary-color);
-}
+.palette-choice.selected { border-color: var(--primary-color); }
 .label-color-selector button { flex-grow: 1; }
 
-.auth-form-footer {
-  max-width: 600px;
-  margin: -20px auto 40px;
-  text-align: center;
-}
+.auth-form-footer { max-width: 600px; margin: -20px auto 40px; text-align: center; }
 
-#settings-modal h2 {
-  margin-top: 0;
-  text-align: center;
-  padding-bottom: 20px;
-}
-.settings-section {
-  margin-bottom: 20px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 20px;
-}
-.settings-section h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1em;
-  color: var(--text-secondary);
-}
-.settings-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
-  font-size: 15px;
-}
-.settings-item a {
-  text-decoration: none;
-  color: var(--primary-color);
-  font-weight: 500;
-}
+#settings-modal h2 { margin-top: 0; text-align: center; padding-bottom: 20px; }
+.settings-section { margin-bottom: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+.settings-section h3 { margin: 0 0 15px; font-size: 1em; color: var(--text-secondary); }
+.settings-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 15px; }
+.settings-item a { text-decoration: none; color: var(--primary-color); font-weight: 500; }
 
-#wallpaper-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 15px;
-}
-.wallpaper-choice {
-  cursor: pointer;
-  text-align: center;
-}
+#wallpaper-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; }
+.wallpaper-choice { cursor: pointer; text-align: center; }
 .wallpaper-thumbnail {
-  width: 100%;
-  padding-top: 75%;
-  border-radius: 4px;
-  border: 2px solid var(--border-color);
-  background-size: cover;
-  background-position: center;
-  transition: border-color 0.2s;
+  width: 100%; padding-top: 75%; border-radius: 4px;
+  border: 2px solid var(--border-color); background-size: cover;
+  background-position: center; transition: border-color 0.2s;
 }
-.wallpaper-choice.selected .wallpaper-thumbnail {
-  border-color: var(--primary-color);
-}
-.wallpaper-choice span {
-  display: block;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--text-primary);
-}
+.wallpaper-choice.selected .wallpaper-thumbnail { border-color: var(--primary-color); }
+.wallpaper-choice span { display: block; margin-top: 8px; font-size: 13px; color: var(--text-primary); }
 .wallpaper-thumbnail.default { background-color: var(--bg-color); }
 .wallpaper-thumbnail.pastel { background-image: url('/images/wallpaper-pastel.jpg'); }
 .wallpaper-thumbnail.okinawa { background-image: url('/images/wallpaper-okinawa.jpg'); }
+.wallpaper-thumbnail.jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
+.wallpaper-thumbnail.dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
 
-#close-settings-modal-button {
-    display: block;
-    width: 100%;
-    margin: 20px auto 0;
-    background-color: var(--text-secondary);
-}
-#logout-button-modal.danger {
-  width: 100%;
-  background-color: var(--danger-color);
-  margin: 0;
-}
+#close-settings-modal-button { display: block; width: 100%; margin: 20px auto 0; background-color: var(--text-secondary); }
+#logout-button-modal.danger { width: 100%; background-color: var(--danger-color); margin: 0; }
 
-
-/* ======== レスポンシブ ======== */
 @media (max-width: 600px) {
   main, #auth-container, #archive-container { margin: 20px; padding: 15px 20px; }
   h1 { font-size: 1.8em; }
@@ -463,25 +288,11 @@ button:hover { filter: brightness(95%); }
     align-items: flex-start;
     gap: 12px;
   }
-  .add-task-form {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
+  .add-task-form { flex-direction: column; align-items: stretch; gap: 15px; }
   .task-buttons { width: 100%; justify-content: space-between; gap: 10px; }
   .label-select { flex: 1; max-width: none; }
-  #auth-container {
-    display: flex;
-    flex-direction: column;
-  }
-  #auth-container button {
-    margin-left: 0;
-    margin-right: 0;
-  }
-  #auth-container #signup-button {
-    margin-bottom: 10px;
-  }
-  .auth-form-footer {
-    margin-top: 20px;
-  }
+  #auth-container { display: flex; flex-direction: column; }
+  #auth-container button { margin-left: 0; margin-right: 0; }
+  #auth-container #signup-button { margin-bottom: 10px; }
+  .auth-form-footer { margin-top: 20px; }
 }
