@@ -103,7 +103,7 @@ let sleepEnabled = false;
 let sleepSeconds = 60; // default
 let sleepTimerId = null;
 const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle','custom'];
-let customWallpaperDataUrl = null; // base64 JPEG stored per account
+let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -178,14 +178,8 @@ async function loadUserSettings(userId) {
         const docSnap = await getDoc(settingsRef);
         const data = docSnap.exists() ? docSnap.data() : {};
         const theme = data.theme || 'default';
-        // Load custom wallpaper if set
-        if (data.customWallpaper) {
-            customWallpaperDataUrl = data.customWallpaper;
-            setCustomWallpaperVars(customWallpaperDataUrl);
-        } else {
-            customWallpaperDataUrl = null;
-            clearCustomWallpaperVars();
-        }
+        // Load custom wallpaper from this device (IndexedDB), not from Firestore
+        await loadCustomWallpaperFromDevice(userId);
         applyWallpaper(theme === 'custom' && !customWallpaperDataUrl ? 'default' : theme);
         // Sleep settings
         sleepEnabled = !!data.sleepEnabled;
@@ -646,7 +640,7 @@ if (chooseCustomWallpaperButton && customWallpaperInput) {
       const { full, thumb } = await prepareWallpaperDataUrls(file);
       customWallpaperDataUrl = full;
       setCustomWallpaperVars(full, thumb);
-      await saveCustomWallpaperPreference(currentUserId, full);
+      await saveCustomWallpaperToDevice(currentUserId, full, thumb);
       applyWallpaper('custom');
       await saveWallpaperPreference(currentUserId, 'custom');
     } catch (err) {
@@ -673,11 +667,59 @@ function clearCustomWallpaperVars() {
   root.style.removeProperty('--custom-wallpaper-thumb');
 }
 
-async function saveCustomWallpaperPreference(userId, dataUrl) {
-  if (!userId) return;
-  const settingsRef = doc(db, 'settings', userId);
-  // Store under 1MB; caller ensures size bounds
-  try { await setDoc(settingsRef, { customWallpaper: dataUrl }, { merge: true }); } catch (error) { console.error('Error saving custom wallpaper:', error); }
+// ==== Local (IndexedDB) storage for custom wallpaper ====
+async function idbOpen() {
+  return await new Promise((resolve, reject) => {
+    const req = indexedDB.open('ivy-task-local', 1);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('kv')) {
+        db.createObjectStore('kv', { keyPath: 'k' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await idbOpen();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.objectStore('kv').put({ k: key, v: value });
+  });
+}
+
+async function idbGet(key) {
+  const db = await idbOpen();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readonly');
+    tx.onerror = () => reject(tx.error);
+    const req = tx.objectStore('kv').get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.v : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveCustomWallpaperToDevice(userId, full, thumb) {
+  const uid = userId || 'anon';
+  await idbSet(`cw:full:${uid}`, full);
+  if (thumb) await idbSet(`cw:thumb:${uid}`, thumb);
+}
+
+async function loadCustomWallpaperFromDevice(userId) {
+  const uid = userId || 'anon';
+  const full = await idbGet(`cw:full:${uid}`);
+  const thumb = await idbGet(`cw:thumb:${uid}`);
+  if (full) {
+    customWallpaperDataUrl = full;
+    setCustomWallpaperVars(full, thumb || null);
+  } else {
+    customWallpaperDataUrl = null;
+    clearCustomWallpaperVars();
+  }
 }
 
 async function prepareWallpaperDataUrls(file) {
