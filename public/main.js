@@ -47,6 +47,9 @@ const signupButton = document.getElementById('signup-button');
 const loginButton = document.getElementById('login-button');
 
 const addButton = document.getElementById('add-task-button');
+const openAddTaskModalButton = document.getElementById('open-add-task-modal-button');
+const addTaskModalBackdrop = document.getElementById('add-task-modal-backdrop');
+const closeAddTaskModalButton = document.getElementById('close-add-task-modal-button');
 const titleInput = document.getElementById('new-task-title-input');
 const memoInput = document.getElementById('new-task-memo-input');
 const dueDateInput = document.getElementById('due-date-input');
@@ -303,13 +306,7 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
-  content.addEventListener('click', () => {
-    currentlyEditingTaskId = id;
-    modalTaskTitle.textContent = data.title || data.text;
-    modalTaskMemo.textContent = data.memo || '(メモはありません)';
-    switchToViewMode();
-    taskDetailModalBackdrop.classList.remove('hidden');
-  });
+  // コンテンツクリックでは編集モーダルを開かない（編集はメニューから）
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
   if (!isArchived) {
@@ -340,6 +337,8 @@ function renderTask(id, data, isArchived = false) {
   if (isArchived) {
     taskActions.push({ text: 'ストックへ戻す', status: 'stock', priority: Date.now() });
   } else {
+    // 明示的に編集を選べるようにする
+    taskActions.push({ text: '編集', action: 'edit' });
     if (data.status === 'stock') { taskActions.push({ text: 'Focus', status: 'today', priority: todayList.children.length }); }
     if (data.status === 'today') {
       taskActions.push({ text: '完了', status: 'completed' });
@@ -353,7 +352,13 @@ function renderTask(id, data, isArchived = false) {
     item.textContent = action.text;
     item.addEventListener('click', async () => {
       dropdown.classList.remove('visible');
-      if (action.action === 'delete') {
+      if (action.action === 'edit') {
+        currentlyEditingTaskId = id;
+        modalTaskTitle.textContent = data.title || data.text;
+        modalTaskMemo.textContent = data.memo || '(メモはありません)';
+        switchToViewMode();
+        taskDetailModalBackdrop.classList.remove('hidden');
+      } else if (action.action === 'delete') {
         if (confirm('このタスクを完全に削除しますか？')) {
           await deleteDoc(doc(db, "tasks", id));
           // その場でUIからも消す（特にアーカイブ画面はonSnapshotの監視外）
@@ -450,6 +455,8 @@ addButton.addEventListener('click', async () => {
   };
   await addDoc(collection(db, "tasks"), data);
   titleInput.value = ''; memoInput.value = ''; dueDateInput.value = '';
+  // 追加モーダルを閉じる
+  if (addTaskModalBackdrop) addTaskModalBackdrop.classList.add('hidden');
 });
 
 reloadButton.addEventListener('click', () => { location.reload(true); });
@@ -495,6 +502,22 @@ manageLabelsButton.addEventListener('click', () => {
   labelModalBackdrop.classList.remove('hidden');
 });
 closeLabelModalButton.addEventListener('click', () => labelModalBackdrop.classList.add('hidden'));
+
+// 追加: 新規タスクモーダルの開閉
+if (openAddTaskModalButton && addTaskModalBackdrop) {
+  openAddTaskModalButton.addEventListener('click', () => {
+    addTaskModalBackdrop.classList.remove('hidden');
+    // 直近のラベル状態を反映
+    updateColorPicker();
+    updateSelectedLabelHint();
+    // 初期フォーカス
+    setTimeout(() => { titleInput?.focus(); }, 0);
+  });
+}
+if (closeAddTaskModalButton && addTaskModalBackdrop) {
+  closeAddTaskModalButton.addEventListener('click', () => addTaskModalBackdrop.classList.add('hidden'));
+  addTaskModalBackdrop.addEventListener('click', (e) => { if (e.target === addTaskModalBackdrop) { addTaskModalBackdrop.classList.add('hidden'); } });
+}
 addLabelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = labelNameInput.value.trim();

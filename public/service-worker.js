@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v4-wallpapers';
+const CACHE_NAME = 'ivy-task-cache-v5-add-modal';
 const urlsToCache = [
   '/',
   '/index.html',

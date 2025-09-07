@@ -66,7 +66,7 @@ li.completed .task-content span { text-decoration: line-through; color: var(--te
   display: flex;
   flex-direction: column;
   gap: 4px;
-  cursor: pointer;
+  cursor: default;
   min-width: 0;
   overflow: hidden;
 }
@@ -192,13 +192,13 @@ button:hover { filter: brightness(95%); }
 
 .hidden { display: none !important; }
 
-#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop {
+#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal, #task-detail-modal, #settings-modal {
+#label-modal, #task-detail-modal, #settings-modal, #add-task-modal {
   background-color: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(8px);
   padding: 30px; border-radius: 4px;
@@ -208,6 +208,11 @@ button:hover { filter: brightness(95%); }
   display: flex;
   flex-direction: column;
 }
+
+/* タイトル左の追加ボタン配置用 */
+.title-bar { display: flex; align-items: center; gap: 10px; }
+.title-bar h1 { flex: 1; text-align: center; margin: 0; }
+.title-bar #open-add-task-modal-button { background-color: var(--success-color); }
 
 #task-detail-modal .view-mode, #task-detail-modal .edit-mode { flex-grow: 1; }
 #task-detail-modal h2 { margin-top: 0; font-size: 1.4em; word-break: break-all; }

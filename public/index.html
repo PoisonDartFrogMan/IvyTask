@@ -30,7 +30,10 @@
       <button id="settings-button" class="icon-button" title="設定">⚙️</button>
     </div>
 
-    <h1>IvyTask</h1>
+    <div class="title-bar">
+      <button id="open-add-task-modal-button">タスク追加</button>
+      <h1>IvyTask</h1>
+    </div>
 
     <div class="main-controls">
       <button id="reload-button">リロード</button>
@@ -49,17 +52,7 @@
       <ul id="stock-tasks"></ul>
     </section>
 
-    <section>
-      <h2>新しいタスクを追加</h2>
-      <div class="add-task-form">
-        <input type="text" id="new-task-title-input" placeholder="タスクのタイトルを入力...">
-        <textarea id="new-task-memo-input" placeholder="内容やメモ...（任意）"></textarea>
-        <input type="date" id="due-date-input">
-        <button id="add-task-button">ストックに追加</button>
-      </div>
-      <div id="color-picker"></div>
-      <div id="selected-label-hint" class="label-hint"></div>
-    </section>
+    
   </main>
 
   <div id="archive-container" style="display: none;">
@@ -148,6 +141,22 @@
       </div>
 
       <button id="close-settings-modal-button">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 追加: 新規タスク作成モーダル -->
+  <div id="add-task-modal-backdrop" class="hidden">
+    <div id="add-task-modal">
+      <h2>新しいタスクを追加</h2>
+      <div class="add-task-form">
+        <input type="text" id="new-task-title-input" placeholder="タスクのタイトルを入力...">
+        <textarea id="new-task-memo-input" placeholder="内容やメモ...（任意）"></textarea>
+        <input type="date" id="due-date-input">
+        <button id="add-task-button">ストックに追加</button>
+      </div>
+      <div id="color-picker"></div>
+      <div id="selected-label-hint" class="label-hint"></div>
+      <button id="close-add-task-modal-button">閉じる</button>
     </div>
   </div>
 
