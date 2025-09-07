@@ -34,6 +34,7 @@ main, #auth-container, #archive-container {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  position: relative; /* for absolute sticker positioning */
 }
 
 h1, h2 {
@@ -283,6 +284,17 @@ button:hover { filter: brightness(95%); }
 #close-settings-modal-button { display: block; width: 100%; margin: 20px auto 0; background-color: var(--text-secondary); }
 #logout-button-modal.danger { width: 100%; background-color: var(--danger-color); margin: 0; }
 
+/* Happy Hacking sticker */
+#happy-hacking-sticker {
+  position: absolute;
+  bottom: -18px;
+  left: -18px;
+  width: 160px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.95;
+}
+
 @media (max-width: 600px) {
   main, #auth-container, #archive-container { margin: 20px; padding: 15px 20px; }
   h1 { font-size: 1.8em; }
@@ -300,4 +312,5 @@ button:hover { filter: brightness(95%); }
   #auth-container button { margin-left: 0; margin-right: 0; }
   #auth-container #signup-button { margin-bottom: 10px; }
   .auth-form-footer { margin-top: 20px; }
+  #happy-hacking-sticker { width: 120px; bottom: -14px; left: -14px; }
 }

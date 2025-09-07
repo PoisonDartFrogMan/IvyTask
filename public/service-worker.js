@@ -8,6 +8,7 @@ const urlsToCache = [
   '/icon-192.png',
   '/icon-512.png',
   '/trash-icon.png',
+  '/happy-hacking.png',
   'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js',
   // <<< 変更点: 壁紙画像をすべてキャッシュ対象に追加 >>>
   '/images/wallpaper-pastel.jpg',
