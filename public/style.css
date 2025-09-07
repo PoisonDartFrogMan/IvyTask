@@ -283,6 +283,17 @@ button:hover { filter: brightness(95%); }
 .wallpaper-thumbnail.dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
 .wallpaper-thumbnail.sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
 
+/* Sleep mode: hide UI, keep wallpaper */
+body.sleeping #app-container,
+body.sleeping #archive-container,
+body.sleeping #label-modal-backdrop,
+body.sleeping #task-detail-modal-backdrop,
+body.sleeping #settings-modal-backdrop,
+body.sleeping #add-task-modal-backdrop,
+body.sleeping #happy-hacking-sticker {
+  display: none !important;
+}
+
 #close-settings-modal-button { display: block; width: 100%; margin: 20px auto 0; background-color: var(--text-secondary); }
 #logout-button-modal.danger { width: 100%; background-color: var(--danger-color); margin: 0; }
 

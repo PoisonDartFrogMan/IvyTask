@@ -140,6 +140,20 @@
           </div>
         </div>
       </div>
+
+      <div class="settings-section">
+        <h3>スリープ設定</h3>
+        <div class="settings-item">
+          <span>スリープモード</span>
+          <label>
+            <input type="checkbox" id="sleep-toggle"> 有効にする
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>スリープまでの時間（秒）</span>
+          <input type="number" id="sleep-seconds" min="1" max="180" step="1" value="60" style="width:90px;">
+        </div>
+      </div>
       
       <div class="settings-section">
         <button id="logout-button-modal" class="danger">ログアウト</button>

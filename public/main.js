@@ -38,6 +38,8 @@ const settingsButton = document.getElementById('settings-button');
 const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
 const closeSettingsModalButton = document.getElementById('close-settings-modal-button');
 const wallpaperChoices = document.getElementById('wallpaper-choices');
+const sleepToggle = document.getElementById('sleep-toggle');
+const sleepSecondsInput = document.getElementById('sleep-seconds');
 const settingsUserIdSpan = document.getElementById('settings-user-id');
 const logoutButtonModal = document.getElementById('logout-button-modal');
 
@@ -94,6 +96,11 @@ let unsubscribeLabels = () => {};
 let unsubscribeTasks = () => {};
 let currentlyEditingTaskId = null;
 let selectedLabelColor = null;
+// Sleep mode state
+let sleepEnabled = false;
+let sleepSeconds = 60; // default
+let sleepTimerId = null;
+const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny'];
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -124,7 +131,7 @@ onAuthStateChanged(auth, async (user) => {
         updateSelectedLabelHint();
     });
     
-    await loadWallpaperPreference(user.uid);
+    await loadUserSettings(user.uid);
     await runDailyAutomation(user.uid);
     
     unsubscribeTasks = onSnapshot(query(collection(db, "tasks"), where("userId", "==", user.uid), where("status", "in", ["stock", "today", "completed"])), (snapshot) => {
@@ -154,32 +161,69 @@ onAuthStateChanged(auth, async (user) => {
     archiveContainer.style.display = 'none';
     if (unsubscribeLabels) unsubscribeLabels();
     if (unsubscribeTasks) unsubscribeTasks();
+    sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
+    exitSleep();
     applyWallpaper('default');
   }
 });
 
 // ===== Wallpaper Functions =====
-async function loadWallpaperPreference(userId) {
+async function loadUserSettings(userId) {
     if (!userId) { applyWallpaper('default'); return; }
     const settingsRef = doc(db, 'settings', userId);
     try {
         const docSnap = await getDoc(settingsRef);
-        applyWallpaper(docSnap.exists() && docSnap.data().theme ? docSnap.data().theme : 'default');
+        const data = docSnap.exists() ? docSnap.data() : {};
+        const theme = data.theme || 'default';
+        applyWallpaper(theme);
+        // Sleep settings
+        sleepEnabled = !!data.sleepEnabled;
+        sleepSeconds = typeof data.sleepSeconds === 'number' ? Math.min(180, Math.max(1, Math.floor(data.sleepSeconds))) : 60;
+        if (sleepToggle) sleepToggle.checked = sleepEnabled;
+        if (sleepSecondsInput) sleepSecondsInput.value = sleepSeconds;
+        scheduleSleepTimer();
     } catch (error) {
-        console.error("Error loading wallpaper:", error);
+        console.error("Error loading settings:", error);
         applyWallpaper('default');
+        sleepEnabled = false; sleepSeconds = 60; scheduleSleepTimer();
     }
 }
 
 async function saveWallpaperPreference(userId, theme) {
     if (!userId) return;
     const settingsRef = doc(db, 'settings', userId);
-    try { await setDoc(settingsRef, { theme: theme }); } catch (error) { console.error("Error saving wallpaper:", error); }
+    try { await setDoc(settingsRef, { theme: theme }, { merge: true }); } catch (error) { console.error("Error saving wallpaper:", error); }
+}
+
+async function saveSleepPreference(userId, enabled, seconds) {
+    if (!userId) return;
+    const settingsRef = doc(db, 'settings', userId);
+    try { await setDoc(settingsRef, { sleepEnabled: !!enabled, sleepSeconds: seconds }, { merge: true }); } catch (error) { console.error("Error saving sleep settings:", error); }
 }
 
 function applyWallpaper(theme) {
-    document.body.className = theme && theme !== 'default' ? `theme-${theme}` : '';
+    // Preserve other classes like 'sleeping' while switching theme classes
+    THEME_KEYS.forEach(k => document.body.classList.remove(`theme-${k}`));
+    if (theme && theme !== 'default') {
+        document.body.classList.add(`theme-${theme}`);
+    }
     document.querySelectorAll('.wallpaper-choice').forEach(c => c.classList.toggle('selected', c.dataset.theme === theme));
+}
+
+function scheduleSleepTimer() {
+    if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
+    if (sleepEnabled && sleepSeconds > 0) {
+        sleepTimerId = setTimeout(enterSleep, sleepSeconds * 1000);
+    }
+}
+
+function enterSleep() {
+    document.body.classList.add('sleeping');
+}
+
+function exitSleep() {
+    document.body.classList.remove('sleeping');
+    scheduleSleepTimer();
 }
 
 
@@ -570,6 +614,48 @@ wallpaperChoices.addEventListener('click', (e) => {
         applyWallpaper(choice.dataset.theme);
         saveWallpaperPreference(currentUserId, choice.dataset.theme);
     }
+});
+
+if (sleepToggle) {
+  sleepToggle.addEventListener('change', () => {
+    sleepEnabled = sleepToggle.checked;
+    if (!sleepEnabled) { exitSleep(); }
+    scheduleSleepTimer();
+    saveSleepPreference(currentUserId, sleepEnabled, Math.min(180, Math.max(1, parseInt(sleepSecondsInput.value || '60', 10))));
+  });
+}
+
+if (sleepSecondsInput) {
+  const onSecondsChange = () => {
+    let v = parseInt(sleepSecondsInput.value || '60', 10);
+    if (isNaN(v)) v = 60;
+    v = Math.min(180, Math.max(1, v));
+    sleepSecondsInput.value = v;
+    sleepSeconds = v;
+    scheduleSleepTimer();
+    saveSleepPreference(currentUserId, sleepEnabled, sleepSeconds);
+  };
+  sleepSecondsInput.addEventListener('change', onSecondsChange);
+  sleepSecondsInput.addEventListener('input', () => {
+    // live update but not spammy; just reschedule locally
+    let v = parseInt(sleepSecondsInput.value || '60', 10);
+    if (!isNaN(v)) {
+      v = Math.min(180, Math.max(1, v));
+      sleepSeconds = v; scheduleSleepTimer();
+    }
+  });
+}
+
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (sleepEnabled) {
+      if (document.body.classList.contains('sleeping')) {
+        exitSleep();
+      } else {
+        scheduleSleepTimer();
+      }
+    }
+  }, { passive: true });
 });
 
 document.body.addEventListener('click', async (event) => {
