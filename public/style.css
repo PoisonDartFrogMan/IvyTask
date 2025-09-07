@@ -140,11 +140,17 @@ button:hover { filter: brightness(95%); }
 .task-actions-container { position: relative; }
 .actions-button {
   background-color: var(--warning-color);
-  padding: 8px 12px;
+  padding: 10px 14px;
   line-height: 1;
-  font-size: 14px;
+  font-size: 20px; /* enlarge ▼ */
   margin: 0;
   color: #545454;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 6px;
 }
 .actions-dropdown {
   display: none;
@@ -266,7 +272,7 @@ button:hover { filter: brightness(95%); }
 .settings-section { margin-bottom: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
 .settings-section h3 { margin: 0 0 15px; font-size: 1em; color: var(--text-secondary); }
 .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 15px; }
-.settings-item a { text-decoration: none; color: var(--primary-color); font-weight: 500; }
+.settings-item a { text-decoration: none; color: var(--text-primary); font-weight: 600; }
 
 #wallpaper-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; }
 .wallpaper-choice { cursor: pointer; text-align: center; }
