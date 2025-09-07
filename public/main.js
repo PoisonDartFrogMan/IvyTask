@@ -100,7 +100,7 @@ let selectedLabelColor = null;
 let sleepEnabled = false;
 let sleepSeconds = 60; // default
 let sleepTimerId = null;
-const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking'];
+const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle'];
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
