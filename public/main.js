@@ -354,12 +354,18 @@ function renderTask(id, data, isArchived = false) {
     item.addEventListener('click', async () => {
       dropdown.classList.remove('visible');
       if (action.action === 'delete') {
-        if (confirm('このタスクを完全に削除しますか？')) { await deleteDoc(doc(db, "tasks", id)); }
+        if (confirm('このタスクを完全に削除しますか？')) {
+          await deleteDoc(doc(db, "tasks", id));
+          // その場でUIからも消す（特にアーカイブ画面はonSnapshotの監視外）
+          li.remove();
+        }
       } else {
         if (action.status === 'today' && todayList.children.length >= 6) { return alert('「Focalist」は6つまでです。'); }
         const updateData = { status: action.status };
         if (action.priority !== undefined) { updateData.priority = action.priority; }
         await updateDoc(doc(db, "tasks", id), updateData);
+        // アーカイブ画面での操作時は、変更後にアーカイブ一覧から取り除く
+        if (isArchived) { li.remove(); }
       }
     });
     dropdown.appendChild(item);
