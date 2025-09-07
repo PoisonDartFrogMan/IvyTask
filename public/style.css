@@ -24,6 +24,7 @@ body.theme-pastel { background-image: url('/images/wallpaper-pastel.jpg'); }
 body.theme-okinawa { background-image: url('/images/wallpaper-okinawa.jpg'); }
 body.theme-jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
 body.theme-dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
+body.theme-sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
 
 main, #auth-container, #archive-container {
   max-width: 600px;
@@ -280,6 +281,7 @@ button:hover { filter: brightness(95%); }
 .wallpaper-thumbnail.okinawa { background-image: url('/images/wallpaper-okinawa.jpg'); }
 .wallpaper-thumbnail.jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
 .wallpaper-thumbnail.dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
+.wallpaper-thumbnail.sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
 
 #close-settings-modal-button { display: block; width: 100%; margin: 20px auto 0; background-color: var(--text-secondary); }
 #logout-button-modal.danger { width: 100%; background-color: var(--danger-color); margin: 0; }

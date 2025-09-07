@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v5-add-modal';
+const CACHE_NAME = 'ivy-task-cache-v6-sunny-beach';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -14,7 +14,8 @@ const urlsToCache = [
   '/images/wallpaper-pastel.jpg',
   '/images/wallpaper-okinawa.jpg',
   '/images/wallpaper-jungle.jpg',
-  '/images/wallpaper-dolphins.jpg'
+  '/images/wallpaper-dolphins.jpg',
+  '/images/wallpaper-sunny.jpg'
 ];
 
 // 1. インストール処理
