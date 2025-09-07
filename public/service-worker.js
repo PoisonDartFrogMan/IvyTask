@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v6-sunny-beach';
+const CACHE_NAME = 'ivy-task-cache-v7-happyhacking';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -15,7 +15,8 @@ const urlsToCache = [
   '/images/wallpaper-okinawa.jpg',
   '/images/wallpaper-jungle.jpg',
   '/images/wallpaper-dolphins.jpg',
-  '/images/wallpaper-sunny.jpg'
+  '/images/wallpaper-sunny.jpg',
+  '/images/wallpaper-happy-hacking.jpg'
 ];
 
 // 1. インストール処理

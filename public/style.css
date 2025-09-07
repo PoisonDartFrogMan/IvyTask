@@ -25,6 +25,7 @@ body.theme-okinawa { background-image: url('/images/wallpaper-okinawa.jpg'); }
 body.theme-jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
 body.theme-dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
 body.theme-sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
+body.theme-happyhacking { background-image: url('/images/wallpaper-happy-hacking.jpg'); }
 
 main, #auth-container, #archive-container {
   max-width: 600px;
@@ -282,6 +283,7 @@ button:hover { filter: brightness(95%); }
 .wallpaper-thumbnail.jungle { background-image: url('/images/wallpaper-jungle.jpg'); }
 .wallpaper-thumbnail.dolphins { background-image: url('/images/wallpaper-dolphins.jpg'); }
 .wallpaper-thumbnail.sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
+.wallpaper-thumbnail.happyhacking { background-image: url('/images/wallpaper-happy-hacking.jpg'); }
 
 /* Sleep mode: hide UI, keep wallpaper */
 body.sleeping #app-container,
