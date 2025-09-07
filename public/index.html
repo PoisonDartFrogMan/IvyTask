@@ -111,12 +111,14 @@
         </div>
       </div>
 
-      <div class="settings-section">
-        <h3>壁紙設定</h3>
-        <div id="wallpaper-choices">
-          <div class="wallpaper-choice" data-theme="default" title="デフォルト">
-            <div class="wallpaper-thumbnail default"></div>
-            <span>デフォルト</span>
+        <div class="settings-section">
+          <h3>壁紙設定</h3>
+          <div id="wallpaper-choices">
+          <div class="wallpaper-choice" data-theme="custom" title="カスタム壁紙">
+            <div class="wallpaper-thumbnail custom" id="custom-wallpaper-thumb"></div>
+            <button id="choose-custom-wallpaper-button" type="button">画像を選択</button>
+            <input type="file" id="custom-wallpaper-input" accept="image/*" class="hidden" />
+            <span>カスタム</span>
           </div>
           <div class="wallpaper-choice" data-theme="pastel" title="パステルビーチ">
             <div class="wallpaper-thumbnail pastel"></div>

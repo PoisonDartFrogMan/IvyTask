@@ -38,6 +38,8 @@ const settingsButton = document.getElementById('settings-button');
 const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
 const closeSettingsModalButton = document.getElementById('close-settings-modal-button');
 const wallpaperChoices = document.getElementById('wallpaper-choices');
+const customWallpaperInput = document.getElementById('custom-wallpaper-input');
+const chooseCustomWallpaperButton = document.getElementById('choose-custom-wallpaper-button');
 const sleepToggle = document.getElementById('sleep-toggle');
 const sleepSecondsInput = document.getElementById('sleep-seconds');
 const settingsUserIdSpan = document.getElementById('settings-user-id');
@@ -100,7 +102,8 @@ let selectedLabelColor = null;
 let sleepEnabled = false;
 let sleepSeconds = 60; // default
 let sleepTimerId = null;
-const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle'];
+const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle','custom'];
+let customWallpaperDataUrl = null; // base64 JPEG stored per account
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -175,7 +178,15 @@ async function loadUserSettings(userId) {
         const docSnap = await getDoc(settingsRef);
         const data = docSnap.exists() ? docSnap.data() : {};
         const theme = data.theme || 'default';
-        applyWallpaper(theme);
+        // Load custom wallpaper if set
+        if (data.customWallpaper) {
+            customWallpaperDataUrl = data.customWallpaper;
+            setCustomWallpaperVars(customWallpaperDataUrl);
+        } else {
+            customWallpaperDataUrl = null;
+            clearCustomWallpaperVars();
+        }
+        applyWallpaper(theme === 'custom' && !customWallpaperDataUrl ? 'default' : theme);
         // Sleep settings
         sleepEnabled = !!data.sleepEnabled;
         sleepSeconds = typeof data.sleepSeconds === 'number' ? Math.min(180, Math.max(1, Math.floor(data.sleepSeconds))) : 60;
@@ -611,10 +622,105 @@ settingsModalBackdrop.addEventListener('click', (e) => { if (e.target === settin
 wallpaperChoices.addEventListener('click', (e) => {
     const choice = e.target.closest('.wallpaper-choice');
     if (choice) {
-        applyWallpaper(choice.dataset.theme);
-        saveWallpaperPreference(currentUserId, choice.dataset.theme);
+        const theme = choice.dataset.theme;
+        if (theme === 'custom' && !customWallpaperDataUrl) {
+            // No image yet → prompt upload
+            if (chooseCustomWallpaperButton) chooseCustomWallpaperButton.click();
+            return;
+        }
+        applyWallpaper(theme);
+        saveWallpaperPreference(currentUserId, theme);
     }
 });
+
+if (chooseCustomWallpaperButton && customWallpaperInput) {
+  chooseCustomWallpaperButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    customWallpaperInput.click();
+  });
+  customWallpaperInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
+    try {
+      const { full, thumb } = await prepareWallpaperDataUrls(file);
+      customWallpaperDataUrl = full;
+      setCustomWallpaperVars(full, thumb);
+      await saveCustomWallpaperPreference(currentUserId, full);
+      applyWallpaper('custom');
+      await saveWallpaperPreference(currentUserId, 'custom');
+    } catch (err) {
+      console.error('Failed to set custom wallpaper:', err);
+      alert('壁紙の設定に失敗しました。別の画像でお試しください。');
+    } finally {
+      customWallpaperInput.value = '';
+    }
+  });
+}
+
+function setCustomWallpaperVars(fullDataUrl, thumbDataUrl) {
+  const root = document.documentElement;
+  if (fullDataUrl) root.style.setProperty('--custom-wallpaper', `url('${fullDataUrl}')`);
+  if (thumbDataUrl) root.style.setProperty('--custom-wallpaper-thumb', `url('${thumbDataUrl}')`);
+  if (!thumbDataUrl && fullDataUrl) {
+    // Use full as thumb fallback (not ideal but fine)
+    root.style.setProperty('--custom-wallpaper-thumb', `url('${fullDataUrl}')`);
+  }
+}
+function clearCustomWallpaperVars() {
+  const root = document.documentElement;
+  root.style.removeProperty('--custom-wallpaper');
+  root.style.removeProperty('--custom-wallpaper-thumb');
+}
+
+async function saveCustomWallpaperPreference(userId, dataUrl) {
+  if (!userId) return;
+  const settingsRef = doc(db, 'settings', userId);
+  // Store under 1MB; caller ensures size bounds
+  try { await setDoc(settingsRef, { customWallpaper: dataUrl }, { merge: true }); } catch (error) { console.error('Error saving custom wallpaper:', error); }
+}
+
+async function prepareWallpaperDataUrls(file) {
+  const img = await readFileToImage(file);
+  const full = await resizeToDataUrl(img, 1920, 1080, 0.85, 900_000);
+  const thumb = await resizeToDataUrl(img, 400, 300, 0.7, 150_000);
+  return { full, thumb };
+}
+
+function readFileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeToDataUrl(img, maxW, maxH, quality = 0.85, targetMaxBytes) {
+  const { width, height } = constrainSize(img.width, img.height, maxW, maxH);
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+  let q = quality;
+  let dataUrl = canvas.toDataURL('image/jpeg', q);
+  // Simple quality step-down loop to stay under target size
+  while (targetMaxBytes && dataUrl.length * 0.75 > targetMaxBytes && q > 0.4) {
+    q -= 0.1;
+    dataUrl = canvas.toDataURL('image/jpeg', q);
+  }
+  return dataUrl;
+}
+
+function constrainSize(w, h, maxW, maxH) {
+  const ratio = Math.min(maxW / w, maxH / h, 1);
+  return { width: Math.round(w * ratio), height: Math.round(h * ratio) };
+}
 
 if (sleepToggle) {
   sleepToggle.addEventListener('change', () => {
