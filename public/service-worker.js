@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v8-skycastle';
+const CACHE_NAME = 'ivy-task-cache-v9-lunar';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -18,6 +18,7 @@ const urlsToCache = [
   '/images/wallpaper-sunny.jpg',
   '/images/wallpaper-happy-hacking.jpg',
   '/images/wallpaper-skycastle.jpg'
+  ,'/images/wallpaper-lunar.jpg'
 ];
 
 // 1. インストール処理

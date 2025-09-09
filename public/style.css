@@ -28,6 +28,7 @@ body.theme-sunny { background-image: url('/images/wallpaper-sunny.jpg'); }
 body.theme-happyhacking { background-image: url('/images/wallpaper-happy-hacking.jpg'); }
 body.theme-skycastle { background-image: url('/images/wallpaper-skycastle.jpg'); }
 body.theme-custom { background-image: var(--custom-wallpaper, none); }
+body.theme-lunar { background-image: url('/images/wallpaper-lunar.jpg'); }
 
 main, #auth-container, #archive-container {
   max-width: 600px;
@@ -304,6 +305,7 @@ body.modal-open { overflow: hidden; }
 .wallpaper-thumbnail.happyhacking { background-image: url('/images/wallpaper-happy-hacking.jpg'); }
 .wallpaper-thumbnail.skycastle { background-image: url('/images/wallpaper-skycastle.jpg'); }
 .wallpaper-thumbnail.custom { background-image: var(--custom-wallpaper-thumb, none); background-color: #e9ecef; }
+.wallpaper-thumbnail.lunar { background-image: url('/images/wallpaper-lunar.jpg'); }
 
 /* Sleep mode: hide UI, keep wallpaper */
 body.sleeping #app-container,
