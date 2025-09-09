@@ -610,9 +610,14 @@ function switchToEditMode() {
 settingsButton.addEventListener('click', () => {
     if(auth.currentUser){ settingsUserIdSpan.textContent = auth.currentUser.email; }
     settingsModalBackdrop.classList.remove('hidden');
+    document.body.classList.add('modal-open');
 });
-closeSettingsModalButton.addEventListener('click', () => { settingsModalBackdrop.classList.add('hidden'); });
-settingsModalBackdrop.addEventListener('click', (e) => { if (e.target === settingsModalBackdrop) { settingsModalBackdrop.classList.add('hidden'); } });
+const closeSettings = () => {
+  settingsModalBackdrop.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+};
+closeSettingsModalButton.addEventListener('click', closeSettings);
+settingsModalBackdrop.addEventListener('click', (e) => { if (e.target === settingsModalBackdrop) { closeSettings(); } });
 wallpaperChoices.addEventListener('click', (e) => {
     const choice = e.target.closest('.wallpaper-choice');
     if (choice) {

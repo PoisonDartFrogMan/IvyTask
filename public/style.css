@@ -220,6 +220,16 @@ button:hover { filter: brightness(95%); }
   flex-direction: column;
 }
 
+/* Make settings modal content scrollable on small viewports */
+#settings-modal {
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent background scroll when a modal is open */
+body.modal-open { overflow: hidden; }
+
 /* タイトル左の追加ボタン配置用 */
 .title-bar { display: flex; align-items: center; gap: 10px; }
 .title-bar h1 { flex: 1; text-align: center; margin: 0; }
