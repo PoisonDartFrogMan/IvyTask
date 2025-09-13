@@ -57,6 +57,9 @@ const closeAddTaskModalButton = document.getElementById('close-add-task-modal-bu
 const titleInput = document.getElementById('new-task-title-input');
 const memoInput = document.getElementById('new-task-memo-input');
 const dueDateInput = document.getElementById('due-date-input');
+const dueYearInput = document.getElementById('due-year');
+const dueMonthInput = document.getElementById('due-month');
+const dueDayInput = document.getElementById('due-day');
 const colorPicker = document.getElementById('color-picker');
 const selectedLabelHint = document.getElementById('selected-label-hint');
 
@@ -491,6 +494,96 @@ loginButton.addEventListener('click', () => {
   signInWithEmailAndPassword(auth, email, password).catch(err => alert('ログイン失敗: ' + err.message));
 });
 logoutButtonModal.addEventListener('click', () => signOut(auth));
+
+// ===== Due date segmented inputs (YYYY / MM / DD) =====
+(function setupSegmentedDueDateInputs(){
+  if (!dueYearInput || !dueMonthInput || !dueDayInput || !dueDateInput) return;
+
+  const clamp = (num, min, max) => Math.min(max, Math.max(min, num));
+
+  const normalize = () => {
+    const y = dueYearInput.value.replace(/\D+/g, '');
+    const m = dueMonthInput.value.replace(/\D+/g, '');
+    const d = dueDayInput.value.replace(/\D+/g, '');
+    dueYearInput.value = y.slice(0, 4);
+    dueMonthInput.value = m.slice(0, 2);
+    dueDayInput.value = d.slice(0, 2);
+  };
+
+  const composeAndValidate = () => {
+    normalize();
+    if (dueYearInput.value.length !== 4 || dueMonthInput.value.length === 0 || dueDayInput.value.length === 0) {
+      dueDateInput.value = '';
+      return;
+    }
+    const y = parseInt(dueYearInput.value, 10);
+    let m = parseInt(dueMonthInput.value, 10);
+    let d = parseInt(dueDayInput.value, 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) { dueDateInput.value = ''; return; }
+    m = clamp(m, 1, 12);
+    const lastDay = new Date(y, m, 0).getDate();
+    d = clamp(d, 1, lastDay);
+    const mm = String(m).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const dateStr = `${y}-${mm}-${dd}`;
+    const dt = new Date(dateStr);
+    if (!isNaN(dt.getTime()) && dt.getFullYear() === y && (dt.getMonth()+1) === parseInt(mm,10) && dt.getDate() === parseInt(dd,10)) {
+      dueDateInput.value = dateStr;
+    } else {
+      dueDateInput.value = '';
+    }
+  };
+
+  const autoAdvance = (current, next, maxLen) => {
+    current.addEventListener('input', () => {
+      if (current.value.replace(/\D+/g, '').length >= maxLen) {
+        next?.focus();
+        next?.select?.();
+      }
+      composeAndValidate();
+    });
+  };
+
+  const autoBackspace = (current, prev) => {
+    current.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && current.selectionStart === 0 && current.selectionEnd === 0 && !current.value) {
+        prev?.focus();
+        prev?.select?.();
+        e.preventDefault();
+      }
+    });
+  };
+
+  // Initialize from any existing hidden value (if any)
+  const initFromHidden = () => {
+    const v = (dueDateInput.value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const [yy, mm, dd] = v.split('-');
+      dueYearInput.value = yy; dueMonthInput.value = mm; dueDayInput.value = dd;
+    } else {
+      dueYearInput.value = ''; dueMonthInput.value = ''; dueDayInput.value = '';
+    }
+  };
+
+  // Wire up events
+  autoAdvance(dueYearInput, dueMonthInput, 4);
+  autoAdvance(dueMonthInput, dueDayInput, 2);
+  autoAdvance(dueDayInput, null, 2);
+  autoBackspace(dueMonthInput, dueYearInput);
+  autoBackspace(dueDayInput, dueMonthInput);
+  [dueYearInput, dueMonthInput, dueDayInput].forEach(el => {
+    el.addEventListener('input', composeAndValidate);
+    el.addEventListener('blur', composeAndValidate);
+  });
+
+  // Reset fields whenever the add modal opens
+  if (openAddTaskModalButton && addTaskModalBackdrop) {
+    openAddTaskModalButton.addEventListener('click', () => {
+      initFromHidden();
+      composeAndValidate();
+    });
+  }
+})();
 
 addButton.addEventListener('click', async () => {
   const title = titleInput.value.trim();

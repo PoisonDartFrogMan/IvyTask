@@ -113,6 +113,13 @@ input:focus, textarea:focus { outline: 2px solid var(--primary-color); border-co
 #new-task-title-input, #new-task-memo-input, .add-task-form input[type="date"], .add-task-form button { margin: 0; }
 #new-task-memo-input { min-height: 60px; }
 
+/* Segmented date inputs (Calm & Focused) */
+.date-inputs { display: inline-flex; align-items: center; gap: 6px; }
+.date-inputs input { text-align: center; }
+#due-year { width: 5.5em; }
+#due-month, #due-day { width: 3.2em; }
+.date-sep { color: var(--text-secondary); }
+
 button {
   padding: 10px 15px;
   border: none; border-radius: 4px;
@@ -276,7 +283,7 @@ body.modal-open { overflow: hidden; }
 .palette-choice.selected { border-color: var(--primary-color); }
 .label-color-selector button { flex-grow: 1; }
 
-.auth-form-footer { max-width: 600px; margin: -20px auto 40px; text-align: center; }
+.auth-form-footer { max-width: 600px; margin: 16px auto 40px; text-align: center; }
 
 #settings-modal h2 { margin-top: 0; text-align: center; padding-bottom: 20px; }
 .settings-section { margin-bottom: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }

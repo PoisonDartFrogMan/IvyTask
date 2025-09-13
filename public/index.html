@@ -184,7 +184,14 @@
       <div class="add-task-form">
         <input type="text" id="new-task-title-input" placeholder="タスクのタイトルを入力...">
         <textarea id="new-task-memo-input" placeholder="内容やメモ...（任意）"></textarea>
-        <input type="date" id="due-date-input">
+        <div class="date-inputs" id="due-date-fields">
+          <input type="text" id="due-year" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" aria-label="年">
+          <span class="date-sep">/</span>
+          <input type="text" id="due-month" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" aria-label="月">
+          <span class="date-sep">/</span>
+          <input type="text" id="due-day" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" aria-label="日">
+          <input type="date" id="due-date-input" class="hidden">
+        </div>
         <button id="add-task-button">ストックに追加</button>
       </div>
       <div id="color-picker"></div>
