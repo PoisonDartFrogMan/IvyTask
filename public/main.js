@@ -80,6 +80,13 @@ const labelNameInput = document.getElementById('label-name-input');
 const labelColorPalette = document.getElementById('label-color-palette');
 const labelsList = document.getElementById('labels-list');
 
+// Updates UI elements
+const updatesWindow = document.getElementById('updates-window');
+const updatesListCompact = document.getElementById('updates-list-compact');
+const updatesModalBackdrop = document.getElementById('updates-modal-backdrop');
+const updatesListFull = document.getElementById('updates-list-full');
+const closeUpdatesModalButton = document.getElementById('close-updates-modal-button');
+
 const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backdrop');
 const modalTaskTitle = document.getElementById('modal-task-title');
 const modalTaskMemo = document.getElementById('modal-task-memo');
@@ -223,6 +230,129 @@ function scheduleSleepTimer() {
     if (sleepEnabled && sleepSeconds > 0) {
         sleepTimerId = setTimeout(enterSleep, sleepSeconds * 1000);
     }
+}
+
+// ===== Updates (GitHub) =====
+const GITHUB_REPO = 'PoisonDartFrogMan/IvyTask';
+const UPDATES_CACHE_KEY = 'ivy_updates_cache_v1';
+const UPDATES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function fetchGithubUpdates() {
+  try {
+    // Try cache first
+    const cached = localStorage.getItem(UPDATES_CACHE_KEY);
+    if (cached) {
+      const { ts, items } = JSON.parse(cached);
+      if (Array.isArray(items) && Date.now() - ts < UPDATES_CACHE_TTL_MS) {
+        return items;
+      }
+    }
+
+    // Prefer releases
+    const relRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=20`, { headers: { 'Accept': 'application/vnd.github+json' } });
+    let items = [];
+    if (relRes.ok) {
+      const releases = await relRes.json();
+      if (Array.isArray(releases) && releases.length > 0) {
+        items = releases.map(r => ({
+          title: r.name || r.tag_name || '(no title)',
+          date: r.published_at || r.created_at || r.created_at,
+          url: r.html_url
+        }));
+      }
+    }
+
+    // Fallback to commits
+    if (items.length === 0) {
+      const comRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits?per_page=20`, { headers: { 'Accept': 'application/vnd.github+json' } });
+      if (comRes.ok) {
+        const commits = await comRes.json();
+        if (Array.isArray(commits)) {
+          items = commits.map(c => ({
+            title: (c.commit && c.commit.message ? c.commit.message.split('\n')[0] : '(commit)'),
+            date: (c.commit && c.commit.author && c.commit.author.date) || null,
+            url: c.html_url
+          }));
+        }
+      }
+    }
+
+    // Cache and return
+    const normalized = items.map(i => ({
+      title: i.title || '(no title)',
+      date: i.date ? new Date(i.date).toISOString() : null,
+      url: i.url || '#'
+    }));
+    localStorage.setItem(UPDATES_CACHE_KEY, JSON.stringify({ ts: Date.now(), items: normalized }));
+    return normalized;
+  } catch (e) {
+    console.warn('Failed to fetch updates', e);
+    return [];
+  }
+}
+
+function formatDateShort(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}/${m}/${dd}`;
+  } catch { return ''; }
+}
+
+function renderUpdatesCompact(items) {
+  if (!updatesListCompact) return;
+  updatesListCompact.innerHTML = '';
+  if (!items || items.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'updates-item';
+    const span = document.createElement('span'); span.textContent = '更新情報を取得できませんでした。';
+    const time = document.createElement('time'); time.textContent = '';
+    li.append(span, time);
+    updatesListCompact.appendChild(li);
+    return;
+  }
+  items.slice(0, 3).forEach(i => {
+    const li = document.createElement('li');
+    li.className = 'updates-item';
+    const title = document.createElement('span'); title.textContent = i.title; title.className = 'updates-title';
+    const time = document.createElement('time'); time.textContent = formatDateShort(i.date);
+    li.append(title, time);
+    updatesListCompact.appendChild(li);
+  });
+}
+
+function renderUpdatesFull(items) {
+  if (!updatesListFull) return;
+  updatesListFull.innerHTML = '';
+  if (!items || items.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'updates-item';
+    const span = document.createElement('span'); span.textContent = '更新情報はありません。';
+    const time = document.createElement('time'); time.textContent = '';
+    li.append(span, time);
+    updatesListFull.appendChild(li);
+    return;
+  }
+  items.forEach(i => {
+    const li = document.createElement('li');
+    li.className = 'updates-item';
+    const title = document.createElement('span'); title.textContent = i.title; title.className = 'updates-title';
+    const time = document.createElement('time'); time.textContent = formatDateShort(i.date);
+    li.append(title, time);
+    updatesListFull.appendChild(li);
+  });
+}
+
+async function ensureUpdatesLoaded() {
+  const items = await fetchGithubUpdates();
+  renderUpdatesCompact(items);
+  // If modal is open, also refresh full list
+  if (updatesModalBackdrop && !updatesModalBackdrop.classList.contains('hidden')) {
+    renderUpdatesFull(items);
+  }
 }
 
 function enterSleep() {
@@ -704,6 +834,8 @@ settingsButton.addEventListener('click', () => {
     if(auth.currentUser){ settingsUserIdSpan.textContent = auth.currentUser.email; }
     settingsModalBackdrop.classList.remove('hidden');
     document.body.classList.add('modal-open');
+    // Load updates when settings opens
+    ensureUpdatesLoaded();
 });
 const closeSettings = () => {
   settingsModalBackdrop.classList.add('hidden');
@@ -724,6 +856,19 @@ wallpaperChoices.addEventListener('click', (e) => {
         saveWallpaperPreference(currentUserId, theme);
     }
 });
+
+// Open updates modal on window click
+if (updatesWindow && updatesModalBackdrop) {
+  updatesWindow.addEventListener('click', async () => {
+    updatesModalBackdrop.classList.remove('hidden');
+    const items = await fetchGithubUpdates();
+    renderUpdatesFull(items);
+  });
+}
+if (closeUpdatesModalButton && updatesModalBackdrop) {
+  closeUpdatesModalButton.addEventListener('click', () => updatesModalBackdrop.classList.add('hidden'));
+  updatesModalBackdrop.addEventListener('click', (e) => { if (e.target === updatesModalBackdrop) { updatesModalBackdrop.classList.add('hidden'); } });
+}
 
 if (chooseCustomWallpaperButton && customWallpaperInput) {
   chooseCustomWallpaperButton.addEventListener('click', (e) => {

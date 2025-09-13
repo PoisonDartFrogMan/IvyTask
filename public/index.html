@@ -111,6 +111,14 @@
         </div>
       </div>
 
+      <div class="settings-section">
+        <h3>更新情報</h3>
+        <div id="updates-window" class="updates-window" title="クリックして拡大表示">
+          <ul id="updates-list-compact" class="updates-list"></ul>
+          <div class="updates-footer">最新3件を表示中 — クリックで全件</div>
+        </div>
+      </div>
+
         <div class="settings-section">
           <h3>壁紙設定</h3>
           <div id="wallpaper-choices">
@@ -197,6 +205,15 @@
       <div id="color-picker"></div>
       <div id="selected-label-hint" class="label-hint"></div>
       <button id="close-add-task-modal-button">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 更新情報モーダル -->
+  <div id="updates-modal-backdrop" class="hidden">
+    <div id="updates-modal">
+      <h2>更新情報</h2>
+      <ul id="updates-list-full" class="updates-list"></ul>
+      <button id="close-updates-modal-button">閉じる</button>
     </div>
   </div>
 

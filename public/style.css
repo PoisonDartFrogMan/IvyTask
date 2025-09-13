@@ -209,13 +209,13 @@ button:hover { opacity: 0.9; }
 
 .hidden { display: none !important; }
 
-#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop {
+#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop, #updates-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal, #task-detail-modal, #settings-modal, #add-task-modal {
+#label-modal, #task-detail-modal, #settings-modal, #add-task-modal, #updates-modal {
   background-color: var(--surface-color);
   padding: 30px; border-radius: 4px;
   width: 90%; max-width: 520px;
@@ -231,6 +231,11 @@ button:hover { opacity: 0.9; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+/* Make updates modal scrollable as well */
+#updates-modal { max-height: calc(100vh - 60px); overflow: hidden; display: flex; flex-direction: column; }
+#updates-list-full { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#close-updates-modal-button { margin-top: 12px; align-self: center; }
+.updates-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Prevent background scroll when a modal is open */
 body.modal-open { overflow: hidden; }
@@ -291,6 +296,24 @@ body.modal-open { overflow: hidden; }
 .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 15px; }
 .settings-item a { text-decoration: none; color: var(--text-primary); font-weight: 600; }
 
+/* Updates window */
+.updates-window {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+  padding: 12px 12px 8px;
+  cursor: pointer;
+}
+.updates-window:hover { box-shadow: 0 6px 14px 0 rgba(0,0,0,0.06); }
+.updates-list { list-style: none; padding: 0; margin: 0; }
+.updates-item { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline; padding: 8px 4px; border-bottom: 1px dashed var(--border-color); }
+.updates-item:last-child { border-bottom: none; }
+.updates-item a { color: var(--text-primary); text-decoration: none; }
+.updates-item a:hover { text-decoration: underline; }
+.updates-item time { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.updates-footer { margin-top: 8px; color: var(--text-secondary); font-size: 12px; text-align: right; }
+
 #wallpaper-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; }
 .wallpaper-choice { cursor: pointer; text-align: center; }
 .wallpaper-thumbnail {
@@ -318,6 +341,7 @@ body.sleeping #label-modal-backdrop,
 body.sleeping #task-detail-modal-backdrop,
 body.sleeping #settings-modal-backdrop,
 body.sleeping #add-task-modal-backdrop,
+body.sleeping #updates-modal-backdrop,
 body.sleeping #happy-hacking-sticker {
   display: none !important;
 }
