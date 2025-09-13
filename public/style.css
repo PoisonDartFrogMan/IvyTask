@@ -1,13 +1,13 @@
 :root {
-  --bg-color: #fdfdff;
-  --surface-color: #ffffff;
-  --text-primary: #333740;
-  --text-secondary: #8A94A8;
-  --primary-color: #AEC6CF;
-  --danger-color: #FF6961;
-  --warning-color: #FDFD96;
-  --success-color: #77DD77;
-  --border-color: #e9ecef;
+  --bg-color: #F5F5F5; /* 非常に薄い、暖かみのあるグレー */
+  --surface-color: #FFFFFF; /* 純粋な白。紙のような質感 */
+  --text-primary: #333333; /* 真っ黒ではない、柔らかい黒 */
+  --text-secondary: #888888; /* 主張しすぎないグレー */
+  --primary-color: #B2C8BA; /* 落ち着いたセージグリーン */
+  --danger-color: #E57373; /* 落ち着いた赤 */
+  --warning-color: #FDFD96; /* 既存使用箇所のため維持 */
+  --success-color: #81C784; /* 落ち着いた緑 */
+  --border-color: #E0E0E0; /* 最低限のグレー */
 }
 
 body {
@@ -34,11 +34,10 @@ main, #auth-container, #archive-container {
   max-width: 600px;
   margin: 40px auto;
   padding: 30px 40px;
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
   position: relative; /* for absolute sticker positioning */
 }
 
@@ -48,7 +47,7 @@ h1, h2 {
   padding-bottom: 10px;
   margin-top: 20px;
   margin-bottom: 20px;
-  font-weight: 600;
+  font-weight: 500;
 }
 h1 { text-align: center; }
 
@@ -59,12 +58,12 @@ li {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 10px;
-  background-color: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 12px 15px;
   margin-bottom: 10px;
-  border-left-width: 5px;
+  border-left-width: 3px;
 }
 li.completed .task-content span { text-decoration: line-through; color: var(--text-secondary); }
 
@@ -106,7 +105,7 @@ input[type="text"], input[type="email"], input[type="password"], textarea {
   font-size: 16px;
   margin-bottom: 10px;
   font-family: inherit;
-  background-color: rgba(248, 249, 250, 0.9);
+  background-color: var(--bg-color);
   box-shadow: none;
 }
 input:focus, textarea:focus { outline: 2px solid var(--primary-color); border-color: var(--primary-color); }
@@ -120,13 +119,13 @@ button {
   background-color: var(--primary-color);
   color: #fff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color .2s;
+  transition: opacity .2s;
   margin: 0 0 0 5px;
   white-space: nowrap;
 }
-button:hover { filter: brightness(95%); }
+button:hover { opacity: 0.9; }
 
 .task-buttons { display: flex; align-items: center; gap: 8px; }
 
@@ -135,7 +134,7 @@ button:hover { filter: brightness(95%); }
   padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--surface-color);
   font-size: 13px;
   max-width: 160px;
 }
@@ -160,10 +159,9 @@ button:hover { filter: brightness(95%); }
   position: absolute;
   right: 0;
   top: 100%;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(5px);
+  background-color: var(--surface-color);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
   z-index: 10;
   min-width: 140px;
   overflow: hidden;
@@ -211,11 +209,10 @@ button:hover { filter: brightness(95%); }
   z-index: 1000;
 }
 #label-modal, #task-detail-modal, #settings-modal, #add-task-modal {
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
+  background-color: var(--surface-color);
   padding: 30px; border-radius: 4px;
   width: 90%; max-width: 520px;
-  box-shadow: none;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -240,7 +237,7 @@ body.modal-open { overflow: hidden; }
 #task-detail-modal h2 { margin-top: 0; font-size: 1.4em; word-break: break-all; }
 #task-detail-modal p {
     white-space: pre-wrap; line-height: 1.7; max-height: 60vh;
-    overflow-y: auto; background-color: rgba(248, 249, 250, 0.9);
+    overflow-y: auto; background-color: var(--bg-color);
     padding: 15px; border-radius: 4px; border: 1px solid var(--border-color);
     word-break: break-all;
 }
@@ -260,7 +257,7 @@ body.modal-open { overflow: hidden; }
 .label-color-circle { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
 .label-view-container { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .label-edit-container { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.label-edit-input { width: calc(100% - 20px); padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.label-edit-input { width: calc(100% - 20px); padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; }
 .edit-color-palette { display: flex; gap: 8px; flex-wrap: wrap; }
 .edit-color-palette .palette-choice { width: 24px; height: 24px; }
 .label-buttons-container { display: flex; gap: 8px; }
