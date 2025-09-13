@@ -44,7 +44,6 @@ const sleepToggle = document.getElementById('sleep-toggle');
 const sleepSecondsInput = document.getElementById('sleep-seconds');
 const settingsUserIdSpan = document.getElementById('settings-user-id');
 const logoutButtonModal = document.getElementById('logout-button-modal');
-const updatesNewButton = document.getElementById('updates-new-button');
 
 const emailInput = document.getElementById('email-input');
 const passwordInput = document.getElementById('password-input');
@@ -87,7 +86,6 @@ const updatesListCompact = document.getElementById('updates-list-compact');
 const updatesModalBackdrop = document.getElementById('updates-modal-backdrop');
 const updatesListFull = document.getElementById('updates-list-full');
 const closeUpdatesModalButton = document.getElementById('close-updates-modal-button');
-const updatesRestartHint = document.getElementById('updates-restart-hint');
 
 const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backdrop');
 const modalTaskTitle = document.getElementById('modal-task-title');
@@ -169,8 +167,6 @@ onAuthStateChanged(auth, async (user) => {
     });
 
     activateDragAndDrop();
-    // Check updates badge after sign-in when main UI is available
-    checkAndShowNewBadge();
   } else {
     currentUserId = null;
     authContainer.style.display = 'block';
@@ -240,7 +236,6 @@ function scheduleSleepTimer() {
 const GITHUB_REPO = 'PoisonDartFrogMan/IvyTask';
 const UPDATES_CACHE_KEY = 'ivy_updates_cache_v1';
 const UPDATES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const UPDATES_LAST_SEEN_KEY = 'ivy_updates_last_seen_iso';
 
 async function fetchGithubUpdates() {
   try {
@@ -358,28 +353,6 @@ async function ensureUpdatesLoaded() {
   if (updatesModalBackdrop && !updatesModalBackdrop.classList.contains('hidden')) {
     renderUpdatesFull(items);
   }
-  // Mark latest as seen when settings is open
-  if (items && items.length > 0) {
-    const latest = items[0].date || null;
-    if (latest) localStorage.setItem(UPDATES_LAST_SEEN_KEY, latest);
-    setNewBadge(false);
-  }
-}
-
-function setNewBadge(visible) {
-  if (!updatesNewButton) return;
-  updatesNewButton.classList.toggle('hidden', !visible);
-}
-
-async function checkAndShowNewBadge() {
-  try {
-    const items = await fetchGithubUpdates();
-    const latest = items && items.length > 0 ? items[0].date : null;
-    if (!latest) { setNewBadge(false); return; }
-    const lastSeen = localStorage.getItem(UPDATES_LAST_SEEN_KEY) || '';
-    const isNew = !lastSeen || new Date(latest).getTime() > new Date(lastSeen).getTime();
-    setNewBadge(!!isNew);
-  } catch { setNewBadge(false); }
 }
 
 function enterSleep() {
@@ -857,22 +830,16 @@ function switchToEditMode() {
     cancelEditButton.classList.remove('hidden');
 }
 
-let openedViaNewClick = false;
 settingsButton.addEventListener('click', () => {
     if(auth.currentUser){ settingsUserIdSpan.textContent = auth.currentUser.email; }
     settingsModalBackdrop.classList.remove('hidden');
     document.body.classList.add('modal-open');
     // Load updates when settings opens
     ensureUpdatesLoaded();
-    if (updatesRestartHint) {
-      updatesRestartHint.classList.toggle('hidden', !openedViaNewClick);
-    }
-    openedViaNewClick = false;
 });
 const closeSettings = () => {
   settingsModalBackdrop.classList.add('hidden');
   document.body.classList.remove('modal-open');
-  if (updatesRestartHint) updatesRestartHint.classList.add('hidden');
 };
 closeSettingsModalButton.addEventListener('click', closeSettings);
 settingsModalBackdrop.addEventListener('click', (e) => { if (e.target === settingsModalBackdrop) { closeSettings(); } });
@@ -901,14 +868,6 @@ if (updatesWindow && updatesModalBackdrop) {
 if (closeUpdatesModalButton && updatesModalBackdrop) {
   closeUpdatesModalButton.addEventListener('click', () => updatesModalBackdrop.classList.add('hidden'));
   updatesModalBackdrop.addEventListener('click', (e) => { if (e.target === updatesModalBackdrop) { updatesModalBackdrop.classList.add('hidden'); } });
-}
-
-// NEW badge button opens settings and shows restart hint
-if (updatesNewButton) {
-  updatesNewButton.addEventListener('click', () => {
-    openedViaNewClick = true;
-    settingsButton?.click();
-  });
 }
 
 if (chooseCustomWallpaperButton && customWallpaperInput) {
