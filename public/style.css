@@ -184,6 +184,18 @@ button:hover { opacity: 0.9; }
   gap: 10px;
 }
 #user-info span { font-weight: 500; color: var(--text-primary); }
+.new-badge {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background-color: var(--danger-color);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+}
+.new-badge:hover { opacity: 0.9; }
 .icon-button {
     background: none; border: none; cursor: pointer;
     padding: 5px; margin: 0; font-size: 24px; line-height: 1;
@@ -291,6 +303,7 @@ body.modal-open { overflow: hidden; }
 .auth-form-footer { max-width: 600px; margin: 16px auto 40px; text-align: center; }
 
 #settings-modal h2 { margin-top: 0; text-align: center; padding-bottom: 20px; }
+.updates-restart-hint { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border-color); border-left: 3px solid var(--primary-color); border-radius: 4px; background-color: var(--bg-color); color: var(--text-primary); }
 .settings-section { margin-bottom: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
 .settings-section h3 { margin: 0 0 15px; font-size: 1em; color: var(--text-secondary); }
 .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 15px; }
