@@ -121,9 +121,20 @@
         </div>
       </div>
 
-        <div class="settings-section">
-          <h3>壁紙設定</h3>
-          <div id="wallpaper-choices">
+      <div class="settings-section">
+        <h3>フィードバック / 要望</h3>
+        <p class="settings-help" style="margin: 0 0 8px; color: var(--text-secondary);">
+          製作者へのメッセージを送信できます。バグ報告や要望など何でもどうぞ。
+        </p>
+        <textarea id="feedback-message-input" placeholder="ご自由にお書きください（2000文字まで）" maxlength="2000"></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button id="send-feedback-button">送信</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>壁紙設定</h3>
+        <div id="wallpaper-choices">
           <div class="wallpaper-choice" data-theme="custom" title="カスタム壁紙">
             <div class="wallpaper-thumbnail custom" id="custom-wallpaper-thumb"></div>
             <button id="choose-custom-wallpaper-button" type="button">画像を選択</button>

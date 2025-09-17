@@ -87,6 +87,10 @@ const updatesModalBackdrop = document.getElementById('updates-modal-backdrop');
 const updatesListFull = document.getElementById('updates-list-full');
 const closeUpdatesModalButton = document.getElementById('close-updates-modal-button');
 
+// Feedback elements
+const feedbackMessageInput = document.getElementById('feedback-message-input');
+const sendFeedbackButton = document.getElementById('send-feedback-button');
+
 const taskDetailModalBackdrop = document.getElementById('task-detail-modal-backdrop');
 const modalTaskTitle = document.getElementById('modal-task-title');
 const modalTaskMemo = document.getElementById('modal-task-memo');
@@ -900,6 +904,34 @@ if (chooseCustomWallpaperButton && customWallpaperInput) {
       alert('壁紙の設定に失敗しました。別の画像でお試しください。');
     } finally {
       customWallpaperInput.value = '';
+    }
+  });
+}
+
+// ===== Feedback / Requests =====
+if (sendFeedbackButton && feedbackMessageInput) {
+  sendFeedbackButton.addEventListener('click', async () => {
+    try {
+      const msg = (feedbackMessageInput.value || '').trim();
+      if (!currentUserId) { alert('ログイン後にご利用ください。'); return; }
+      if (!msg) { alert('メッセージを入力してください。'); return; }
+      sendFeedbackButton.disabled = true;
+      sendFeedbackButton.textContent = '送信中...';
+      await addDoc(collection(db, 'feedback'), {
+        userId: currentUserId,
+        email: auth.currentUser?.email || null,
+        message: msg,
+        createdAt: serverTimestamp(),
+        ua: navigator.userAgent || null
+      });
+      feedbackMessageInput.value = '';
+      alert('送信しました。ご協力ありがとうございます！');
+    } catch (e) {
+      console.error('Failed to send feedback', e);
+      alert('送信に失敗しました。ネットワーク状況をご確認の上、再度お試しください。');
+    } finally {
+      sendFeedbackButton.disabled = false;
+      sendFeedbackButton.textContent = '送信';
     }
   });
 }
