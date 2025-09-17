@@ -488,6 +488,15 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
+  // タスク本体をクリックしたら内容/メモのポップアップ（閲覧モード）を開く
+  content.addEventListener('click', (e) => {
+    e.stopPropagation();
+    currentlyEditingTaskId = id;
+    modalTaskTitle.textContent = data.title || data.text;
+    modalTaskMemo.textContent = data.memo || '(メモはありません)';
+    switchToViewMode();
+    taskDetailModalBackdrop.classList.remove('hidden');
+  });
   // コンテンツクリックでは編集モーダルを開かない（編集はメニューから）
   const buttons = document.createElement('div');
   buttons.className = 'task-buttons';
