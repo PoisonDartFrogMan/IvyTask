@@ -97,6 +97,7 @@ const modalViewMode = taskDetailModalBackdrop.querySelector('.view-mode');
 const modalEditMode = taskDetailModalBackdrop.querySelector('.edit-mode');
 const modalEditTitleInput = document.getElementById('modal-edit-title-input');
 const modalEditMemoInput = document.getElementById('modal-edit-memo-input');
+const modalEditDueDateInput = document.getElementById('modal-edit-due-date-input');
 const editTaskButton = document.getElementById('edit-task-button');
 const saveTaskButton = document.getElementById('save-task-button');
 const cancelEditButton = document.getElementById('cancel-edit-button');
@@ -109,6 +110,7 @@ let labels = [];
 let unsubscribeLabels = () => {};
 let unsubscribeTasks = () => {};
 let currentlyEditingTaskId = null;
+let currentlyEditingTaskDueDate = null; // Date or null
 let selectedLabelColor = null;
 // Sleep mode state
 let sleepEnabled = false;
@@ -490,10 +492,15 @@ function renderTask(id, data, isArchived = false) {
     content.appendChild(due);
   }
   li.appendChild(content);
-  // タスク本体をクリックしたら内容/メモのポップアップ（閲覧モード）を開く
+  // タスク本体をクリックしたら内容/メモのポップアップ（閲覧モード）
+  // ただし、期日クリックはインライン編集に委ねる
   content.addEventListener('click', (e) => {
+    if (e.target.classList?.contains('due-date') || e.target.closest?.('.due-date')) {
+      return; // グローバルの期日編集ハンドラに任せる
+    }
     e.stopPropagation();
     currentlyEditingTaskId = id;
+    currentlyEditingTaskDueDate = data.dueDate ? data.dueDate.toDate() : null;
     modalTaskTitle.textContent = data.title || data.text;
     modalTaskMemo.textContent = data.memo || '(メモはありません)';
     switchToViewMode();
@@ -547,6 +554,7 @@ function renderTask(id, data, isArchived = false) {
       dropdown.classList.remove('visible');
       if (action.action === 'edit') {
         currentlyEditingTaskId = id;
+        currentlyEditingTaskDueDate = data.dueDate ? data.dueDate.toDate() : null;
         modalTaskTitle.textContent = data.title || data.text;
         modalTaskMemo.textContent = data.memo || '(メモはありません)';
         switchToViewMode();
@@ -813,13 +821,21 @@ addLabelForm.addEventListener('submit', async (e) => {
 editTaskButton.addEventListener('click', () => {
   modalEditTitleInput.value = modalTaskTitle.textContent;
   modalEditMemoInput.value = modalTaskMemo.textContent === '(メモはありません)' ? '' : modalTaskMemo.textContent;
+  if (modalEditDueDateInput) {
+    modalEditDueDateInput.value = currentlyEditingTaskDueDate ? new Date(currentlyEditingTaskDueDate).toISOString().split('T')[0] : '';
+  }
   switchToEditMode();
 });
 saveTaskButton.addEventListener('click', async () => {
   if (!currentlyEditingTaskId) return;
   const newTitle = modalEditTitleInput.value.trim();
   if (!newTitle) return alert('タイトルは必須です。');
-  await updateDoc(doc(db, "tasks", currentlyEditingTaskId), { title: newTitle, memo: modalEditMemoInput.value.trim() });
+  const update = { title: newTitle, memo: modalEditMemoInput.value.trim() };
+  if (modalEditDueDateInput) {
+    const v = (modalEditDueDateInput.value || '').trim();
+    update.dueDate = v ? Timestamp.fromDate(new Date(v)) : null;
+  }
+  await updateDoc(doc(db, "tasks", currentlyEditingTaskId), update);
   taskDetailModalBackdrop.classList.add('hidden');
 });
 cancelEditButton.addEventListener('click', () => { switchToViewMode(); });
