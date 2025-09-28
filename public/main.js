@@ -12,7 +12,8 @@ import {
   initializeRecurringTasks,
   setRecurringTaskUser,
   refreshTodayRecurringTasks,
-  teardownRecurringTasks
+  teardownRecurringTasks,
+  updateRecurringTaskLabels
 } from './recurring-tasks.js';
 
 // ===== Firebase config & Initialize =====
@@ -73,11 +74,14 @@ const selectedLabelHint = document.getElementById('selected-label-hint');
 const stockList = document.getElementById('stock-tasks');
 const todayList = document.getElementById('today-tasks');
 const archiveList = document.getElementById('archive-tasks');
+const archiveSelectAllCheckbox = document.getElementById('archive-select-all-checkbox');
+const archiveDeleteSelectedButton = document.getElementById('archive-delete-selected-button');
 
 const reloadButton = document.getElementById('reload-button');
 const resetDayButton = document.getElementById('reset-day-button');
 const archiveViewButton = document.getElementById('archive-view-button');
 const backToMainButton = document.getElementById('back-to-main-button');
+const backToMainButtonTop = document.getElementById('back-to-main-button-top');
 
 const manageLabelsButton = document.getElementById('manage-labels-button');
 const labelModalBackdrop = document.getElementById('label-modal-backdrop');
@@ -119,6 +123,7 @@ let unsubscribeTasks = () => {};
 let currentlyEditingTaskId = null;
 let currentlyEditingTaskDueDate = null; // Date or null
 let selectedLabelColor = null;
+const selectedArchivedTaskIds = new Set();
 // Sleep mode state
 let sleepEnabled = false;
 let sleepSeconds = 60; // default
@@ -155,6 +160,7 @@ onAuthStateChanged(auth, async (user) => {
         });
         updateColorPicker();
         updateSelectedLabelHint();
+        updateRecurringTaskLabels(labels);
     });
     
     await loadUserSettings(user.uid);
@@ -478,9 +484,35 @@ function updateSelectedLabelHint() {
 // ===== Tasks Functions =====
 async function loadArchivedTasks(userId) {
   archiveList.innerHTML = '';
+  selectedArchivedTaskIds.clear();
+  if (archiveSelectAllCheckbox) {
+    archiveSelectAllCheckbox.checked = false;
+    archiveSelectAllCheckbox.indeterminate = false;
+  }
+  updateArchiveSelectionUI();
   const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "==", "archived"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
   snap.forEach(d => renderTask(d.id, d.data(), true));
+  updateArchiveSelectionUI();
+}
+
+function updateArchiveSelectionUI() {
+  if (!archiveDeleteSelectedButton || !archiveSelectAllCheckbox || !archiveList) return;
+  const checkboxes = archiveList.querySelectorAll('.archive-select-checkbox');
+  const total = checkboxes.length;
+  const selected = selectedArchivedTaskIds.size;
+
+  archiveDeleteSelectedButton.disabled = selected === 0;
+
+  if (total === 0) {
+    archiveSelectAllCheckbox.checked = false;
+    archiveSelectAllCheckbox.indeterminate = false;
+    archiveSelectAllCheckbox.disabled = true;
+  } else {
+    archiveSelectAllCheckbox.disabled = false;
+    archiveSelectAllCheckbox.checked = selected === total;
+    archiveSelectAllCheckbox.indeterminate = selected > 0 && selected < total;
+  }
 }
 
 function renderTask(id, data, isArchived = false) {
@@ -490,6 +522,30 @@ function renderTask(id, data, isArchived = false) {
   const label = labels.find(l => l.id === data.labelId);
   li.style.borderLeftColor = label ? label.color : '#e0e0e0';
   li.style.backgroundColor = label ? `${label.color}20` : 'transparent';
+  let archiveCheckbox = null;
+  if (isArchived) {
+    li.classList.add('archive-item');
+    const selectCell = document.createElement('div');
+    selectCell.className = 'archive-select-cell';
+    archiveCheckbox = document.createElement('input');
+    archiveCheckbox.type = 'checkbox';
+    archiveCheckbox.className = 'archive-select-checkbox';
+    archiveCheckbox.dataset.taskId = id;
+    archiveCheckbox.addEventListener('click', (event) => event.stopPropagation());
+    archiveCheckbox.addEventListener('change', () => {
+      if (archiveCheckbox.checked) {
+        selectedArchivedTaskIds.add(id);
+      } else {
+        selectedArchivedTaskIds.delete(id);
+      }
+      updateArchiveSelectionUI();
+    });
+    selectCell.appendChild(archiveCheckbox);
+    if (selectedArchivedTaskIds.has(id)) {
+      archiveCheckbox.checked = true;
+    }
+    li.appendChild(selectCell);
+  }
   const content = document.createElement('div');
   content.className = 'task-content';
   const title = document.createElement('span');
@@ -574,6 +630,8 @@ function renderTask(id, data, isArchived = false) {
           await deleteDoc(doc(db, "tasks", id));
           // その場でUIからも消す（特にアーカイブ画面はonSnapshotの監視外）
           li.remove();
+          selectedArchivedTaskIds.delete(id);
+          updateArchiveSelectionUI();
         }
       } else {
         if (action.status === 'today' && todayList.children.length >= 6) { return alert('「Focalist」は6つまでです。'); }
@@ -581,7 +639,11 @@ function renderTask(id, data, isArchived = false) {
         if (action.priority !== undefined) { updateData.priority = action.priority; }
         await updateDoc(doc(db, "tasks", id), updateData);
         // アーカイブ画面での操作時は、変更後にアーカイブ一覧から取り除く
-        if (isArchived) { li.remove(); }
+        if (isArchived) {
+          li.remove();
+          selectedArchivedTaskIds.delete(id);
+          updateArchiveSelectionUI();
+        }
       }
     });
     dropdown.appendChild(item);
@@ -597,6 +659,9 @@ function renderTask(id, data, isArchived = false) {
   if (isArchived) archiveList.appendChild(li);
   else if (data.status === 'today' || data.status === 'completed') todayList.appendChild(li);
   else stockList.appendChild(li);
+  if (isArchived) {
+    updateArchiveSelectionUI();
+  }
 }
 
 function createButton(text, className) {
@@ -793,10 +858,64 @@ archiveViewButton.addEventListener('click', () => {
   archiveContainer.style.display = 'block';
   loadArchivedTasks(currentUserId);
 });
-backToMainButton.addEventListener('click', () => {
+
+function exitArchiveView() {
   archiveContainer.style.display = 'none';
   mainContainer.style.display = 'block';
-});
+  selectedArchivedTaskIds.clear();
+  if (archiveSelectAllCheckbox) {
+    archiveSelectAllCheckbox.checked = false;
+    archiveSelectAllCheckbox.indeterminate = false;
+  }
+  updateArchiveSelectionUI();
+}
+
+if (backToMainButton) {
+  backToMainButton.addEventListener('click', exitArchiveView);
+}
+if (backToMainButtonTop) {
+  backToMainButtonTop.addEventListener('click', exitArchiveView);
+}
+
+if (archiveSelectAllCheckbox) {
+  archiveSelectAllCheckbox.addEventListener('change', () => {
+    if (!archiveList) return;
+    selectedArchivedTaskIds.clear();
+    const checkboxes = archiveList.querySelectorAll('.archive-select-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = archiveSelectAllCheckbox.checked;
+      const taskId = cb.dataset.taskId;
+      if (archiveSelectAllCheckbox.checked && taskId) {
+        selectedArchivedTaskIds.add(taskId);
+      }
+    });
+    updateArchiveSelectionUI();
+  });
+}
+
+if (archiveDeleteSelectedButton) {
+  archiveDeleteSelectedButton.addEventListener('click', async () => {
+    if (selectedArchivedTaskIds.size === 0) return;
+    if (!confirm('選択したアーカイブ済みタスクを削除しますか？')) return;
+    const ids = Array.from(selectedArchivedTaskIds);
+    const batch = writeBatch(db);
+    ids.forEach(taskId => {
+      batch.delete(doc(db, 'tasks', taskId));
+    });
+    try {
+      await batch.commit();
+      ids.forEach(taskId => {
+        const el = archiveList?.querySelector(`li[data-id="${taskId}"]`);
+        if (el) el.remove();
+        selectedArchivedTaskIds.delete(taskId);
+      });
+      updateArchiveSelectionUI();
+    } catch (error) {
+      console.error('Failed to delete archived tasks:', error);
+      alert('選択したタスクの削除に失敗しました。時間をおいて再度お試しください。');
+    }
+  });
+}
 
 manageLabelsButton.addEventListener('click', () => {
   initializeLabelColorPalette();

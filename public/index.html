@@ -66,6 +66,16 @@
   </main>
 
   <div id="archive-container" style="display: none;">
+      <div class="archive-toolbar">
+        <button id="back-to-main-button-top">メイン画面へ戻る</button>
+        <div class="archive-bulk-actions">
+          <label class="archive-select-all">
+            <input type="checkbox" id="archive-select-all-checkbox">
+            全て選択
+          </label>
+          <button id="archive-delete-selected-button" type="button" disabled>選択したタスクを削除</button>
+        </div>
+      </div>
       <h1>アーカイブ</h1>
       <ul id="archive-tasks"></ul>
       <button id="back-to-main-button">メイン画面へ戻る</button>
@@ -212,6 +222,11 @@
       <h2>繰り返しタスクを追加</h2>
       <form id="recurring-task-form">
         <input type="text" id="recurring-task-input" placeholder="タスクのタイトルを入力..." required>
+        <textarea id="recurring-task-memo" placeholder="内容やメモ...（任意）"></textarea>
+        <label class="form-label" for="recurring-task-label">ラベル</label>
+        <select id="recurring-task-label">
+          <option value="">ラベルなし</option>
+        </select>
         <label class="form-label" for="recurring-type">種類</label>
         <select id="recurring-type" required>
           <option value="" disabled selected>選択してください</option>

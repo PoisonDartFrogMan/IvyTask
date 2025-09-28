@@ -5,6 +5,7 @@ import {
   where,
   onSnapshot,
   deleteDoc,
+  updateDoc,
   doc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -18,6 +19,8 @@ let eventListenersInitialized = false;
 const recurringModalBackdrop = document.getElementById('recurring-task-modal-backdrop');
 const recurringForm = document.getElementById('recurring-task-form');
 const recurringTaskInput = document.getElementById('recurring-task-input');
+const recurringTaskMemoInput = document.getElementById('recurring-task-memo');
+const recurringTaskLabelSelect = document.getElementById('recurring-task-label');
 const recurringTypeSelect = document.getElementById('recurring-type');
 const monthlyTypeSelect = document.getElementById('monthly-type');
 const monthlyDateSelect = document.getElementById('monthly-date');
@@ -32,19 +35,36 @@ const monthlyDateSelector = document.getElementById('monthly-date-selector');
 const monthlyWeekSelector = document.getElementById('monthly-week-selector');
 const openRecurringModalButton = document.getElementById('open-recurring-task-modal-button');
 const closeRecurringModalButton = document.getElementById('close-recurring-modal-button');
+const recurringModalTitle = document.querySelector('#recurring-task-modal h2');
+const recurringModalSubmitButton = recurringForm?.querySelector('button[type="submit"]');
 const recurringTasksContainer = document.getElementById('recurring-tasks-container');
 const todayRecurringTasksList = document.getElementById('today-recurring-tasks');
-const allRecurringTasksContainer = document.getElementById('all-recurring-tasks-container');
-const allRecurringTasksList = document.getElementById('all-recurring-tasks');
 const openRecurringListModalButton = document.getElementById('open-recurring-list-modal-button');
 const recurringListModalBackdrop = document.getElementById('recurring-list-modal-backdrop');
 const closeRecurringListModalButton = document.getElementById('close-recurring-list-modal-button');
 const recurringListModalItems = document.getElementById('recurring-list-modal-items');
 
+let recurringLabels = [];
+const labelMap = new Map();
+let editingRecurringTaskId = null;
+
 export function initializeRecurringTasks(db) {
   firestoreInstance = db;
   initializeRecurringTaskForm();
   setupRecurringTaskEventListeners();
+}
+
+export function updateRecurringTaskLabels(labels) {
+  recurringLabels = Array.isArray(labels) ? labels.slice() : [];
+  labelMap.clear();
+  recurringLabels.forEach((label) => {
+    if (label?.id) {
+      labelMap.set(label.id, label);
+    }
+  });
+  refreshRecurringLabelOptions();
+  renderAllRecurringTasks();
+  renderTodayRecurringTasks();
 }
 
 export function setRecurringTaskUser(userId) {
@@ -80,6 +100,7 @@ export function teardownRecurringTasks() {
   clearRecurringTaskList();
   closeRecurringModal();
   closeRecurringListModal();
+  updateRecurringTaskLabels([]);
 }
 
 function teardownRecurringListener() {
@@ -109,6 +130,7 @@ function initializeRecurringTaskForm() {
     yearlyMonthSelect.appendChild(option);
   });
   updateYearlyDates(1);
+  refreshRecurringLabelOptions(false, '');
 }
 
 function setupRecurringTaskEventListeners() {
@@ -196,9 +218,38 @@ function setupRecurringTaskEventListeners() {
   }
 }
 
+function refreshRecurringLabelOptions(preserveSelection = true, explicitValue = null) {
+  if (!recurringTaskLabelSelect) return;
+  const oldValue = explicitValue !== null ? explicitValue : (preserveSelection ? recurringTaskLabelSelect.value : '');
+  recurringTaskLabelSelect.innerHTML = '';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'ラベルなし';
+  recurringTaskLabelSelect.appendChild(defaultOption);
+
+  recurringLabels.forEach((label) => {
+    const option = document.createElement('option');
+    option.value = label.id;
+    option.textContent = label.name;
+    recurringTaskLabelSelect.appendChild(option);
+  });
+
+  if (oldValue && !recurringLabels.some((label) => label.id === oldValue)) {
+    const orphanOption = document.createElement('option');
+    orphanOption.value = oldValue;
+    orphanOption.textContent = '(削除済みラベル)';
+    recurringTaskLabelSelect.appendChild(orphanOption);
+  }
+
+  recurringTaskLabelSelect.value = oldValue || '';
+}
+
 async function addRecurringTask() {
   if (!recurringTaskInput || !recurringTypeSelect || !firestoreInstance || !activeUserId) return;
   const title = recurringTaskInput.value.trim();
+  const memo = (recurringTaskMemoInput?.value || '').trim();
+  const labelId = (recurringTaskLabelSelect?.value || '').trim();
   const type = recurringTypeSelect.value;
   if (!title || !type) {
     alert('タスク内容と繰り返しの種類を入力してください。');
@@ -208,16 +259,29 @@ async function addRecurringTask() {
   const schedule = buildScheduleFromForm(type);
   if (!schedule) return;
 
-  const payload = {
-    userId: activeUserId,
+  const baseData = {
     title,
+    memo,
+    labelId: labelId || null,
     schedule,
-    createdAt: serverTimestamp(),
   };
 
   try {
-    await addDoc(collection(firestoreInstance, 'recurring_tasks'), payload);
-    resetRecurringForm();
+    if (editingRecurringTaskId) {
+      const ref = doc(firestoreInstance, 'recurring_tasks', editingRecurringTaskId);
+      await updateDoc(ref, {
+        ...baseData,
+        memo: memo,
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await addDoc(collection(firestoreInstance, 'recurring_tasks'), {
+        ...baseData,
+        memo,
+        userId: activeUserId,
+        createdAt: serverTimestamp(),
+      });
+    }
     closeRecurringModal();
   } catch (error) {
     console.error('Error adding recurring task:', error);
@@ -272,16 +336,92 @@ function buildScheduleFromForm(type) {
   }
 }
 
+function openRecurringTaskEditorById(taskId) {
+  const target = cachedRecurringTasks.find((item) => item.id === taskId);
+  if (!target) return;
+  if (recurringListModalBackdrop && !recurringListModalBackdrop.classList.contains('hidden')) {
+    closeRecurringListModal();
+  }
+  prepareRecurringFormForEdit(target);
+  recurringModalBackdrop?.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function prepareRecurringFormForEdit(task) {
+  resetRecurringForm();
+  editingRecurringTaskId = task.id;
+  if (recurringModalTitle) { recurringModalTitle.textContent = '繰り返しタスクを編集'; }
+  if (recurringModalSubmitButton) { recurringModalSubmitButton.textContent = '更新'; }
+
+  if (recurringTaskInput) { recurringTaskInput.value = task.title || ''; }
+  if (recurringTaskMemoInput) { recurringTaskMemoInput.value = task.memo || ''; }
+  refreshRecurringLabelOptions(false, task.labelId || '');
+
+  const schedule = task.schedule || {};
+  const type = schedule.type || 'weekly';
+  if (recurringTypeSelect) {
+    recurringTypeSelect.value = type;
+  }
+  toggleRecurringOptions(type);
+
+  if (type === 'weekly' && weeklyOptions) {
+    const days = Array.isArray(schedule.days) ? schedule.days.map((d) => parseInt(d, 10)) : [];
+    weeklyOptions.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      const value = parseInt(checkbox.value, 10);
+      checkbox.checked = days.includes(value);
+    });
+  }
+
+  if (type === 'monthly') {
+    if (monthlyTypeSelect) {
+      monthlyTypeSelect.value = schedule.subtype === 'week' ? 'week' : 'date';
+      monthlyTypeSelect.dispatchEvent(new Event('change'));
+    }
+    if (monthlyTypeSelect?.value === 'week') {
+      if (monthlyWeekSelect) { monthlyWeekSelect.value = String(schedule.week || 1); }
+      if (monthlyWeekdaySelect) { monthlyWeekdaySelect.value = String(schedule.weekday ?? 0); }
+    } else {
+      if (monthlyDateSelect) { monthlyDateSelect.value = String(schedule.date || 1); }
+    }
+  }
+
+  if (type === 'yearly') {
+    if (yearlyMonthSelect) {
+      yearlyMonthSelect.value = String(schedule.month || yearlyMonthSelect.value || '1');
+      updateYearlyDates(parseInt(yearlyMonthSelect.value || '1', 10));
+    }
+    if (yearlyDateSelect) {
+      const monthNum = parseInt(yearlyMonthSelect?.value || '1', 10);
+      updateYearlyDates(monthNum);
+      yearlyDateSelect.value = String(schedule.date || yearlyDateSelect.value || '1');
+    }
+  }
+}
+
 function resetRecurringForm() {
   if (!recurringForm) return;
   recurringForm.reset();
+  editingRecurringTaskId = null;
   weeklyOptions?.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
     checkbox.checked = false;
   });
+  recurringTaskMemoInput && (recurringTaskMemoInput.value = '');
+  refreshRecurringLabelOptions(false, '');
   monthlyDateSelector?.classList.remove('hidden');
   monthlyWeekSelector?.classList.add('hidden');
   toggleRecurringOptions('');
-  updateYearlyDates(parseInt(yearlyMonthSelect?.value || '1', 10) || 1);
+  if (yearlyMonthSelect && yearlyMonthSelect.options.length > 0) {
+    yearlyMonthSelect.value = yearlyMonthSelect.options[0].value;
+  }
+  const monthValue = parseInt(yearlyMonthSelect?.value || '1', 10) || 1;
+  updateYearlyDates(monthValue);
+  if (yearlyDateSelect && yearlyDateSelect.options.length > 0) {
+    yearlyDateSelect.value = yearlyDateSelect.options[0].value;
+  }
+  if (recurringTypeSelect) { recurringTypeSelect.value = ''; }
+  if (monthlyTypeSelect) { monthlyTypeSelect.value = 'date'; }
+  if (recurringModalTitle) { recurringModalTitle.textContent = '繰り返しタスクを追加'; }
+  if (recurringModalSubmitButton) { recurringModalSubmitButton.textContent = '保存'; }
 }
 
 function toggleRecurringOptions(type) {
@@ -339,35 +479,11 @@ function renderTodayRecurringTasks() {
 }
 
 function renderAllRecurringTasks() {
-  if (!allRecurringTasksList && !recurringListModalItems) return;
+  if (!recurringListModalItems) return;
 
-  if (allRecurringTasksList) {
-    allRecurringTasksList.innerHTML = '';
-  }
-  if (recurringListModalItems) {
-    recurringListModalItems.innerHTML = '';
-  }
+  recurringListModalItems.innerHTML = '';
 
-  const hasItems = cachedRecurringTasks.length > 0;
-
-  if (hasItems) {
-    const today = getStartOfToday();
-    cachedRecurringTasks
-      .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
-      .sort((a, b) => {
-        const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
-        const bTime = b.nextDate ? b.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
-        return aTime - bTime;
-      })
-      .forEach(({ task, nextDate }) => {
-      if (allRecurringTasksList) {
-        allRecurringTasksList.appendChild(buildRecurringTaskItem(task, nextDate));
-      }
-      if (recurringListModalItems) {
-        recurringListModalItems.appendChild(buildRecurringTaskItem(task, nextDate));
-      }
-    });
-  } else if (recurringListModalItems) {
+  if (cachedRecurringTasks.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'recurring-task-item empty';
     const content = document.createElement('div');
@@ -377,11 +493,20 @@ function renderAllRecurringTasks() {
     content.appendChild(text);
     empty.appendChild(content);
     recurringListModalItems.appendChild(empty);
+    return;
   }
 
-  if (allRecurringTasksContainer) {
-    allRecurringTasksContainer.classList.toggle('hidden', !hasItems);
-  }
+  const today = getStartOfToday();
+  cachedRecurringTasks
+    .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
+    .sort((a, b) => {
+      const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.nextDate ? b.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
+    })
+    .forEach(({ task, nextDate }) => {
+      recurringListModalItems.appendChild(buildRecurringTaskItem(task, nextDate));
+    });
 }
 
 function getStartOfToday() {
@@ -536,10 +661,41 @@ function buildRecurringTaskItem(task, nextOccurrence) {
     textContainer.appendChild(nextInfo);
   }
 
+  if (task.labelId) {
+    const label = labelMap.get(task.labelId);
+    if (label) {
+      const badge = document.createElement('span');
+      badge.className = 'task-label-badge';
+      badge.textContent = label.name;
+      badge.style.backgroundColor = label.color;
+      textContainer.appendChild(badge);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'task-label-badge';
+      badge.textContent = '削除済みラベル';
+      badge.style.backgroundColor = '#b0b0b0';
+      textContainer.appendChild(badge);
+    }
+  }
+
+  if (task.memo) {
+    const memo = document.createElement('span');
+    memo.className = 'task-memo-text';
+    memo.textContent = task.memo;
+    textContainer.appendChild(memo);
+  }
+
   li.appendChild(textContainer);
 
   const actions = document.createElement('div');
   actions.className = 'task-buttons';
+
+  const editButton = document.createElement('button');
+  editButton.className = 'edit-recurring-btn';
+  editButton.type = 'button';
+  editButton.textContent = '編集';
+  editButton.addEventListener('click', () => openRecurringTaskEditorById(task.id));
+  actions.appendChild(editButton);
 
   const deleteButton = document.createElement('button');
   deleteButton.className = 'delete-recurring-btn';
@@ -603,16 +759,16 @@ function formatDay(day) {
 }
 
 function clearRecurringTaskList() {
+  cachedRecurringTasks = [];
   todayRecurringTasksList?.replaceChildren();
   recurringTasksContainer?.classList.add('hidden');
-  allRecurringTasksList?.replaceChildren();
-  allRecurringTasksContainer?.classList.add('hidden');
   recurringListModalItems?.replaceChildren();
 }
 
 function closeRecurringModal() {
   recurringModalBackdrop?.classList.add('hidden');
   document.body.classList.remove('modal-open');
+  resetRecurringForm();
 }
 
 function openRecurringListModal() {

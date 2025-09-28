@@ -217,7 +217,40 @@ button:hover { opacity: 0.9; }
 #reload-button { background-color: var(--success-color); }
 
 #archive-container { display: none; }
-#archive-container button { display: block; margin: 20px auto 0; }
+#back-to-main-button { display: block; margin: 20px auto 0; }
+
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.archive-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.archive-toolbar button,
+.archive-bulk-actions button {
+  margin: 0;
+}
+
+.archive-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.archive-select-all input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
 
 .hidden { display: none !important; }
 
@@ -266,6 +299,20 @@ body.modal-open { overflow: hidden; }
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+#recurring-task-memo {
+  min-height: 80px;
+  resize: vertical;
+}
+
+#recurring-task-label {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--surface-color);
+  font-size: 14px;
 }
 
 .form-label {
@@ -343,6 +390,27 @@ body.modal-open { overflow: hidden; }
   text-overflow: ellipsis;
 }
 
+.task-label-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.75em;
+  border-radius: 12px;
+  color: #fff;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-memo-text {
+  display: block;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
 #recurring-tasks-container {
   margin-top: 16px;
 }
@@ -361,8 +429,32 @@ body.modal-open { overflow: hidden; }
   gap: 6px;
 }
 
+.recurring-task-item .task-buttons button {
+  margin-left: 0;
+}
+
+.edit-recurring-btn {
+  background-color: var(--primary-color);
+}
+
 .delete-recurring-btn {
   background-color: var(--danger-color);
+}
+
+.archive-item {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.archive-select-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archive-select-checkbox {
+  width: 18px;
+  height: 18px;
 }
 
 .recurring-task-item.empty {
