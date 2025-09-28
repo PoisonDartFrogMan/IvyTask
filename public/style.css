@@ -221,13 +221,13 @@ button:hover { opacity: 0.9; }
 
 .hidden { display: none !important; }
 
-#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop, #updates-modal-backdrop {
+#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop, #updates-modal-backdrop, #recurring-task-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal, #task-detail-modal, #settings-modal, #add-task-modal, #updates-modal {
+#label-modal, #task-detail-modal, #settings-modal, #add-task-modal, #updates-modal, #recurring-task-modal {
   background-color: var(--surface-color);
   padding: 30px; border-radius: 4px;
   width: 90%; max-width: 520px;
@@ -255,7 +255,104 @@ body.modal-open { overflow: hidden; }
 /* タイトル左の追加ボタン配置用 */
 .title-bar { display: flex; align-items: center; gap: 10px; }
 .title-bar h1 { flex: 1; text-align: center; margin: 0; }
-.title-bar #open-add-task-modal-button { background-color: var(--success-color); }
+.title-bar-buttons { display: flex; align-items: center; gap: 8px; }
+.title-bar-buttons button { margin-left: 0; }
+#open-add-task-modal-button { background-color: var(--success-color); }
+
+#open-recurring-task-modal-button { background-color: var(--primary-color); }
+
+#recurring-task-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-label {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.recurring-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.weekly-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekly-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  color: var(--text-primary);
+}
+
+.monthly-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#monthly-week-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+#monthly-week-selector label {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+#recurring-task-modal select {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--surface-color);
+  font-size: 14px;
+}
+
+.recurring-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.recurring-form-actions button {
+  margin-left: 0;
+}
+
+.schedule-text {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#today-recurring-tasks {
+  margin-top: 10px;
+}
+
+.recurring-task-item .task-buttons {
+  gap: 6px;
+}
+
+.delete-recurring-btn {
+  background-color: var(--danger-color);
+}
 
 #task-detail-modal .view-mode, #task-detail-modal .edit-mode { flex-grow: 1; }
 #task-detail-modal h2 { margin-top: 0; font-size: 1.4em; word-break: break-all; }

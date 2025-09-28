@@ -32,7 +32,10 @@
     </div>
 
     <div class="title-bar">
-      <button id="open-add-task-modal-button">タスク追加</button>
+      <div class="title-bar-buttons">
+        <button id="open-add-task-modal-button">タスク追加</button>
+        <button id="open-recurring-task-modal-button">繰り返しタスク</button>
+      </div>
       <h1>IvyTask</h1>
     </div>
 
@@ -46,6 +49,10 @@
     <section>
       <h2>Focalist</h2>
       <ul id="today-tasks"></ul>
+      <div id="recurring-tasks-container" class="hidden">
+        <h3>繰り返しタスク</h3>
+        <ul id="today-recurring-tasks"></ul>
+      </div>
     </section>
 
     <section>
@@ -196,6 +203,81 @@
       </div>
 
       <button id="close-settings-modal-button">閉じる</button>
+    </div>
+  </div>
+
+  <div id="recurring-task-modal-backdrop" class="hidden">
+    <div id="recurring-task-modal">
+      <h2>繰り返しタスクを追加</h2>
+      <form id="recurring-task-form">
+        <input type="text" id="recurring-task-input" placeholder="タスクのタイトルを入力..." required>
+        <label class="form-label" for="recurring-type">種類</label>
+        <select id="recurring-type" required>
+          <option value="" disabled selected>選択してください</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+
+        <div id="weekly-options" class="recurring-options hidden">
+          <span class="form-label">曜日</span>
+          <div class="weekly-checkboxes">
+            <label><input type="checkbox" value="0">日</label>
+            <label><input type="checkbox" value="1">月</label>
+            <label><input type="checkbox" value="2">火</label>
+            <label><input type="checkbox" value="3">水</label>
+            <label><input type="checkbox" value="4">木</label>
+            <label><input type="checkbox" value="5">金</label>
+            <label><input type="checkbox" value="6">土</label>
+          </div>
+        </div>
+
+        <div id="monthly-options" class="recurring-options hidden">
+          <label class="form-label" for="monthly-type">方式</label>
+          <select id="monthly-type">
+            <option value="date">日にちで指定</option>
+            <option value="week">週×曜日で指定</option>
+          </select>
+
+          <div id="monthly-date-selector" class="monthly-selector">
+            <label class="form-label" for="monthly-date">日にち</label>
+            <select id="monthly-date"></select>
+          </div>
+
+          <div id="monthly-week-selector" class="monthly-selector hidden">
+            <label class="form-label" for="monthly-week">週</label>
+            <select id="monthly-week">
+              <option value="1">第1</option>
+              <option value="2">第2</option>
+              <option value="3">第3</option>
+              <option value="4">第4</option>
+              <option value="-1">最終</option>
+            </select>
+            <label class="form-label" for="monthly-weekday">曜日</label>
+            <select id="monthly-weekday">
+              <option value="0">日曜日</option>
+              <option value="1">月曜日</option>
+              <option value="2">火曜日</option>
+              <option value="3">水曜日</option>
+              <option value="4">木曜日</option>
+              <option value="5">金曜日</option>
+              <option value="6">土曜日</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="yearly-options" class="recurring-options hidden">
+          <label class="form-label" for="yearly-month">月</label>
+          <select id="yearly-month"></select>
+          <label class="form-label" for="yearly-date">日</label>
+          <select id="yearly-date"></select>
+        </div>
+
+        <div class="recurring-form-actions">
+          <button type="submit">保存</button>
+          <button type="button" id="close-recurring-modal-button">閉じる</button>
+        </div>
+      </form>
     </div>
   </div>
 

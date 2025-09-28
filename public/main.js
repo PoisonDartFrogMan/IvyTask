@@ -8,6 +8,12 @@ import {
   getDoc, doc, deleteDoc, updateDoc, orderBy, writeBatch,
   Timestamp, onSnapshot, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  initializeRecurringTasks,
+  setRecurringTaskUser,
+  refreshTodayRecurringTasks,
+  teardownRecurringTasks
+} from './recurring-tasks.js';
 
 // ===== Firebase config & Initialize =====
 const firebaseConfig = {
@@ -27,6 +33,7 @@ const db = initializeFirestore(app, {
   useFetchStreams: false,
 });
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
+initializeRecurringTasks(db);
 
 
 // ===== DOM Elements =====
@@ -132,6 +139,8 @@ onAuthStateChanged(auth, async (user) => {
     authContainer.style.display = 'none';
     mainContainer.style.display = 'block';
     userEmailSpan.textContent = user.email;
+    setRecurringTaskUser(user.uid);
+    refreshTodayRecurringTasks();
 
     if (unsubscribeLabels) unsubscribeLabels();
     if (unsubscribeTasks) unsubscribeTasks();
@@ -176,6 +185,7 @@ onAuthStateChanged(auth, async (user) => {
     authContainer.style.display = 'block';
     mainContainer.style.display = 'none';
     archiveContainer.style.display = 'none';
+    teardownRecurringTasks();
     if (unsubscribeLabels) unsubscribeLabels();
     if (unsubscribeTasks) unsubscribeTasks();
     sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
