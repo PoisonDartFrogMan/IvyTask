@@ -221,13 +221,13 @@ button:hover { opacity: 0.9; }
 
 .hidden { display: none !important; }
 
-#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop, #updates-modal-backdrop, #recurring-task-modal-backdrop {
+#label-modal-backdrop, #task-detail-modal-backdrop, #settings-modal-backdrop, #add-task-modal-backdrop, #updates-modal-backdrop, #recurring-task-modal-backdrop, #recurring-list-modal-backdrop {
   position: fixed; inset: 0;
   background-color: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
 }
-#label-modal, #task-detail-modal, #settings-modal, #add-task-modal, #updates-modal, #recurring-task-modal {
+#label-modal, #task-detail-modal, #settings-modal, #add-task-modal, #updates-modal, #recurring-task-modal, #recurring-list-modal {
   background-color: var(--surface-color);
   padding: 30px; border-radius: 4px;
   width: 90%; max-width: 520px;
@@ -260,6 +260,7 @@ body.modal-open { overflow: hidden; }
 #open-add-task-modal-button { background-color: var(--success-color); }
 
 #open-recurring-task-modal-button { background-color: var(--primary-color); }
+#open-recurring-list-modal-button { background-color: var(--text-secondary); }
 
 #recurring-task-modal form {
   display: flex;
@@ -342,8 +343,18 @@ body.modal-open { overflow: hidden; }
   text-overflow: ellipsis;
 }
 
+#recurring-tasks-container {
+  margin-top: 16px;
+}
+
 #today-recurring-tasks {
   margin-top: 10px;
+}
+
+#recurring-list-modal-items {
+  margin: 20px 0;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .recurring-task-item .task-buttons {
@@ -352,6 +363,12 @@ body.modal-open { overflow: hidden; }
 
 .delete-recurring-btn {
   background-color: var(--danger-color);
+}
+
+.recurring-task-item.empty {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  color: var(--text-secondary);
 }
 
 #task-detail-modal .view-mode, #task-detail-modal .edit-mode { flex-grow: 1; }

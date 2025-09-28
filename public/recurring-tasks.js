@@ -34,6 +34,12 @@ const openRecurringModalButton = document.getElementById('open-recurring-task-mo
 const closeRecurringModalButton = document.getElementById('close-recurring-modal-button');
 const recurringTasksContainer = document.getElementById('recurring-tasks-container');
 const todayRecurringTasksList = document.getElementById('today-recurring-tasks');
+const allRecurringTasksContainer = document.getElementById('all-recurring-tasks-container');
+const allRecurringTasksList = document.getElementById('all-recurring-tasks');
+const openRecurringListModalButton = document.getElementById('open-recurring-list-modal-button');
+const recurringListModalBackdrop = document.getElementById('recurring-list-modal-backdrop');
+const closeRecurringListModalButton = document.getElementById('close-recurring-list-modal-button');
+const recurringListModalItems = document.getElementById('recurring-list-modal-items');
 
 export function initializeRecurringTasks(db) {
   firestoreInstance = db;
@@ -59,11 +65,13 @@ export function setRecurringTaskUser(userId) {
         return aTime - bTime;
       });
     renderTodayRecurringTasks();
+    renderAllRecurringTasks();
   });
 }
 
 export function refreshTodayRecurringTasks() {
   renderTodayRecurringTasks();
+  renderAllRecurringTasks();
 }
 
 export function teardownRecurringTasks() {
@@ -71,6 +79,7 @@ export function teardownRecurringTasks() {
   teardownRecurringListener();
   clearRecurringTaskList();
   closeRecurringModal();
+  closeRecurringListModal();
 }
 
 function teardownRecurringListener() {
@@ -128,6 +137,30 @@ function setupRecurringTaskEventListeners() {
     recurringModalBackdrop.addEventListener('click', (event) => {
       if (event.target === recurringModalBackdrop) {
         closeRecurringModal();
+      }
+    });
+  }
+
+  if (openRecurringListModalButton) {
+    openRecurringListModalButton.addEventListener('click', () => {
+      if (!activeUserId) {
+        alert('ログイン後に繰り返しタスクを閲覧できます。');
+        return;
+      }
+      openRecurringListModal();
+    });
+  }
+
+  if (closeRecurringListModalButton) {
+    closeRecurringListModalButton.addEventListener('click', () => {
+      closeRecurringListModal();
+    });
+  }
+
+  if (recurringListModalBackdrop) {
+    recurringListModalBackdrop.addEventListener('click', (event) => {
+      if (event.target === recurringListModalBackdrop) {
+        closeRecurringListModal();
       }
     });
   }
@@ -288,49 +321,198 @@ function updateYearlyDates(month) {
 function renderTodayRecurringTasks() {
   if (!todayRecurringTasksList) return;
   todayRecurringTasksList.innerHTML = '';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const matches = cachedRecurringTasks.filter((task) => shouldDisplayTaskToday(task.schedule, today));
-  matches.forEach((task) => {
-    todayRecurringTasksList.appendChild(buildRecurringTaskItem(task));
+  const today = getStartOfToday();
+  const focalistCutoff = getFocalistCutoffDate(today);
+
+  const matches = cachedRecurringTasks
+    .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
+    .filter(({ nextDate }) => nextDate && nextDate.getTime() <= focalistCutoff.getTime())
+    .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
+
+  matches.forEach(({ task, nextDate }) => {
+    todayRecurringTasksList.appendChild(buildRecurringTaskItem(task, nextDate));
   });
 
   const shouldHide = matches.length === 0;
   recurringTasksContainer?.classList.toggle('hidden', shouldHide);
 }
 
-function shouldDisplayTaskToday(schedule, date) {
-  if (!schedule) return false;
-  const dayOfWeek = date.getDay();
-  const dayOfMonth = date.getDate();
-  const month = date.getMonth() + 1;
+function renderAllRecurringTasks() {
+  if (!allRecurringTasksList && !recurringListModalItems) return;
 
-  switch (schedule.type) {
-    case 'weekly':
-      return Array.isArray(schedule.days) && schedule.days.includes(dayOfWeek);
+  if (allRecurringTasksList) {
+    allRecurringTasksList.innerHTML = '';
+  }
+  if (recurringListModalItems) {
+    recurringListModalItems.innerHTML = '';
+  }
 
-    case 'monthly':
-      if (schedule.subtype === 'date') {
-        return schedule.date === dayOfMonth;
+  const hasItems = cachedRecurringTasks.length > 0;
+
+  if (hasItems) {
+    const today = getStartOfToday();
+    cachedRecurringTasks
+      .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
+      .sort((a, b) => {
+        const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = b.nextDate ? b.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      })
+      .forEach(({ task, nextDate }) => {
+      if (allRecurringTasksList) {
+        allRecurringTasksList.appendChild(buildRecurringTaskItem(task, nextDate));
       }
-      if (schedule.subtype === 'week') {
-        if (schedule.week === -1) {
-          return schedule.weekday === dayOfWeek && isLastWeekdayOfMonth(date);
-        }
-        return schedule.week === getWeekNumberInMonth(date) && schedule.weekday === dayOfWeek;
+      if (recurringListModalItems) {
+        recurringListModalItems.appendChild(buildRecurringTaskItem(task, nextDate));
       }
-      return false;
+    });
+  } else if (recurringListModalItems) {
+    const empty = document.createElement('li');
+    empty.className = 'recurring-task-item empty';
+    const content = document.createElement('div');
+    content.className = 'task-content';
+    const text = document.createElement('span');
+    text.textContent = '繰り返しタスクはまだ登録されていません。';
+    content.appendChild(text);
+    empty.appendChild(content);
+    recurringListModalItems.appendChild(empty);
+  }
 
-    case 'yearly':
-      return schedule.month === month && schedule.date === dayOfMonth;
-
-    default:
-      return false;
+  if (allRecurringTasksContainer) {
+    allRecurringTasksContainer.classList.toggle('hidden', !hasItems);
   }
 }
 
-function buildRecurringTaskItem(task) {
+function getStartOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function getFocalistCutoffDate(todayStart) {
+  const cutoff = new Date(todayStart);
+  cutoff.setDate(cutoff.getDate() + 1);
+  return cutoff;
+}
+
+function getNextOccurrenceDate(schedule, referenceDate) {
+  if (!schedule) return null;
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+
+  switch (schedule.type) {
+    case 'weekly':
+      return getNextWeeklyOccurrence(schedule.days, start);
+    case 'monthly':
+      if (schedule.subtype === 'week') {
+        return getNextMonthlyWeekOccurrence(schedule.week, schedule.weekday, start);
+      }
+      return getNextMonthlyDateOccurrence(schedule.date, start);
+    case 'yearly':
+      return getNextYearlyOccurrence(schedule.month, schedule.date, start);
+    default:
+      return null;
+  }
+}
+
+function getNextWeeklyOccurrence(days, referenceDate) {
+  if (!Array.isArray(days) || days.length === 0) return null;
+  const normalized = Array.from(new Set(days.map((d) => parseInt(d, 10)))).filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
+  if (normalized.length === 0) return null;
+
+  for (let offset = 0; offset < 14; offset++) {
+    const candidate = new Date(referenceDate);
+    candidate.setDate(candidate.getDate() + offset);
+    if (normalized.includes(candidate.getDay())) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function getNextMonthlyDateOccurrence(dayOfMonth, referenceDate) {
+  const targetDay = parseInt(dayOfMonth, 10);
+  if (isNaN(targetDay) || targetDay < 1 || targetDay > 31) return null;
+
+  for (let offset = 0; offset < 24; offset++) {
+    const year = referenceDate.getFullYear();
+    const monthIndex = referenceDate.getMonth() + offset;
+    const daysInMonth = getDaysInMonth(year, monthIndex);
+    const day = Math.min(targetDay, daysInMonth);
+    const candidate = new Date(year, monthIndex, day);
+    if (candidate.getTime() >= referenceDate.getTime()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function getNextMonthlyWeekOccurrence(week, weekday, referenceDate) {
+  const targetWeek = parseInt(week, 10);
+  const targetWeekday = parseInt(weekday, 10);
+  if (isNaN(targetWeek) || isNaN(targetWeekday) || targetWeekday < 0 || targetWeekday > 6) return null;
+
+  for (let offset = 0; offset < 24; offset++) {
+    const year = referenceDate.getFullYear();
+    const monthIndex = referenceDate.getMonth() + offset;
+    const candidate = getSpecificWeekdayOfMonth(year, monthIndex, targetWeek, targetWeekday);
+    if (candidate && candidate.getTime() >= referenceDate.getTime()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function getSpecificWeekdayOfMonth(year, monthIndex, week, weekday) {
+  if (week === -1) {
+    const lastDay = new Date(year, monthIndex + 1, 0);
+    const diff = (lastDay.getDay() - weekday + 7) % 7;
+    lastDay.setDate(lastDay.getDate() - diff);
+    return lastDay;
+  }
+
+  const firstDay = new Date(year, monthIndex, 1);
+  const offset = (weekday - firstDay.getDay() + 7) % 7;
+  const day = 1 + offset + (week - 1) * 7;
+  const candidate = new Date(year, monthIndex, day);
+  if (candidate.getMonth() !== ((monthIndex % 12) + 12) % 12) {
+    return null;
+  }
+  return candidate;
+}
+
+function getNextYearlyOccurrence(month, day, referenceDate) {
+  const targetMonth = parseInt(month, 10);
+  const targetDay = parseInt(day, 10);
+  if (isNaN(targetMonth) || isNaN(targetDay) || targetMonth < 1 || targetMonth > 12 || targetDay < 1 || targetDay > 31) {
+    return null;
+  }
+
+  for (let offset = 0; offset < 3; offset++) {
+    const year = referenceDate.getFullYear() + offset;
+    const daysInMonth = getDaysInMonth(year, targetMonth - 1);
+    const dayInMonth = Math.min(targetDay, daysInMonth);
+    const candidate = new Date(year, targetMonth - 1, dayInMonth);
+    if (candidate.getTime() >= referenceDate.getTime()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function getDaysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function formatDateForDisplay(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}/${month}/${day}`;
+}
+
+function buildRecurringTaskItem(task, nextOccurrence) {
   const li = document.createElement('li');
   li.className = 'recurring-task-item';
   li.dataset.id = task.id;
@@ -339,13 +521,20 @@ function buildRecurringTaskItem(task) {
   textContainer.className = 'task-content';
 
   const titleSpan = document.createElement('span');
-  titleSpan.textContent = task.title || '';
+  titleSpan.textContent = task.title || task.text || '';
   textContainer.appendChild(titleSpan);
 
   const scheduleInfo = document.createElement('small');
   scheduleInfo.className = 'schedule-text';
   scheduleInfo.textContent = getScheduleText(task.schedule);
   textContainer.appendChild(scheduleInfo);
+
+  if (nextOccurrence) {
+    const nextInfo = document.createElement('small');
+    nextInfo.className = 'schedule-text';
+    nextInfo.textContent = `次回: ${formatDateForDisplay(nextOccurrence)}`;
+    textContainer.appendChild(nextInfo);
+  }
 
   li.appendChild(textContainer);
 
@@ -413,22 +602,12 @@ function formatDay(day) {
   return labels[day] || '';
 }
 
-function getWeekNumberInMonth(date) {
-  const day = date.getDate();
-  const first = new Date(date.getFullYear(), date.getMonth(), 1);
-  const offset = first.getDay();
-  return Math.ceil((day + offset) / 7);
-}
-
-function isLastWeekdayOfMonth(date) {
-  const nextWeek = new Date(date);
-  nextWeek.setDate(date.getDate() + 7);
-  return nextWeek.getMonth() !== date.getMonth();
-}
-
 function clearRecurringTaskList() {
   todayRecurringTasksList?.replaceChildren();
   recurringTasksContainer?.classList.add('hidden');
+  allRecurringTasksList?.replaceChildren();
+  allRecurringTasksContainer?.classList.add('hidden');
+  recurringListModalItems?.replaceChildren();
 }
 
 function closeRecurringModal() {
@@ -436,7 +615,19 @@ function closeRecurringModal() {
   document.body.classList.remove('modal-open');
 }
 
+function openRecurringListModal() {
+  renderAllRecurringTasks();
+  recurringListModalBackdrop?.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeRecurringListModal() {
+  recurringListModalBackdrop?.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+}
+
 setInterval(() => {
   if (!activeUserId) return;
   renderTodayRecurringTasks();
+  renderAllRecurringTasks();
 }, 60 * 60 * 1000);
