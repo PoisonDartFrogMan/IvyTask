@@ -433,6 +433,10 @@ body.modal-open { overflow: hidden; }
   margin-left: 0;
 }
 
+.complete-recurring-btn {
+  background-color: var(--success-color);
+}
+
 .edit-recurring-btn {
   background-color: var(--primary-color);
 }

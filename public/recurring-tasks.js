@@ -466,12 +466,20 @@ function renderTodayRecurringTasks() {
   const focalistCutoff = getFocalistCutoffDate(today);
 
   const matches = cachedRecurringTasks
-    .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
-    .filter(({ nextDate }) => nextDate && nextDate.getTime() <= focalistCutoff.getTime())
+    .map((task) => {
+      const nextDate = getNextOccurrenceDate(task.schedule, today, task.lastCompletedDate);
+      return { task, nextDate };
+    })
+    .filter(({ task, nextDate }) => {
+      if (!nextDate) return false;
+      if (nextDate.getTime() > focalistCutoff.getTime()) return false;
+      const key = formatDateKey(nextDate);
+      return task.lastCompletedDate !== key;
+    })
     .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
 
   matches.forEach(({ task, nextDate }) => {
-    todayRecurringTasksList.appendChild(buildRecurringTaskItem(task, nextDate));
+    todayRecurringTasksList.appendChild(buildRecurringTaskItem(task, nextDate, { mode: 'focalist', nextDateKey: formatDateKey(nextDate) }));
   });
 
   const shouldHide = matches.length === 0;
@@ -498,14 +506,17 @@ function renderAllRecurringTasks() {
 
   const today = getStartOfToday();
   cachedRecurringTasks
-    .map((task) => ({ task, nextDate: getNextOccurrenceDate(task.schedule, today) }))
+    .map((task) => ({
+      task,
+      nextDate: getNextOccurrenceDate(task.schedule, today, task.lastCompletedDate),
+    }))
     .sort((a, b) => {
       const aTime = a.nextDate ? a.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
       const bTime = b.nextDate ? b.nextDate.getTime() : Number.MAX_SAFE_INTEGER;
       return aTime - bTime;
     })
     .forEach(({ task, nextDate }) => {
-      recurringListModalItems.appendChild(buildRecurringTaskItem(task, nextDate));
+      recurringListModalItems.appendChild(buildRecurringTaskItem(task, nextDate, { mode: 'modal' }));
     });
 }
 
@@ -521,10 +532,18 @@ function getFocalistCutoffDate(todayStart) {
   return cutoff;
 }
 
-function getNextOccurrenceDate(schedule, referenceDate) {
+function getNextOccurrenceDate(schedule, referenceDate, lastCompletedDateKey) {
   if (!schedule) return null;
   const start = new Date(referenceDate);
   start.setHours(0, 0, 0, 0);
+
+  if (lastCompletedDateKey) {
+    const completedDate = parseDateKey(lastCompletedDateKey);
+    if (completedDate && completedDate.getTime() >= start.getTime()) {
+      start.setTime(completedDate.getTime());
+      start.setDate(start.getDate() + 1);
+    }
+  }
 
   switch (schedule.type) {
     case 'weekly':
@@ -630,6 +649,22 @@ function getDaysInMonth(year, monthIndex) {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
+function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(key) {
+  if (!key || typeof key !== 'string') return null;
+  const [y, m, d] = key.split('-').map((part) => parseInt(part, 10));
+  if ([y, m, d].some((n) => Number.isNaN(n))) return null;
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
 function formatDateForDisplay(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -637,7 +672,22 @@ function formatDateForDisplay(date) {
   return `${year}/${month}/${day}`;
 }
 
-function buildRecurringTaskItem(task, nextOccurrence) {
+async function completeRecurringTask(taskId, occurrenceKey) {
+  if (!taskId || !occurrenceKey || !firestoreInstance) return false;
+  try {
+    await updateDoc(doc(firestoreInstance, 'recurring_tasks', taskId), {
+      lastCompletedDate: occurrenceKey,
+      lastCompletedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to complete recurring task:', error);
+    alert('完了処理に失敗しました。時間をおいて再度お試しください。');
+    return false;
+  }
+}
+
+function buildRecurringTaskItem(task, nextOccurrence, options = {}) {
   const li = document.createElement('li');
   li.className = 'recurring-task-item';
   li.dataset.id = task.id;
@@ -685,10 +735,36 @@ function buildRecurringTaskItem(task, nextOccurrence) {
     textContainer.appendChild(memo);
   }
 
+  if (task.lastCompletedDate) {
+    const lastCompleted = parseDateKey(task.lastCompletedDate);
+    if (lastCompleted) {
+      const lastCompletedInfo = document.createElement('small');
+      lastCompletedInfo.className = 'schedule-text';
+      lastCompletedInfo.textContent = `最終完了: ${formatDateForDisplay(lastCompleted)}`;
+      textContainer.appendChild(lastCompletedInfo);
+    }
+  }
+
   li.appendChild(textContainer);
 
   const actions = document.createElement('div');
   actions.className = 'task-buttons';
+
+  if (options.mode === 'focalist' && nextOccurrence && options.nextDateKey) {
+    const completeButton = document.createElement('button');
+    completeButton.className = 'complete-recurring-btn';
+    completeButton.type = 'button';
+    completeButton.textContent = '完了';
+    completeButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      completeButton.disabled = true;
+      const success = await completeRecurringTask(task.id, options.nextDateKey);
+      if (!success) {
+        completeButton.disabled = false;
+      }
+    });
+    actions.appendChild(completeButton);
+  }
 
   const editButton = document.createElement('button');
   editButton.className = 'edit-recurring-btn';
