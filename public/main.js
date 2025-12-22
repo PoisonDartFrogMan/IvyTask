@@ -178,7 +178,7 @@ const CANDIDATE_STORAGE_KEY = 'todo_candidates_v1';
 const DEFAULT_CANDIDATE_TASKS = [
   '面接',
   '入社前説明',
-  '関係者への内定者情報の共有',
+  '関係者への求職者情報の共有',
   '経営会議への報告資料作成',
   '社内ネットワークへの人事発令',
   '入社時研修'
