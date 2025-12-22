@@ -54,6 +54,15 @@ const candidateDeptInput = document.getElementById('candidate-dept');
 const candidateGradeInput = document.getElementById('candidate-grade');
 const candidateNoteInput = document.getElementById('candidate-note');
 const candidateList = document.getElementById('candidate-list');
+const candidateModalBackdrop = document.getElementById('candidate-modal-backdrop');
+const candidateDetailForm = document.getElementById('candidate-detail-form');
+const candidateDetailNameInput = document.getElementById('candidate-detail-name');
+const candidateDetailStartInput = document.getElementById('candidate-detail-start');
+const candidateDetailDeptInput = document.getElementById('candidate-detail-dept');
+const candidateDetailGradeInput = document.getElementById('candidate-detail-grade');
+const candidateDetailNoteInput = document.getElementById('candidate-detail-note');
+const candidateDetailTasks = document.getElementById('candidate-detail-tasks');
+const candidateModalCloseButton = document.getElementById('candidate-modal-close');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -149,12 +158,21 @@ let sleepSeconds = 60; // default
 let sleepTimerId = null;
 const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle','lunar','custom'];
 let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
+let currentCandidateId = null;
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
   '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
 ];
 const CANDIDATE_STORAGE_KEY = 'todo_candidates_v1';
+const DEFAULT_CANDIDATE_TASKS = [
+  '面接',
+  '入社前説明',
+  '関係者への内定者情報の共有',
+  '経営会議への報告資料作成',
+  '社内ネットワークへの人事発令',
+  '入社時研修'
+];
 
 
 // ===== Startup View Helpers =====
@@ -798,7 +816,8 @@ if (candidateForm) {
     const grade = (candidateGradeInput?.value || '').trim();
     const note = (candidateNoteInput?.value || '').trim();
     if (!name) return;
-    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note }];
+    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${Date.now()}-${idx}`, text: t, done: false }));
+    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, tasks }];
     saveCandidates(next);
     renderCandidates(next);
     if (candidateNameInput) candidateNameInput.value = '';
@@ -809,12 +828,38 @@ if (candidateForm) {
     candidateNameInput?.focus();
   });
 }
+if (candidateModalCloseButton && candidateModalBackdrop) {
+  candidateModalCloseButton.addEventListener('click', () => closeCandidateModal());
+  candidateModalBackdrop.addEventListener('click', (e) => { if (e.target === candidateModalBackdrop) closeCandidateModal(); });
+}
+if (candidateDetailForm) {
+  candidateDetailForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!currentCandidateId) return closeCandidateModal();
+    const list = loadCandidates();
+    const idx = list.findIndex(c => c.id === currentCandidateId);
+    if (idx === -1) return closeCandidateModal();
+    const tasks = readDetailTasks();
+    list[idx] = {
+      ...list[idx],
+      name: candidateDetailNameInput?.value.trim() || '',
+      start: candidateDetailStartInput?.value.trim() || '',
+      dept: candidateDetailDeptInput?.value.trim() || '',
+      grade: candidateDetailGradeInput?.value.trim() || '',
+      note: candidateDetailNoteInput?.value.trim() || '',
+      tasks
+    };
+    saveCandidates(list);
+    renderCandidates(list);
+    closeCandidateModal();
+  });
+}
 
 function loadCandidates() {
   try {
     const raw = localStorage.getItem(CANDIDATE_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed)) return parsed.map(normalizeCandidate);
   } catch (e) { console.warn('Failed to parse candidates', e); }
   return [];
 }
@@ -835,6 +880,7 @@ function renderCandidates(list = loadCandidates()) {
   candidateList.classList.remove('empty-state');
   list.forEach(c => {
     const li = document.createElement('li');
+    li.dataset.id = c.id;
     const info = document.createElement('div');
     const nameSpan = document.createElement('div');
     nameSpan.className = 'candidate-name';
@@ -852,15 +898,78 @@ function renderCandidates(list = loadCandidates()) {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'candidate-remove';
-    removeBtn.textContent = '完了';
-    removeBtn.addEventListener('click', () => {
+    removeBtn.innerHTML = '<span class=\"icon\">🗑️</span>削除';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!confirm('この求職者を削除しますか？')) return;
       const next = loadCandidates().filter(item => item.id !== c.id);
       saveCandidates(next);
       renderCandidates(next);
     });
     li.append(info, removeBtn);
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.candidate-remove')) return;
+      openCandidateModal(c.id);
+    });
     candidateList.appendChild(li);
   });
+}
+
+function normalizeCandidate(c) {
+  const tasks = Array.isArray(c.tasks) && c.tasks.length
+    ? c.tasks.map((t, idx) => ({ id: t.id || `t-${c.id || idx}-${idx}`, text: t.text || t, done: !!t.done }))
+    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${c.id || 'new'}-${idx}`, text: t, done: false }));
+  return { ...c, tasks };
+}
+
+function openCandidateModal(id) {
+  const list = loadCandidates();
+  const candidate = list.find(c => c.id === id);
+  if (!candidate || !candidateModalBackdrop) return;
+  currentCandidateId = id;
+  if (candidateDetailNameInput) candidateDetailNameInput.value = candidate.name || '';
+  if (candidateDetailStartInput) candidateDetailStartInput.value = candidate.start || '';
+  if (candidateDetailDeptInput) candidateDetailDeptInput.value = candidate.dept || '';
+  if (candidateDetailGradeInput) candidateDetailGradeInput.value = candidate.grade || '';
+  if (candidateDetailNoteInput) candidateDetailNoteInput.value = candidate.note || '';
+  renderDetailTasks(candidate.tasks || []);
+  candidateModalBackdrop.classList.remove('hidden');
+}
+
+function renderDetailTasks(tasks) {
+  if (!candidateDetailTasks) return;
+  candidateDetailTasks.innerHTML = '';
+  tasks.forEach(task => {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'center';
+    label.style.gap = '8px';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!task.done;
+    cb.dataset.id = task.id;
+    const span = document.createElement('span');
+    span.textContent = task.text;
+    label.append(cb, span);
+    li.appendChild(label);
+    candidateDetailTasks.appendChild(li);
+  });
+}
+
+function readDetailTasks() {
+  if (!candidateDetailTasks) return [];
+  const inputs = Array.from(candidateDetailTasks.querySelectorAll('input[type=\"checkbox\"]'));
+  return inputs.map(cb => ({
+    id: cb.dataset.id || crypto.randomUUID?.() || String(Date.now()),
+    text: cb.nextSibling?.textContent || '',
+    done: cb.checked
+  }));
+}
+
+function closeCandidateModal() {
+  currentCandidateId = null;
+  if (candidateModalBackdrop) candidateModalBackdrop.classList.add('hidden');
 }
 
 signupButton.addEventListener('click', () => {

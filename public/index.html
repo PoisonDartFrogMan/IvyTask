@@ -151,6 +151,55 @@
         </ul>
       </div>
     </section>
+    <div id="candidate-modal-backdrop" class="hidden">
+      <div id="candidate-modal">
+        <h2>求職者の詳細</h2>
+        <form id="candidate-detail-form" class="candidate-form">
+          <div class="form-row">
+            <label for="candidate-detail-name">氏名</label>
+            <input id="candidate-detail-name" type="text" required>
+          </div>
+          <div class="form-row">
+            <label for="candidate-detail-start">入社予定日</label>
+            <input id="candidate-detail-start" type="date">
+          </div>
+          <div class="form-row">
+            <label for="candidate-detail-dept">配属予定部署</label>
+            <input id="candidate-detail-dept" type="text">
+          </div>
+          <div class="form-row">
+            <label for="candidate-detail-grade">入社後グレード</label>
+            <select id="candidate-detail-grade">
+              <option value="">選択してください</option>
+              <option value="E6">E6</option>
+              <option value="E5">E5</option>
+              <option value="E4">E4</option>
+              <option value="P6">P6</option>
+              <option value="P5">P5</option>
+              <option value="P4">P4</option>
+              <option value="G3">G3</option>
+              <option value="G2">G2</option>
+              <option value="G1">G1</option>
+              <option value="嘱託">嘱託</option>
+              <option value="パート">パート</option>
+              <option value="派遣">派遣</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="candidate-detail-note">メモ</label>
+            <input id="candidate-detail-note" type="text">
+          </div>
+          <div class="form-row">
+            <label>入社タスク</label>
+            <ul id="candidate-detail-tasks" class="candidate-detail-tasks"></ul>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="candidate-modal-close">閉じる</button>
+            <button type="submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <section class="todo-section">
       <h2>まずはここから</h2>
       <div class="todo-cards">
