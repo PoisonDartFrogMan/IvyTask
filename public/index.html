@@ -12,7 +12,26 @@
 </head>
 <body>
 
-  <div id="auth-container">
+  <div id="startup-screen">
+    <div class="startup-card">
+      <p class="startup-kicker">モードを選択</p>
+      <h1 class="startup-title">Ivy をどちらで使いますか？</h1>
+      <p class="startup-subtitle">普段のタスク管理と、チーム人事向けのToDoを分けてスタートできます。</p>
+      <div class="startup-actions">
+        <button id="start-task-button" class="startup-option primary">
+          <span class="option-label">Task</span>
+          <span class="option-desc">これまでのタスク管理を開く</span>
+        </button>
+        <button id="start-todo-button" class="startup-option">
+          <span class="option-label">Todo</span>
+          <span class="option-desc">人事チーム用ToDo（新機能）</span>
+        </button>
+      </div>
+      <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
+    </div>
+  </div>
+
+  <div id="auth-container" style="display: none;">
     <h1>IvyTask</h1>
     <p>アカウントを作成、またはログインしてください</p>
     <input type="email" id="email-input" placeholder="メールアドレス">

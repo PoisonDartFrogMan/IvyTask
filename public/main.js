@@ -38,6 +38,10 @@ initializeRecurringTasks(db);
 
 
 // ===== DOM Elements =====
+const startupScreen = document.getElementById('startup-screen');
+const startTaskButton = document.getElementById('start-task-button');
+const startTodoButton = document.getElementById('start-todo-button');
+const todoComingSoon = document.getElementById('todo-coming-soon');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -116,6 +120,8 @@ const cancelEditButton = document.getElementById('cancel-edit-button');
 
 // ===== Global State & Constants =====
 let currentUserId = null;
+let workspaceSelection = null; // 'task' | 'todo' | null
+let lastKnownAuthUser = null;
 let selectedLabelId = null;
 let labels = [];
 let unsubscribeLabels = () => {};
@@ -137,68 +143,97 @@ const PASTEL_COLORS = [
 ];
 
 
+// ===== Startup View Helpers =====
+function showStartupScreen(showTodoMessage = false) {
+  workspaceSelection = showTodoMessage ? 'todo' : null;
+  handleSignedOut(false);
+  if (startupScreen) startupScreen.classList.remove('hidden');
+  if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
+}
+
+async function enterTaskWorkspace() {
+  workspaceSelection = 'task';
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (lastKnownAuthUser) {
+    await handleSignedIn(lastKnownAuthUser);
+  } else {
+    handleSignedOut(true);
+  }
+}
+
 // ===== Auth State Change (Top Level Controller) =====
 onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUserId = user.uid;
-    authContainer.style.display = 'none';
-    mainContainer.style.display = 'block';
-    userEmailSpan.textContent = user.email;
-    setRecurringTaskUser(user.uid);
-    refreshTodayRecurringTasks();
-
-    if (unsubscribeLabels) unsubscribeLabels();
-    if (unsubscribeTasks) unsubscribeTasks();
-
-    unsubscribeLabels = onSnapshot(query(collection(db, "labels"), where("userId", "==", user.uid)), (snapshot) => {
-        labels = [];
-        labelsList.innerHTML = '';
-        snapshot.forEach(docSnap => {
-            const label = { id: docSnap.id, ...docSnap.data() };
-            labels.push(label);
-            renderLabelInModal(label);
-        });
-        updateColorPicker();
-        updateSelectedLabelHint();
-        updateRecurringTaskLabels(labels);
-    });
-    
-    await loadUserSettings(user.uid);
-    await runDailyAutomation(user.uid);
-    
-    unsubscribeTasks = onSnapshot(query(collection(db, "tasks"), where("userId", "==", user.uid), where("status", "in", ["stock", "today", "completed"])), (snapshot) => {
-        const tasks = [];
-        snapshot.forEach(d => tasks.push({ id: d.id, ...d.data() }));
-        tasks.sort((a, b) => {
-            if (a.status === 'stock' && b.status === 'stock') {
-                const ad = a.dueDate, bd = b.dueDate;
-                if (ad && !bd) return -1;
-                if (!ad && bd) return 1;
-                if (ad && bd) return ad.toMillis() - bd.toMillis();
-            }
-            const order = { today: 1, completed: 2, stock: 3 };
-            if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-            return (a.priority || 0) - (b.priority || 0);
-        });
-        stockList.innerHTML = '';
-        todayList.innerHTML = '';
-        tasks.forEach(t => renderTask(t.id, t));
-    });
-
-    activateDragAndDrop();
+  lastKnownAuthUser = user;
+  if (workspaceSelection === 'task') {
+    await enterTaskWorkspace();
   } else {
-    currentUserId = null;
-    authContainer.style.display = 'block';
-    mainContainer.style.display = 'none';
-    archiveContainer.style.display = 'none';
-    teardownRecurringTasks();
-    if (unsubscribeLabels) unsubscribeLabels();
-    if (unsubscribeTasks) unsubscribeTasks();
-    sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
-    exitSleep();
-    applyWallpaper('default');
+    showStartupScreen(workspaceSelection === 'todo');
   }
 });
+
+async function handleSignedIn(user) {
+  currentUserId = user.uid;
+  authContainer.style.display = 'none';
+  mainContainer.style.display = 'block';
+  archiveContainer.style.display = 'none';
+  userEmailSpan.textContent = user.email;
+  setRecurringTaskUser(user.uid);
+  refreshTodayRecurringTasks();
+
+  if (unsubscribeLabels) unsubscribeLabels();
+  if (unsubscribeTasks) unsubscribeTasks();
+
+  unsubscribeLabels = onSnapshot(query(collection(db, "labels"), where("userId", "==", user.uid)), (snapshot) => {
+      labels = [];
+      labelsList.innerHTML = '';
+      snapshot.forEach(docSnap => {
+          const label = { id: docSnap.id, ...docSnap.data() };
+          labels.push(label);
+          renderLabelInModal(label);
+      });
+      updateColorPicker();
+      updateSelectedLabelHint();
+      updateRecurringTaskLabels(labels);
+  });
+  
+  await loadUserSettings(user.uid);
+  await runDailyAutomation(user.uid);
+  
+  unsubscribeTasks = onSnapshot(query(collection(db, "tasks"), where("userId", "==", user.uid), where("status", "in", ["stock", "today", "completed"])), (snapshot) => {
+      const tasks = [];
+      snapshot.forEach(d => tasks.push({ id: d.id, ...d.data() }));
+      tasks.sort((a, b) => {
+          if (a.status === 'stock' && b.status === 'stock') {
+              const ad = a.dueDate, bd = b.dueDate;
+              if (ad && !bd) return -1;
+              if (!ad && bd) return 1;
+              if (ad && bd) return ad.toMillis() - bd.toMillis();
+          }
+          const order = { today: 1, completed: 2, stock: 3 };
+          if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+          return (a.priority || 0) - (b.priority || 0);
+      });
+      stockList.innerHTML = '';
+      todayList.innerHTML = '';
+      tasks.forEach(t => renderTask(t.id, t));
+  });
+
+  activateDragAndDrop();
+}
+
+function handleSignedOut(showAuthScreen = true) {
+  currentUserId = null;
+  authContainer.style.display = showAuthScreen ? 'block' : 'none';
+  mainContainer.style.display = 'none';
+  archiveContainer.style.display = 'none';
+  teardownRecurringTasks();
+  if (unsubscribeLabels) unsubscribeLabels();
+  if (unsubscribeTasks) unsubscribeTasks();
+  sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
+  exitSleep();
+  applyWallpaper('default');
+}
 
 // ===== Wallpaper Functions =====
 async function loadUserSettings(userId) {
@@ -707,6 +742,13 @@ function closeAllDropdowns() {
     document.querySelectorAll('.actions-dropdown.visible').forEach(d => d.classList.remove('visible'));
 }
 
+if (startTaskButton) {
+  startTaskButton.addEventListener('click', () => { enterTaskWorkspace(); });
+}
+if (startTodoButton) {
+  startTodoButton.addEventListener('click', () => { showStartupScreen(true); });
+}
+
 signupButton.addEventListener('click', () => {
   const email = emailInput.value, password = passwordInput.value;
   if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
@@ -717,7 +759,10 @@ loginButton.addEventListener('click', () => {
   if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
   signInWithEmailAndPassword(auth, email, password).catch(err => alert('ログイン失敗: ' + err.message));
 });
-logoutButtonModal.addEventListener('click', () => signOut(auth));
+logoutButtonModal.addEventListener('click', () => {
+  showStartupScreen();
+  signOut(auth);
+});
 
 // ===== Due date segmented inputs (YYYY / MM / DD) =====
 (function setupSegmentedDueDateInputs(){
