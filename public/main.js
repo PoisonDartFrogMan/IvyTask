@@ -53,6 +53,7 @@ const candidateStartInput = document.getElementById('candidate-start');
 const candidateDeptInput = document.getElementById('candidate-dept');
 const candidateGradeInput = document.getElementById('candidate-grade');
 const candidateNoteInput = document.getElementById('candidate-note');
+const candidateTypeInput = document.getElementById('candidate-type');
 const candidateList = document.getElementById('candidate-list');
 const candidateModalBackdrop = document.getElementById('candidate-modal-backdrop');
 const candidateDetailForm = document.getElementById('candidate-detail-form');
@@ -61,6 +62,7 @@ const candidateDetailStartInput = document.getElementById('candidate-detail-star
 const candidateDetailDeptInput = document.getElementById('candidate-detail-dept');
 const candidateDetailGradeInput = document.getElementById('candidate-detail-grade');
 const candidateDetailNoteInput = document.getElementById('candidate-detail-note');
+const candidateDetailTypeInput = document.getElementById('candidate-detail-type');
 const candidateDetailTasks = document.getElementById('candidate-detail-tasks');
 const candidateModalCloseButton = document.getElementById('candidate-modal-close');
 const authContainer = document.getElementById('auth-container');
@@ -815,9 +817,10 @@ if (candidateForm) {
     const dept = (candidateDeptInput?.value || '').trim();
     const grade = (candidateGradeInput?.value || '').trim();
     const note = (candidateNoteInput?.value || '').trim();
+    const type = (candidateTypeInput?.value || '').trim();
     if (!name) return;
     const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${Date.now()}-${idx}`, text: t, done: false }));
-    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, tasks }];
+    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, type, tasks }];
     saveCandidates(next);
     renderCandidates(next);
     if (candidateNameInput) candidateNameInput.value = '';
@@ -825,6 +828,7 @@ if (candidateForm) {
     if (candidateDeptInput) candidateDeptInput.value = '';
     if (candidateGradeInput) candidateGradeInput.value = '';
     if (candidateNoteInput) candidateNoteInput.value = '';
+    if (candidateTypeInput) candidateTypeInput.value = '';
     candidateNameInput?.focus();
   });
 }
@@ -847,6 +851,7 @@ if (candidateDetailForm) {
       dept: candidateDetailDeptInput?.value.trim() || '',
       grade: candidateDetailGradeInput?.value.trim() || '',
       note: candidateDetailNoteInput?.value.trim() || '',
+      type: candidateDetailTypeInput?.value.trim() || '',
       tasks
     };
     saveCandidates(list);
@@ -891,6 +896,7 @@ function renderCandidates(list = loadCandidates()) {
     if (c.start) parts.push(`入社予定日: ${c.start}`);
     if (c.dept) parts.push(`部署: ${c.dept}`);
     if (c.grade) parts.push(`グレード: ${c.grade}`);
+    if (c.type) parts.push(`区分: ${c.type}`);
     if (c.note) parts.push(c.note);
     meta.textContent = parts.join(' / ');
     info.appendChild(nameSpan);
@@ -932,6 +938,7 @@ function openCandidateModal(id) {
   if (candidateDetailDeptInput) candidateDetailDeptInput.value = candidate.dept || '';
   if (candidateDetailGradeInput) candidateDetailGradeInput.value = candidate.grade || '';
   if (candidateDetailNoteInput) candidateDetailNoteInput.value = candidate.note || '';
+  if (candidateDetailTypeInput) candidateDetailTypeInput.value = candidate.type || '';
   renderDetailTasks(candidate.tasks || []);
   candidateModalBackdrop.classList.remove('hidden');
 }

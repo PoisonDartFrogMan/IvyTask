@@ -94,17 +94,6 @@
         <button id="todo-switch-task-button" type="button" class="secondary">Taskに切り替える</button>
       </div>
     </div>
-    <section class="todo-section">
-      <h2>入社タスク</h2>
-      <ul class="todo-list">
-        <li><label><input type="checkbox"><span>面接</span></label></li>
-        <li><label><input type="checkbox"><span>入社前説明</span></label></li>
-        <li><label><input type="checkbox"><span>関係者への内定者情報の共有</span></label></li>
-        <li><label><input type="checkbox"><span>経営会議への報告資料作成</span></label></li>
-        <li><label><input type="checkbox"><span>社内ネットワークへの人事発令</span></label></li>
-        <li><label><input type="checkbox"><span>入社時研修</span></label></li>
-      </ul>
-    </section>
     <section id="candidate-panel" class="todo-section hidden">
       <h2>内定者の進行管理</h2>
       <form id="candidate-form" class="candidate-form">
@@ -141,6 +130,16 @@
         <div class="form-row">
           <label for="candidate-note">メモ</label>
           <input id="candidate-note" type="text" placeholder="アカウント発行、PC準備 など">
+        </div>
+        <div class="form-row">
+          <label for="candidate-type">区分</label>
+          <select id="candidate-type">
+            <option value="">選択してください</option>
+            <option value="新卒">新卒</option>
+            <option value="キャリア">キャリア</option>
+            <option value="パート">パート</option>
+            <option value="派遣">派遣</option>
+          </select>
         </div>
         <button type="submit">内定者を追加</button>
       </form>
@@ -188,6 +187,16 @@
           <div class="form-row">
             <label for="candidate-detail-note">メモ</label>
             <input id="candidate-detail-note" type="text">
+          </div>
+          <div class="form-row">
+            <label for="candidate-detail-type">区分</label>
+            <select id="candidate-detail-type">
+              <option value="">選択してください</option>
+              <option value="新卒">新卒</option>
+              <option value="キャリア">キャリア</option>
+              <option value="パート">パート</option>
+              <option value="派遣">派遣</option>
+            </select>
           </div>
           <div class="form-row">
             <label>入社タスク</label>
