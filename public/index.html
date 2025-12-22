@@ -188,11 +188,11 @@
             <label for="candidate-detail-note">メモ</label>
             <input id="candidate-detail-note" type="text">
           </div>
-          <div class="form-row">
-            <label for="candidate-detail-type">区分</label>
-            <select id="candidate-detail-type">
-              <option value="">選択してください</option>
-              <option value="新卒">新卒</option>
+        <div class="form-row">
+          <label for="candidate-detail-type">区分</label>
+          <select id="candidate-detail-type">
+            <option value="">選択してください</option>
+            <option value="新卒">新卒</option>
               <option value="キャリア">キャリア</option>
               <option value="パート">パート</option>
               <option value="派遣">派遣</option>
@@ -202,11 +202,37 @@
             <label>入社タスク</label>
             <ul id="candidate-detail-tasks" class="candidate-detail-tasks"></ul>
           </div>
+          <div class="form-row">
+            <label>面接設定</label>
+            <ul id="interview-list" class="interview-list"></ul>
+          </div>
           <div class="modal-actions">
             <button type="button" id="candidate-modal-close">閉じる</button>
             <button type="submit">保存</button>
           </div>
         </form>
+      </div>
+    </div>
+    <div id="candidate-interview-modal-backdrop" class="hidden">
+      <div id="candidate-interview-modal" class="candidate-modal-small">
+        <h3>面接の設定</h3>
+        <div class="interview-stage-buttons">
+          <button type="button" data-stage="一次">一次</button>
+          <button type="button" data-stage="二次">二次</button>
+          <button type="button" data-stage="最終">最終</button>
+        </div>
+        <div class="form-row">
+          <label for="interview-datetime">日時</label>
+          <input id="interview-datetime" type="datetime-local">
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="interview-info-checkbox">
+          <span>面接官へ情報提供済み</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="interview-modal-cancel">キャンセル</button>
+          <button type="button" id="interview-modal-save">保存</button>
+        </div>
       </div>
     </div>
     <section class="todo-section">

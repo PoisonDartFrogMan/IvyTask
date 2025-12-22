@@ -65,6 +65,14 @@ const candidateDetailNoteInput = document.getElementById('candidate-detail-note'
 const candidateDetailTypeInput = document.getElementById('candidate-detail-type');
 const candidateDetailTasks = document.getElementById('candidate-detail-tasks');
 const candidateModalCloseButton = document.getElementById('candidate-modal-close');
+const interviewModalBackdrop = document.getElementById('candidate-interview-modal-backdrop');
+const interviewModal = document.getElementById('candidate-interview-modal');
+const interviewDatetimeInput = document.getElementById('interview-datetime');
+const interviewInfoCheckbox = document.getElementById('interview-info-checkbox');
+const interviewModalSaveButton = document.getElementById('interview-modal-save');
+const interviewModalCancelButton = document.getElementById('interview-modal-cancel');
+const interviewStageButtons = document.querySelectorAll('.interview-stage-buttons button');
+const interviewList = document.getElementById('interview-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -161,6 +169,9 @@ let sleepTimerId = null;
 const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle','lunar','custom'];
 let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
 let currentCandidateId = null;
+let currentDetailTasks = [];
+let currentInterviewTaskId = null;
+let currentInterviews = [];
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -175,6 +186,7 @@ const DEFAULT_CANDIDATE_TASKS = [
   '社内ネットワークへの人事発令',
   '入社時研修'
 ];
+const INTERVIEW_STAGES = ['一次','二次','最終'];
 
 
 // ===== Startup View Helpers =====
@@ -819,8 +831,8 @@ if (candidateForm) {
     const note = (candidateNoteInput?.value || '').trim();
     const type = (candidateTypeInput?.value || '').trim();
     if (!name) return;
-    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${Date.now()}-${idx}`, text: t, done: false }));
-    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, type, tasks }];
+    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${Date.now()}-${idx}`, text: t, done: false, stage: '', schedule: '', infoProvided: false }));
+    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, type, tasks, interviews: normalizeInterviews([]) }];
     saveCandidates(next);
     renderCandidates(next);
     if (candidateNameInput) candidateNameInput.value = '';
@@ -835,6 +847,23 @@ if (candidateForm) {
 if (candidateModalCloseButton && candidateModalBackdrop) {
   candidateModalCloseButton.addEventListener('click', () => closeCandidateModal());
   candidateModalBackdrop.addEventListener('click', (e) => { if (e.target === candidateModalBackdrop) closeCandidateModal(); });
+}
+if (interviewModalBackdrop) {
+  interviewModalBackdrop.addEventListener('click', (e) => { if (e.target === interviewModalBackdrop) closeInterviewModal(); });
+}
+if (interviewModalCancelButton) {
+  interviewModalCancelButton.addEventListener('click', closeInterviewModal);
+}
+if (interviewModalSaveButton) {
+  interviewModalSaveButton.addEventListener('click', saveInterviewDetails);
+}
+if (interviewStageButtons.length) {
+  interviewStageButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      interviewStageButtons.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
 }
 if (candidateDetailForm) {
   candidateDetailForm.addEventListener('submit', (e) => {
@@ -852,7 +881,8 @@ if (candidateDetailForm) {
       grade: candidateDetailGradeInput?.value.trim() || '',
       note: candidateDetailNoteInput?.value.trim() || '',
       type: candidateDetailTypeInput?.value.trim() || '',
-      tasks
+      tasks,
+      interviews: currentInterviews
     };
     saveCandidates(list);
     renderCandidates(list);
@@ -923,9 +953,26 @@ function renderCandidates(list = loadCandidates()) {
 
 function normalizeCandidate(c) {
   const tasks = Array.isArray(c.tasks) && c.tasks.length
-    ? c.tasks.map((t, idx) => ({ id: t.id || `t-${c.id || idx}-${idx}`, text: t.text || t, done: !!t.done }))
-    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${c.id || 'new'}-${idx}`, text: t, done: false }));
-  return { ...c, tasks };
+    ? c.tasks.map((t, idx) => ({
+        id: t.id || `t-${c.id || idx}-${idx}`,
+        text: t.text || t,
+        done: !!t.done,
+        stage: t.stage || '',
+        schedule: t.schedule || '',
+        infoProvided: !!t.infoProvided
+      }))
+    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${c.id || 'new'}-${idx}`, text: t, done: false, stage: '', schedule: '', infoProvided: false }));
+  return { ...c, tasks, interviews: normalizeInterviews(c.interviews) };
+}
+
+function normalizeInterviews(interviews) {
+  const base = INTERVIEW_STAGES.map(stage => ({ stage, schedule: '', infoProvided: false }));
+  if (!Array.isArray(interviews)) return base;
+  return base.map(row => {
+    const found = interviews.find(i => i.stage === row.stage);
+    if (found) return { stage: row.stage, schedule: found.schedule || '', infoProvided: !!found.infoProvided };
+    return row;
+  });
 }
 
 function openCandidateModal(id) {
@@ -933,13 +980,16 @@ function openCandidateModal(id) {
   const candidate = list.find(c => c.id === id);
   if (!candidate || !candidateModalBackdrop) return;
   currentCandidateId = id;
+  currentDetailTasks = (candidate.tasks || []).map(t => ({ ...t }));
   if (candidateDetailNameInput) candidateDetailNameInput.value = candidate.name || '';
   if (candidateDetailStartInput) candidateDetailStartInput.value = candidate.start || '';
   if (candidateDetailDeptInput) candidateDetailDeptInput.value = candidate.dept || '';
   if (candidateDetailGradeInput) candidateDetailGradeInput.value = candidate.grade || '';
   if (candidateDetailNoteInput) candidateDetailNoteInput.value = candidate.note || '';
   if (candidateDetailTypeInput) candidateDetailTypeInput.value = candidate.type || '';
-  renderDetailTasks(candidate.tasks || []);
+  currentInterviews = normalizeInterviews(candidate.interviews || []);
+  renderDetailTasks(currentDetailTasks);
+  renderInterviewList();
   candidateModalBackdrop.classList.remove('hidden');
 }
 
@@ -948,6 +998,7 @@ function renderDetailTasks(tasks) {
   candidateDetailTasks.innerHTML = '';
   tasks.forEach(task => {
     const li = document.createElement('li');
+    li.dataset.taskId = task.id;
     const label = document.createElement('label');
     label.style.display = 'flex';
     label.style.alignItems = 'center';
@@ -958,25 +1009,94 @@ function renderDetailTasks(tasks) {
     cb.dataset.id = task.id;
     const span = document.createElement('span');
     span.textContent = task.text;
+    const meta = document.createElement('div');
+    meta.className = 'candidate-meta';
+    const metaParts = [];
+    if (task.stage) metaParts.push(task.stage);
+    if (task.schedule) metaParts.push(task.schedule);
+    if (task.infoProvided) metaParts.push('面接官へ情報提供済み');
+    meta.textContent = metaParts.join(' / ');
+    meta.style.color = 'var(--text-secondary)';
+    meta.style.fontSize = '0.9rem';
     label.append(cb, span);
-    li.appendChild(label);
+    li.append(label, meta);
     candidateDetailTasks.appendChild(li);
   });
 }
 
+function renderInterviewList() {
+  if (!interviewList) return;
+  interviewList.innerHTML = '';
+  currentInterviews.forEach((iv, idx) => {
+    const li = document.createElement('li');
+    const stage = document.createElement('div');
+    stage.className = 'stage-label';
+    stage.textContent = iv.stage;
+    const dt = document.createElement('input');
+    dt.type = 'datetime-local';
+    dt.value = iv.schedule || '';
+    dt.addEventListener('change', () => {
+      currentInterviews[idx] = { ...currentInterviews[idx], schedule: dt.value };
+    });
+    const infoRow = document.createElement('label');
+    infoRow.className = 'info-provided';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!iv.infoProvided;
+    cb.addEventListener('change', () => {
+      currentInterviews[idx] = { ...currentInterviews[idx], infoProvided: cb.checked };
+    });
+    const text = document.createElement('span');
+    text.textContent = '面接官へ情報提供済み';
+    infoRow.append(cb, text);
+    li.append(stage, dt, infoRow);
+    interviewList.appendChild(li);
+  });
+}
+
 function readDetailTasks() {
-  if (!candidateDetailTasks) return [];
-  const inputs = Array.from(candidateDetailTasks.querySelectorAll('input[type=\"checkbox\"]'));
-  return inputs.map(cb => ({
-    id: cb.dataset.id || crypto.randomUUID?.() || String(Date.now()),
-    text: cb.nextSibling?.textContent || '',
-    done: cb.checked
-  }));
+  return currentDetailTasks.map(task => {
+    const cb = candidateDetailTasks?.querySelector(`input[data-id="${task.id}"]`);
+    return {
+      ...task,
+      done: cb ? cb.checked : !!task.done
+    };
+  });
 }
 
 function closeCandidateModal() {
   currentCandidateId = null;
+  currentDetailTasks = [];
+  currentInterviews = [];
+  closeInterviewModal();
   if (candidateModalBackdrop) candidateModalBackdrop.classList.add('hidden');
+}
+
+function openInterviewModal(taskId) {
+  currentInterviewTaskId = taskId;
+  const task = currentDetailTasks.find(t => t.id === taskId);
+  interviewStageButtons.forEach(btn => {
+    btn.classList.toggle('selected', task?.stage === btn.dataset.stage);
+  });
+  if (interviewDatetimeInput) interviewDatetimeInput.value = task?.schedule || '';
+  if (interviewInfoCheckbox) interviewInfoCheckbox.checked = !!task?.infoProvided;
+  if (interviewModalBackdrop) interviewModalBackdrop.classList.remove('hidden');
+}
+
+function closeInterviewModal() {
+  currentInterviewTaskId = null;
+  if (interviewModalBackdrop) interviewModalBackdrop.classList.add('hidden');
+}
+
+function saveInterviewDetails() {
+  if (!currentInterviewTaskId) return closeInterviewModal();
+  const stageBtn = Array.from(interviewStageButtons).find(b => b.classList.contains('selected'));
+  const stage = stageBtn ? stageBtn.dataset.stage : '';
+  const schedule = interviewDatetimeInput?.value || '';
+  const infoProvided = interviewInfoCheckbox?.checked || false;
+  currentDetailTasks = currentDetailTasks.map(t => t.id === currentInterviewTaskId ? { ...t, stage, schedule, infoProvided } : t);
+  renderDetailTasks(currentDetailTasks);
+  closeInterviewModal();
 }
 
 signupButton.addEventListener('click', () => {
