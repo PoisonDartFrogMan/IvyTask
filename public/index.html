@@ -209,6 +209,23 @@
         </form>
       </div>
     </div>
+    <div id="onboarding-modal-backdrop" class="hidden">
+      <div id="onboarding-modal" class="candidate-modal-small">
+        <h3>入社前説明の設定</h3>
+        <div class="form-row">
+          <label for="onboarding-datetime">日時</label>
+          <input id="onboarding-datetime" type="datetime-local">
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="onboarding-items-checkbox">
+          <span>持参物連絡済み</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="onboarding-modal-cancel">キャンセル</button>
+          <button type="button" id="onboarding-modal-save">保存</button>
+        </div>
+      </div>
+    </div>
     <div id="candidate-interview-modal-backdrop" class="hidden">
       <div id="candidate-interview-modal" class="candidate-modal-small">
         <h3>面接設定</h3>

@@ -70,6 +70,12 @@ const interviewModal = document.getElementById('candidate-interview-modal');
 const interviewModalSaveButton = document.getElementById('interview-modal-save');
 const interviewModalCancelButton = document.getElementById('interview-modal-cancel');
 const interviewModalList = document.getElementById('interview-modal-list');
+const onboardingModalBackdrop = document.getElementById('onboarding-modal-backdrop');
+const onboardingModal = document.getElementById('onboarding-modal');
+const onboardingDatetimeInput = document.getElementById('onboarding-datetime');
+const onboardingItemsCheckbox = document.getElementById('onboarding-items-checkbox');
+const onboardingModalSaveButton = document.getElementById('onboarding-modal-save');
+const onboardingModalCancelButton = document.getElementById('onboarding-modal-cancel');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -169,6 +175,7 @@ let currentCandidateId = null;
 let currentDetailTasks = [];
 let currentInterviewTaskId = null;
 let currentInterviews = [];
+let currentOnboardingTaskId = null;
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -828,7 +835,16 @@ if (candidateForm) {
     const note = (candidateNoteInput?.value || '').trim();
     const type = (candidateTypeInput?.value || '').trim();
     if (!name) return;
-    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${Date.now()}-${idx}`, text: t, done: false, stage: '', schedule: '', infoProvided: false }));
+    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
+      id: `t-${Date.now()}-${idx}`,
+      text: t,
+      done: false,
+      stage: '',
+      schedule: '',
+      infoProvided: false,
+      onboardingSchedule: '',
+      onboardingItemsProvided: false
+    }));
     const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, type, tasks, interviews: normalizeInterviews([]) }];
     saveCandidates(next);
     renderCandidates(next);
@@ -853,6 +869,15 @@ if (interviewModalCancelButton) {
 }
 if (interviewModalSaveButton) {
   interviewModalSaveButton.addEventListener('click', saveInterviewDetails);
+}
+if (onboardingModalBackdrop) {
+  onboardingModalBackdrop.addEventListener('click', (e) => { if (e.target === onboardingModalBackdrop) closeOnboardingModal(); });
+}
+if (onboardingModalCancelButton) {
+  onboardingModalCancelButton.addEventListener('click', closeOnboardingModal);
+}
+if (onboardingModalSaveButton) {
+  onboardingModalSaveButton.addEventListener('click', saveOnboardingDetails);
 }
 if (candidateDetailForm) {
   candidateDetailForm.addEventListener('submit', (e) => {
@@ -948,9 +973,20 @@ function normalizeCandidate(c) {
         done: !!t.done,
         stage: t.stage || '',
         schedule: t.schedule || '',
-        infoProvided: !!t.infoProvided
+        infoProvided: !!t.infoProvided,
+        onboardingSchedule: t.onboardingSchedule || '',
+        onboardingItemsProvided: !!t.onboardingItemsProvided
       }))
-    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({ id: `t-${c.id || 'new'}-${idx}`, text: t, done: false, stage: '', schedule: '', infoProvided: false }));
+    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
+        id: `t-${c.id || 'new'}-${idx}`,
+        text: t,
+        done: false,
+        stage: '',
+        schedule: '',
+        infoProvided: false,
+        onboardingSchedule: '',
+        onboardingItemsProvided: false
+      }));
   return { ...c, tasks, interviews: normalizeInterviews(c.interviews) };
 }
 
@@ -1015,6 +1051,12 @@ function renderDetailTasks(tasks) {
         openInterviewModal();
       });
     }
+    if (task.text && task.text.includes('入社前説明')) {
+      li.addEventListener('click', (e) => {
+        if (e.target === cb) return;
+        openOnboardingModal(task.id);
+      });
+    }
   });
 }
 
@@ -1056,7 +1098,9 @@ function closeCandidateModal() {
   currentCandidateId = null;
   currentDetailTasks = [];
   currentInterviews = [];
+  currentOnboardingTaskId = null;
   closeInterviewModal();
+  closeOnboardingModal();
   if (candidateModalBackdrop) candidateModalBackdrop.classList.add('hidden');
 }
 
@@ -1069,6 +1113,28 @@ function openInterviewModal(taskId) {
 function closeInterviewModal() {
   currentInterviewTaskId = null;
   if (interviewModalBackdrop) interviewModalBackdrop.classList.add('hidden');
+}
+
+function openOnboardingModal(taskId) {
+  currentOnboardingTaskId = taskId;
+  const task = currentDetailTasks.find(t => t.id === taskId);
+  if (onboardingDatetimeInput) onboardingDatetimeInput.value = task?.onboardingSchedule || '';
+  if (onboardingItemsCheckbox) onboardingItemsCheckbox.checked = !!task?.onboardingItemsProvided;
+  if (onboardingModalBackdrop) onboardingModalBackdrop.classList.remove('hidden');
+}
+
+function closeOnboardingModal() {
+  currentOnboardingTaskId = null;
+  if (onboardingModalBackdrop) onboardingModalBackdrop.classList.add('hidden');
+}
+
+function saveOnboardingDetails() {
+  if (!currentOnboardingTaskId) return closeOnboardingModal();
+  const schedule = onboardingDatetimeInput?.value || '';
+  const itemsProvided = onboardingItemsCheckbox?.checked || false;
+  currentDetailTasks = currentDetailTasks.map(t => t.id === currentOnboardingTaskId ? { ...t, onboardingSchedule: schedule, onboardingItemsProvided: itemsProvided } : t);
+  renderDetailTasks(currentDetailTasks);
+  closeOnboardingModal();
 }
 
 function saveInterviewDetails() {
