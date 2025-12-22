@@ -54,6 +54,7 @@ const customWallpaperInput = document.getElementById('custom-wallpaper-input');
 const chooseCustomWallpaperButton = document.getElementById('choose-custom-wallpaper-button');
 const sleepToggle = document.getElementById('sleep-toggle');
 const sleepSecondsInput = document.getElementById('sleep-seconds');
+const returnStartupButton = document.getElementById('return-startup-button');
 const settingsUserIdSpan = document.getElementById('settings-user-id');
 const logoutButtonModal = document.getElementById('logout-button-modal');
 
@@ -763,6 +764,12 @@ logoutButtonModal.addEventListener('click', () => {
   showStartupScreen();
   signOut(auth);
 });
+if (returnStartupButton) {
+  returnStartupButton.addEventListener('click', () => {
+    closeSettings();
+    showStartupScreen();
+  });
+}
 
 // ===== Due date segmented inputs (YYYY / MM / DD) =====
 (function setupSegmentedDueDateInputs(){
