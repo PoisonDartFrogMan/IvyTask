@@ -84,6 +84,72 @@
     <img id="happy-hacking-sticker" src="/happy-hacking.png" alt="Happy Hacking" />
   </main>
 
+  <div id="todo-container" class="hidden">
+    <div class="todo-hero">
+      <p class="todo-kicker">人事チーム向け</p>
+      <h1 class="todo-title">Team Todo</h1>
+      <p class="todo-subtitle">人事・総務のルーチンや依頼をまとめて管理する新しいワークスペースです。</p>
+      <div class="todo-actions">
+        <button id="todo-back-startup-button" type="button">スタートに戻る</button>
+        <button id="todo-switch-task-button" type="button" class="secondary">Taskに切り替える</button>
+      </div>
+    </div>
+    <section class="todo-section">
+      <h2>入社タスク</h2>
+      <ul class="todo-list">
+        <li><label><input type="checkbox"><span>面接</span></label></li>
+        <li><label><input type="checkbox"><span>入社前説明</span></label></li>
+        <li><label><input type="checkbox"><span>関係者への内定者情報の共有</span></label></li>
+        <li><label><input type="checkbox"><span>経営会議への報告資料作成</span></label></li>
+        <li><label><input type="checkbox"><span>社内ネットワークへの人事発令</span></label></li>
+        <li><label><input type="checkbox"><span>入社時研修</span></label></li>
+      </ul>
+    </section>
+    <section id="candidate-panel" class="todo-section hidden">
+      <h2>内定者の進行管理</h2>
+      <form id="candidate-form" class="candidate-form">
+        <div class="form-row">
+          <label for="candidate-name">氏名</label>
+          <input id="candidate-name" type="text" placeholder="例: 山田 太郎" required>
+        </div>
+        <div class="form-row">
+          <label for="candidate-start">入社予定日</label>
+          <input id="candidate-start" type="date">
+        </div>
+        <div class="form-row">
+          <label for="candidate-note">メモ</label>
+          <input id="candidate-note" type="text" placeholder="アカウント発行、PC準備 など">
+        </div>
+        <button type="submit">内定者を追加</button>
+      </form>
+      <div class="candidate-list-wrapper">
+        <h3 class="candidate-heading">進行中の求職者</h3>
+        <ul id="candidate-list" class="candidate-list empty-state">
+          <li class="candidate-empty">まだ登録がありません。</li>
+        </ul>
+      </div>
+    </section>
+    <section class="todo-section">
+      <h2>まずはここから</h2>
+      <div class="todo-cards">
+        <button id="open-candidate-panel" class="todo-card action-card" type="button">
+          <h3>入社・退社タスク</h3>
+          <p>入社準備、アカウント発行、備品手配などを候補者ごとに管理します。</p>
+          <span class="card-cta">内定者リストを開く</span>
+        </button>
+        <div class="todo-card">
+          <h3>依頼トラッカー</h3>
+          <p>各チームからの依頼を集約し、担当/期限を明確にする機能を準備中。</p>
+        </div>
+        <div class="todo-card">
+          <h3>リマインダー</h3>
+          <p>面談や評価の期日を逃さないためのリマインダーを順次追加予定です。</p>
+        </div>
+      </div>
+      <p class="todo-note">※ これはプレビュー画面です。機能は順次追加されます。</p>
+    </section>
+  </div>
+
   <div id="archive-container" style="display: none;">
       <div class="archive-toolbar">
         <button id="back-to-main-button-top">メイン画面へ戻る</button>

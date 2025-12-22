@@ -42,6 +42,16 @@ const startupScreen = document.getElementById('startup-screen');
 const startTaskButton = document.getElementById('start-task-button');
 const startTodoButton = document.getElementById('start-todo-button');
 const todoComingSoon = document.getElementById('todo-coming-soon');
+const todoContainer = document.getElementById('todo-container');
+const todoBackStartupButton = document.getElementById('todo-back-startup-button');
+const todoSwitchTaskButton = document.getElementById('todo-switch-task-button');
+const openCandidatePanelButton = document.getElementById('open-candidate-panel');
+const candidatePanel = document.getElementById('candidate-panel');
+const candidateForm = document.getElementById('candidate-form');
+const candidateNameInput = document.getElementById('candidate-name');
+const candidateStartInput = document.getElementById('candidate-start');
+const candidateNoteInput = document.getElementById('candidate-note');
+const candidateList = document.getElementById('candidate-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -142,6 +152,7 @@ const PASTEL_COLORS = [
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
   '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
 ];
+const CANDIDATE_STORAGE_KEY = 'todo_candidates_v1';
 
 
 // ===== Startup View Helpers =====
@@ -149,6 +160,7 @@ function showStartupScreen(showTodoMessage = false) {
   workspaceSelection = showTodoMessage ? 'todo' : null;
   handleSignedOut(false);
   if (startupScreen) startupScreen.classList.remove('hidden');
+  if (todoContainer) todoContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -161,6 +173,18 @@ async function enterTaskWorkspace() {
   } else {
     handleSignedOut(true);
   }
+  if (todoContainer) todoContainer.classList.add('hidden');
+}
+
+function enterTodoWorkspace() {
+  workspaceSelection = 'todo';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.remove('hidden');
+  renderCandidates();
 }
 
 // ===== Auth State Change (Top Level Controller) =====
@@ -168,6 +192,8 @@ onAuthStateChanged(auth, async (user) => {
   lastKnownAuthUser = user;
   if (workspaceSelection === 'task') {
     await enterTaskWorkspace();
+  } else if (workspaceSelection === 'todo') {
+    enterTodoWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -747,7 +773,86 @@ if (startTaskButton) {
   startTaskButton.addEventListener('click', () => { enterTaskWorkspace(); });
 }
 if (startTodoButton) {
-  startTodoButton.addEventListener('click', () => { showStartupScreen(true); });
+  startTodoButton.addEventListener('click', () => { enterTodoWorkspace(); });
+}
+if (todoBackStartupButton) {
+  todoBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
+}
+if (todoSwitchTaskButton) {
+  todoSwitchTaskButton.addEventListener('click', () => { enterTaskWorkspace(); });
+}
+if (openCandidatePanelButton) {
+  openCandidatePanelButton.addEventListener('click', () => {
+    if (candidatePanel) candidatePanel.classList.remove('hidden');
+    if (candidateNameInput) candidateNameInput.focus();
+  });
+}
+if (candidateForm) {
+  candidateForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = (candidateNameInput?.value || '').trim();
+    const start = (candidateStartInput?.value || '').trim();
+    const note = (candidateNoteInput?.value || '').trim();
+    if (!name) return;
+    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, note }];
+    saveCandidates(next);
+    renderCandidates(next);
+    if (candidateNameInput) candidateNameInput.value = '';
+    if (candidateStartInput) candidateStartInput.value = '';
+    if (candidateNoteInput) candidateNoteInput.value = '';
+    candidateNameInput?.focus();
+  });
+}
+
+function loadCandidates() {
+  try {
+    const raw = localStorage.getItem(CANDIDATE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) { console.warn('Failed to parse candidates', e); }
+  return [];
+}
+function saveCandidates(list) {
+  try { localStorage.setItem(CANDIDATE_STORAGE_KEY, JSON.stringify(list)); } catch (e) { console.warn('Failed to save candidates', e); }
+}
+function renderCandidates(list = loadCandidates()) {
+  if (!candidateList) return;
+  candidateList.innerHTML = '';
+  if (!list.length) {
+    candidateList.classList.add('empty-state');
+    const li = document.createElement('li');
+    li.className = 'candidate-empty';
+    li.textContent = 'まだ登録がありません。';
+    candidateList.appendChild(li);
+    return;
+  }
+  candidateList.classList.remove('empty-state');
+  list.forEach(c => {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    const nameSpan = document.createElement('div');
+    nameSpan.className = 'candidate-name';
+    nameSpan.textContent = c.name;
+    const meta = document.createElement('div');
+    meta.className = 'candidate-meta';
+    const parts = [];
+    if (c.start) parts.push(`入社予定日: ${c.start}`);
+    if (c.note) parts.push(c.note);
+    meta.textContent = parts.join(' / ');
+    info.appendChild(nameSpan);
+    info.appendChild(meta);
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'candidate-remove';
+    removeBtn.textContent = '完了';
+    removeBtn.addEventListener('click', () => {
+      const next = loadCandidates().filter(item => item.id !== c.id);
+      saveCandidates(next);
+      renderCandidates(next);
+    });
+    li.append(info, removeBtn);
+    candidateList.appendChild(li);
+  });
 }
 
 signupButton.addEventListener('click', () => {
