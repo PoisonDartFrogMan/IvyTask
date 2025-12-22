@@ -202,10 +202,6 @@
             <label>入社タスク</label>
             <ul id="candidate-detail-tasks" class="candidate-detail-tasks"></ul>
           </div>
-          <div class="form-row">
-            <label>面接設定</label>
-            <ul id="interview-list" class="interview-list"></ul>
-          </div>
           <div class="modal-actions">
             <button type="button" id="candidate-modal-close">閉じる</button>
             <button type="submit">保存</button>
@@ -215,20 +211,8 @@
     </div>
     <div id="candidate-interview-modal-backdrop" class="hidden">
       <div id="candidate-interview-modal" class="candidate-modal-small">
-        <h3>面接の設定</h3>
-        <div class="interview-stage-buttons">
-          <button type="button" data-stage="一次">一次</button>
-          <button type="button" data-stage="二次">二次</button>
-          <button type="button" data-stage="最終">最終</button>
-        </div>
-        <div class="form-row">
-          <label for="interview-datetime">日時</label>
-          <input id="interview-datetime" type="datetime-local">
-        </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="interview-info-checkbox">
-          <span>面接官へ情報提供済み</span>
-        </label>
+        <h3>面接設定</h3>
+        <ul id="interview-modal-list" class="interview-modal-list"></ul>
         <div class="modal-actions">
           <button type="button" id="interview-modal-cancel">キャンセル</button>
           <button type="button" id="interview-modal-save">保存</button>

@@ -67,12 +67,9 @@ const candidateDetailTasks = document.getElementById('candidate-detail-tasks');
 const candidateModalCloseButton = document.getElementById('candidate-modal-close');
 const interviewModalBackdrop = document.getElementById('candidate-interview-modal-backdrop');
 const interviewModal = document.getElementById('candidate-interview-modal');
-const interviewDatetimeInput = document.getElementById('interview-datetime');
-const interviewInfoCheckbox = document.getElementById('interview-info-checkbox');
 const interviewModalSaveButton = document.getElementById('interview-modal-save');
 const interviewModalCancelButton = document.getElementById('interview-modal-cancel');
-const interviewStageButtons = document.querySelectorAll('.interview-stage-buttons button');
-const interviewList = document.getElementById('interview-list');
+const interviewModalList = document.getElementById('interview-modal-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -857,14 +854,6 @@ if (interviewModalCancelButton) {
 if (interviewModalSaveButton) {
   interviewModalSaveButton.addEventListener('click', saveInterviewDetails);
 }
-if (interviewStageButtons.length) {
-  interviewStageButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      interviewStageButtons.forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
-  });
-}
 if (candidateDetailForm) {
   candidateDetailForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -989,7 +978,6 @@ function openCandidateModal(id) {
   if (candidateDetailTypeInput) candidateDetailTypeInput.value = candidate.type || '';
   currentInterviews = normalizeInterviews(candidate.interviews || []);
   renderDetailTasks(currentDetailTasks);
-  renderInterviewList();
   candidateModalBackdrop.classList.remove('hidden');
 }
 
@@ -1019,15 +1007,21 @@ function renderDetailTasks(tasks) {
     meta.style.color = 'var(--text-secondary)';
     meta.style.fontSize = '0.9rem';
     label.append(cb, span);
-    li.append(label, meta);
+    li.append(label);
     candidateDetailTasks.appendChild(li);
+    if (task.text && task.text.includes('面接')) {
+      li.addEventListener('click', (e) => {
+        if (e.target === cb) return;
+        openInterviewModal();
+      });
+    }
   });
 }
 
-function renderInterviewList() {
-  if (!interviewList) return;
-  interviewList.innerHTML = '';
-  currentInterviews.forEach((iv, idx) => {
+function renderInterviewModalList() {
+  if (!interviewModalList) return;
+  interviewModalList.innerHTML = '';
+  currentInterviews.forEach((iv) => {
     const li = document.createElement('li');
     const stage = document.createElement('div');
     stage.className = 'stage-label';
@@ -1035,22 +1029,16 @@ function renderInterviewList() {
     const dt = document.createElement('input');
     dt.type = 'datetime-local';
     dt.value = iv.schedule || '';
-    dt.addEventListener('change', () => {
-      currentInterviews[idx] = { ...currentInterviews[idx], schedule: dt.value };
-    });
     const infoRow = document.createElement('label');
     infoRow.className = 'info-provided';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!iv.infoProvided;
-    cb.addEventListener('change', () => {
-      currentInterviews[idx] = { ...currentInterviews[idx], infoProvided: cb.checked };
-    });
     const text = document.createElement('span');
     text.textContent = '面接官へ情報提供済み';
     infoRow.append(cb, text);
     li.append(stage, dt, infoRow);
-    interviewList.appendChild(li);
+    interviewModalList.appendChild(li);
   });
 }
 
@@ -1073,13 +1061,8 @@ function closeCandidateModal() {
 }
 
 function openInterviewModal(taskId) {
-  currentInterviewTaskId = taskId;
-  const task = currentDetailTasks.find(t => t.id === taskId);
-  interviewStageButtons.forEach(btn => {
-    btn.classList.toggle('selected', task?.stage === btn.dataset.stage);
-  });
-  if (interviewDatetimeInput) interviewDatetimeInput.value = task?.schedule || '';
-  if (interviewInfoCheckbox) interviewInfoCheckbox.checked = !!task?.infoProvided;
+  currentInterviewTaskId = taskId || null;
+  renderInterviewModalList();
   if (interviewModalBackdrop) interviewModalBackdrop.classList.remove('hidden');
 }
 
@@ -1089,12 +1072,23 @@ function closeInterviewModal() {
 }
 
 function saveInterviewDetails() {
-  if (!currentInterviewTaskId) return closeInterviewModal();
-  const stageBtn = Array.from(interviewStageButtons).find(b => b.classList.contains('selected'));
-  const stage = stageBtn ? stageBtn.dataset.stage : '';
-  const schedule = interviewDatetimeInput?.value || '';
-  const infoProvided = interviewInfoCheckbox?.checked || false;
-  currentDetailTasks = currentDetailTasks.map(t => t.id === currentInterviewTaskId ? { ...t, stage, schedule, infoProvided } : t);
+  if (!interviewModalList) return closeInterviewModal();
+  // Save from modal list inputs
+  const rows = Array.from(interviewModalList?.querySelectorAll('li') || []);
+  currentInterviews = rows.map(row => {
+    const stage = row.querySelector('.stage-label')?.textContent || '';
+    const schedule = row.querySelector('input[type="datetime-local"]')?.value || '';
+    const infoProvided = !!row.querySelector('input[type="checkbox"]')?.checked;
+    return { stage, schedule, infoProvided };
+  });
+  // Mirror first stage info into the interview task meta (for quick glance)
+  const first = currentInterviews.find(iv => iv.schedule) || currentInterviews[0] || { stage: '', schedule: '', infoProvided: false };
+  currentDetailTasks = currentDetailTasks.map(t => {
+    if (t.text && t.text.includes('面接')) {
+      return { ...t, stage: first.stage, schedule: first.schedule, infoProvided: first.infoProvided };
+    }
+    return t;
+  });
   renderDetailTasks(currentDetailTasks);
   closeInterviewModal();
 }
