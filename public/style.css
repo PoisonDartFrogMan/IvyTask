@@ -1724,9 +1724,15 @@ body.sleeping #happy-hacking-sticker {
   border: none;
   font-size: 1.2rem;
   font-weight: 600;
-  flex: 1;
-  /* Allow h2 to take available space but respect flex layout */
+  /* flex: 1; Removed */
   color: var(--text-primary);
+  margin-right: auto;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .memo-sidebar-header .icon-button {
@@ -1740,6 +1746,11 @@ body.sleeping #happy-hacking-sticker {
   justify-content: center;
   border-radius: 50%;
   font-size: 24px;
+}
+
+.memo-sidebar-header .icon-button.danger {
+  color: var(--danger-color);
+  font-size: 20px;
 }
 
 .memo-sidebar-header .icon-button:hover {
@@ -1759,6 +1770,20 @@ body.sleeping #happy-hacking-sticker {
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.memo-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.memo-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .memo-item:hover {

@@ -956,9 +956,24 @@ async function saveCurrentMemo() {
   }
 }
 
+// Bulk delete selection state
+let selectedMemoIds = new Set();
+const bulkDeleteMemoBtn = document.getElementById('bulk-delete-memo-button');
+
 function renderMemoList() {
   if (!memoList) return;
   memoList.innerHTML = '';
+
+  const bulkBtn = document.getElementById('bulk-delete-memo-button');
+
+  function updateBulkDeleteButtonState() {
+    if (!bulkBtn) return;
+    if (selectedMemoIds.size > 0) {
+      bulkBtn.classList.remove('hidden');
+    } else {
+      bulkBtn.classList.add('hidden');
+    }
+  }
 
   if (memos.length === 0) {
     const emptyLi = document.createElement('li');
@@ -967,14 +982,36 @@ function renderMemoList() {
     emptyLi.style.color = 'var(--text-secondary)';
     emptyLi.style.textAlign = 'center';
     memoList.appendChild(emptyLi);
+    if (bulkBtn) bulkBtn.classList.add('hidden');
     return;
   }
+
+  updateBulkDeleteButtonState();
 
   memos.forEach(memo => {
     const li = document.createElement('li');
     li.className = 'memo-item';
     if (memo.id === currentMemoId) li.classList.add('selected');
     li.dataset.memoId = memo.id;
+
+    // Checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'memo-checkbox';
+    checkbox.checked = selectedMemoIds.has(memo.id);
+
+    checkbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (checkbox.checked) {
+        selectedMemoIds.add(memo.id);
+      } else {
+        selectedMemoIds.delete(memo.id);
+      }
+      updateBulkDeleteButtonState();
+    });
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'memo-info';
 
     const preview = document.createElement('div');
     preview.className = 'memo-item-preview';
@@ -986,8 +1023,11 @@ function renderMemoList() {
     const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
     dateSpan.textContent = dateObj.toLocaleDateString('ja-JP') + ' ' + dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
-    li.appendChild(preview);
-    li.appendChild(dateSpan);
+    infoDiv.appendChild(preview);
+    infoDiv.appendChild(dateSpan);
+
+    li.appendChild(checkbox);
+    li.appendChild(infoDiv);
 
     li.addEventListener('click', () => {
       currentMemoId = memo.id;
@@ -1003,6 +1043,27 @@ function renderMemoList() {
 
     memoList.appendChild(li);
   });
+
+  // Add bulk delete listener if not added
+  if (bulkBtn && !bulkBtn.dataset.listenerAdded) {
+    bulkBtn.addEventListener('click', async () => {
+      if (selectedMemoIds.size === 0) return;
+      if (!confirm(`${selectedMemoIds.size}件のメモを削除しますか？`)) return;
+
+      try {
+        const batch = writeBatch(db);
+        selectedMemoIds.forEach(id => {
+          batch.delete(doc(db, "memos", id));
+        });
+        await batch.commit();
+        selectedMemoIds.clear();
+      } catch (e) {
+        console.error("Error bulk deleting:", e);
+        alert("削除に失敗しました");
+      }
+    });
+    bulkBtn.dataset.listenerAdded = "true";
+  }
 }
 
 function renderMemoEditorState() {
