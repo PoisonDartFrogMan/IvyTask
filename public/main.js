@@ -18,13 +18,13 @@ import {
 
 // ===== Firebase config & Initialize =====
 const firebaseConfig = {
-    apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
-    authDomain: "ivy-league-app-95a5d.firebaseapp.com",
-    projectId: "ivy-league-app-95a5d",
-    storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
-    messagingSenderId: "470602099850",
-    appId: "1:470602099850:web:1ac19841730eb053341173",
-    measurementId: "G-BE4QS8RP2G"
+  apiKey: "AIzaSyBeI8s103OiXXOpRpYc5WBwkJK1lFSzLwM",
+  authDomain: "ivy-league-app-95a5d.firebaseapp.com",
+  projectId: "ivy-league-app-95a5d",
+  storageBucket: "ivy-league-app-95a5d.firebasestorage.app",
+  messagingSenderId: "470602099850",
+  appId: "1:470602099850:web:1ac19841730eb053341173",
+  measurementId: "G-BE4QS8RP2G"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -41,6 +41,7 @@ initializeRecurringTasks(db);
 const startupScreen = document.getElementById('startup-screen');
 const startTaskButton = document.getElementById('start-task-button');
 const startTodoButton = document.getElementById('start-todo-button');
+const startMemoButton = document.getElementById('start-memo-button');
 const todoComingSoon = document.getElementById('todo-coming-soon');
 const todoContainer = document.getElementById('todo-container');
 const todoBackStartupButton = document.getElementById('todo-back-startup-button');
@@ -76,6 +77,10 @@ const onboardingDatetimeInput = document.getElementById('onboarding-datetime');
 const onboardingItemsCheckbox = document.getElementById('onboarding-items-checkbox');
 const onboardingModalSaveButton = document.getElementById('onboarding-modal-save');
 const onboardingModalCancelButton = document.getElementById('onboarding-modal-cancel');
+const todoSettingsButton = document.getElementById('todo-settings-button');
+const todoSettingsModalBackdrop = document.getElementById('todo-settings-modal-backdrop');
+const closeTodoSettingsModalButton = document.getElementById('close-todo-settings-modal-button');
+const todoUpdatesList = document.getElementById('todo-updates-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -152,15 +157,28 @@ const editTaskButton = document.getElementById('edit-task-button');
 const saveTaskButton = document.getElementById('save-task-button');
 const cancelEditButton = document.getElementById('cancel-edit-button');
 
+// Memo Workspace Elements
+const memoContainer = document.getElementById('memo-container');
+const startMemoButtonStartup = document.getElementById('start-memo-button'); // already got above but redundant ref is ok or reuse
+const memoBackStartupButton = document.getElementById('memo-back-startup-button');
+const memoList = document.getElementById('memo-list');
+const addMemoButton = document.getElementById('add-memo-button');
+const memoEditorArea = document.querySelector('.memo-editor-area'); // use class or add id? class is fine
+const memoEditorPlaceholder = document.getElementById('memo-editor-placeholder');
+const memoEditor = document.getElementById('memo-editor');
+const memoLastUpdated = document.getElementById('memo-last-updated');
+const deleteMemoButton = document.getElementById('delete-memo-button');
+const memoContentTextarea = document.getElementById('memo-content-textarea');
+
 
 // ===== Global State & Constants =====
 let currentUserId = null;
-let workspaceSelection = null; // 'task' | 'todo' | null
+let workspaceSelection = null; // 'task' | 'todo' | 'memo' | null
 let lastKnownAuthUser = null;
 let selectedLabelId = null;
 let labels = [];
-let unsubscribeLabels = () => {};
-let unsubscribeTasks = () => {};
+let unsubscribeLabels = () => { };
+let unsubscribeTasks = () => { };
 let currentlyEditingTaskId = null;
 let currentlyEditingTaskDueDate = null; // Date or null
 let selectedLabelColor = null;
@@ -169,13 +187,18 @@ const selectedArchivedTaskIds = new Set();
 let sleepEnabled = false;
 let sleepSeconds = 60; // default
 let sleepTimerId = null;
-const THEME_KEYS = ['pastel','okinawa','jungle','dolphins','sunny','happyhacking','skycastle','lunar','custom'];
+const THEME_KEYS = ['pastel', 'okinawa', 'jungle', 'dolphins', 'sunny', 'happyhacking', 'skycastle', 'lunar', 'custom'];
 let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
 let currentCandidateId = null;
 let currentDetailTasks = [];
 let currentInterviewTaskId = null;
 let currentInterviews = [];
 let currentOnboardingTaskId = null;
+// Memo State
+let memos = [];
+let currentMemoId = null;
+let unsubscribeMemos = () => { };
+let memoSaveTimeout = null;
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -190,15 +213,18 @@ const DEFAULT_CANDIDATE_TASKS = [
   '社内ネットワークへの人事発令',
   '入社時研修'
 ];
-const INTERVIEW_STAGES = ['一次','二次','最終'];
+const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 
 
 // ===== Startup View Helpers =====
 function showStartupScreen(showTodoMessage = false) {
-  workspaceSelection = showTodoMessage ? 'todo' : null;
+  workspaceSelection = showTodoMessage ? 'todo' : null; // Keep this logic for 'todo' message, but general reset
+  if (!showTodoMessage) workspaceSelection = null;
+
   handleSignedOut(false);
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -212,6 +238,7 @@ async function enterTaskWorkspace() {
     handleSignedOut(true);
   }
   if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
 }
 
 function enterTodoWorkspace() {
@@ -225,6 +252,27 @@ function enterTodoWorkspace() {
   renderCandidates();
 }
 
+async function enterMemoWorkspace() {
+  workspaceSelection = 'memo';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    // We need to ensure settings are loaded for wallpaper
+    await loadUserSettings(currentUserId);
+    subscribeMemos(currentUserId);
+  } else {
+    // If somehow entered without user, show auth
+    handleSignedOut(true);
+  }
+}
+
 // ===== Auth State Change (Top Level Controller) =====
 onAuthStateChanged(auth, async (user) => {
   lastKnownAuthUser = user;
@@ -232,6 +280,8 @@ onAuthStateChanged(auth, async (user) => {
     await enterTaskWorkspace();
   } else if (workspaceSelection === 'todo') {
     enterTodoWorkspace();
+  } else if (workspaceSelection === 'memo') {
+    enterMemoWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -250,38 +300,38 @@ async function handleSignedIn(user) {
   if (unsubscribeTasks) unsubscribeTasks();
 
   unsubscribeLabels = onSnapshot(query(collection(db, "labels"), where("userId", "==", user.uid)), (snapshot) => {
-      labels = [];
-      labelsList.innerHTML = '';
-      snapshot.forEach(docSnap => {
-          const label = { id: docSnap.id, ...docSnap.data() };
-          labels.push(label);
-          renderLabelInModal(label);
-      });
-      updateColorPicker();
-      updateSelectedLabelHint();
-      updateRecurringTaskLabels(labels);
+    labels = [];
+    labelsList.innerHTML = '';
+    snapshot.forEach(docSnap => {
+      const label = { id: docSnap.id, ...docSnap.data() };
+      labels.push(label);
+      renderLabelInModal(label);
+    });
+    updateColorPicker();
+    updateSelectedLabelHint();
+    updateRecurringTaskLabels(labels);
   });
-  
+
   await loadUserSettings(user.uid);
   await runDailyAutomation(user.uid);
-  
+
   unsubscribeTasks = onSnapshot(query(collection(db, "tasks"), where("userId", "==", user.uid), where("status", "in", ["stock", "today", "completed"])), (snapshot) => {
-      const tasks = [];
-      snapshot.forEach(d => tasks.push({ id: d.id, ...d.data() }));
-      tasks.sort((a, b) => {
-          if (a.status === 'stock' && b.status === 'stock') {
-              const ad = a.dueDate, bd = b.dueDate;
-              if (ad && !bd) return -1;
-              if (!ad && bd) return 1;
-              if (ad && bd) return ad.toMillis() - bd.toMillis();
-          }
-          const order = { today: 1, completed: 2, stock: 3 };
-          if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-          return (a.priority || 0) - (b.priority || 0);
-      });
-      stockList.innerHTML = '';
-      todayList.innerHTML = '';
-      tasks.forEach(t => renderTask(t.id, t));
+    const tasks = [];
+    snapshot.forEach(d => tasks.push({ id: d.id, ...d.data() }));
+    tasks.sort((a, b) => {
+      if (a.status === 'stock' && b.status === 'stock') {
+        const ad = a.dueDate, bd = b.dueDate;
+        if (ad && !bd) return -1;
+        if (!ad && bd) return 1;
+        if (ad && bd) return ad.toMillis() - bd.toMillis();
+      }
+      const order = { today: 1, completed: 2, stock: 3 };
+      if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+      return (a.priority || 0) - (b.priority || 0);
+    });
+    stockList.innerHTML = '';
+    todayList.innerHTML = '';
+    tasks.forEach(t => renderTask(t.id, t));
   });
 
   activateDragAndDrop();
@@ -295,6 +345,7 @@ function handleSignedOut(showAuthScreen = true) {
   teardownRecurringTasks();
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
+  if (unsubscribeMemos) unsubscribeMemos();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
@@ -302,54 +353,54 @@ function handleSignedOut(showAuthScreen = true) {
 
 // ===== Wallpaper Functions =====
 async function loadUserSettings(userId) {
-    if (!userId) { applyWallpaper('default'); return; }
-    const settingsRef = doc(db, 'settings', userId);
-    try {
-        const docSnap = await getDoc(settingsRef);
-        const data = docSnap.exists() ? docSnap.data() : {};
-        const theme = data.theme || 'default';
-        // Load custom wallpaper from this device (IndexedDB), not from Firestore
-        await loadCustomWallpaperFromDevice(userId);
-        applyWallpaper(theme === 'custom' && !customWallpaperDataUrl ? 'default' : theme);
-        // Sleep settings
-        sleepEnabled = !!data.sleepEnabled;
-        sleepSeconds = typeof data.sleepSeconds === 'number' ? Math.min(180, Math.max(1, Math.floor(data.sleepSeconds))) : 60;
-        if (sleepToggle) sleepToggle.checked = sleepEnabled;
-        if (sleepSecondsInput) sleepSecondsInput.value = sleepSeconds;
-        scheduleSleepTimer();
-    } catch (error) {
-        console.error("Error loading settings:", error);
-        applyWallpaper('default');
-        sleepEnabled = false; sleepSeconds = 60; scheduleSleepTimer();
-    }
+  if (!userId) { applyWallpaper('default'); return; }
+  const settingsRef = doc(db, 'settings', userId);
+  try {
+    const docSnap = await getDoc(settingsRef);
+    const data = docSnap.exists() ? docSnap.data() : {};
+    const theme = data.theme || 'default';
+    // Load custom wallpaper from this device (IndexedDB), not from Firestore
+    await loadCustomWallpaperFromDevice(userId);
+    applyWallpaper(theme === 'custom' && !customWallpaperDataUrl ? 'default' : theme);
+    // Sleep settings
+    sleepEnabled = !!data.sleepEnabled;
+    sleepSeconds = typeof data.sleepSeconds === 'number' ? Math.min(180, Math.max(1, Math.floor(data.sleepSeconds))) : 60;
+    if (sleepToggle) sleepToggle.checked = sleepEnabled;
+    if (sleepSecondsInput) sleepSecondsInput.value = sleepSeconds;
+    scheduleSleepTimer();
+  } catch (error) {
+    console.error("Error loading settings:", error);
+    applyWallpaper('default');
+    sleepEnabled = false; sleepSeconds = 60; scheduleSleepTimer();
+  }
 }
 
 async function saveWallpaperPreference(userId, theme) {
-    if (!userId) return;
-    const settingsRef = doc(db, 'settings', userId);
-    try { await setDoc(settingsRef, { theme: theme }, { merge: true }); } catch (error) { console.error("Error saving wallpaper:", error); }
+  if (!userId) return;
+  const settingsRef = doc(db, 'settings', userId);
+  try { await setDoc(settingsRef, { theme: theme }, { merge: true }); } catch (error) { console.error("Error saving wallpaper:", error); }
 }
 
 async function saveSleepPreference(userId, enabled, seconds) {
-    if (!userId) return;
-    const settingsRef = doc(db, 'settings', userId);
-    try { await setDoc(settingsRef, { sleepEnabled: !!enabled, sleepSeconds: seconds }, { merge: true }); } catch (error) { console.error("Error saving sleep settings:", error); }
+  if (!userId) return;
+  const settingsRef = doc(db, 'settings', userId);
+  try { await setDoc(settingsRef, { sleepEnabled: !!enabled, sleepSeconds: seconds }, { merge: true }); } catch (error) { console.error("Error saving sleep settings:", error); }
 }
 
 function applyWallpaper(theme) {
-    // Preserve other classes like 'sleeping' while switching theme classes
-    THEME_KEYS.forEach(k => document.body.classList.remove(`theme-${k}`));
-    if (theme && theme !== 'default') {
-        document.body.classList.add(`theme-${theme}`);
-    }
-    document.querySelectorAll('.wallpaper-choice').forEach(c => c.classList.toggle('selected', c.dataset.theme === theme));
+  // Preserve other classes like 'sleeping' while switching theme classes
+  THEME_KEYS.forEach(k => document.body.classList.remove(`theme-${k}`));
+  if (theme && theme !== 'default') {
+    document.body.classList.add(`theme-${theme}`);
+  }
+  document.querySelectorAll('.wallpaper-choice').forEach(c => c.classList.toggle('selected', c.dataset.theme === theme));
 }
 
 function scheduleSleepTimer() {
-    if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
-    if (sleepEnabled && sleepSeconds > 0) {
-        sleepTimerId = setTimeout(enterSleep, sleepSeconds * 1000);
-    }
+  if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
+  if (sleepEnabled && sleepSeconds > 0) {
+    sleepTimerId = setTimeout(enterSleep, sleepSeconds * 1000);
+  }
 }
 
 // ===== Updates (GitHub) =====
@@ -416,22 +467,23 @@ function formatDateShort(iso) {
   try {
     const d = new Date(iso);
     const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2, '0');
+    const m = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}/${m}/${dd}`;
   } catch { return ''; }
 }
 
 function renderUpdatesCompact(items) {
-  if (!updatesListCompact) return;
-  updatesListCompact.innerHTML = '';
+  const target = updatesListCompact;
+  if (!target) return;
+  target.innerHTML = '';
   if (!items || items.length === 0) {
     const li = document.createElement('li');
     li.className = 'updates-item';
     const span = document.createElement('span'); span.textContent = '更新情報を取得できませんでした。';
     const time = document.createElement('time'); time.textContent = '';
     li.append(span, time);
-    updatesListCompact.appendChild(li);
+    target.appendChild(li);
     return;
   }
   items.slice(0, 3).forEach(i => {
@@ -440,20 +492,20 @@ function renderUpdatesCompact(items) {
     const title = document.createElement('span'); title.textContent = i.title; title.className = 'updates-title';
     const time = document.createElement('time'); time.textContent = formatDateShort(i.date);
     li.append(title, time);
-    updatesListCompact.appendChild(li);
+    target.appendChild(li);
   });
 }
 
-function renderUpdatesFull(items) {
-  if (!updatesListFull) return;
-  updatesListFull.innerHTML = '';
+function renderUpdatesFull(items, target = updatesListFull) {
+  if (!target) return;
+  target.innerHTML = '';
   if (!items || items.length === 0) {
     const li = document.createElement('li');
     li.className = 'updates-item';
     const span = document.createElement('span'); span.textContent = '更新情報はありません。';
     const time = document.createElement('time'); time.textContent = '';
     li.append(span, time);
-    updatesListFull.appendChild(li);
+    target.appendChild(li);
     return;
   }
   items.forEach(i => {
@@ -462,7 +514,7 @@ function renderUpdatesFull(items) {
     const title = document.createElement('span'); title.textContent = i.title; title.className = 'updates-title';
     const time = document.createElement('time'); time.textContent = formatDateShort(i.date);
     li.append(title, time);
-    updatesListFull.appendChild(li);
+    target.appendChild(li);
   });
 }
 
@@ -471,17 +523,20 @@ async function ensureUpdatesLoaded() {
   renderUpdatesCompact(items);
   // If modal is open, also refresh full list
   if (updatesModalBackdrop && !updatesModalBackdrop.classList.contains('hidden')) {
-    renderUpdatesFull(items);
+    renderUpdatesFull(items, updatesListFull);
+  }
+  if (todoSettingsModalBackdrop && !todoSettingsModalBackdrop.classList.contains('hidden')) {
+    renderUpdatesFull(items, todoUpdatesList);
   }
 }
 
 function enterSleep() {
-    document.body.classList.add('sleeping');
+  document.body.classList.add('sleeping');
 }
 
 function exitSleep() {
-    document.body.classList.remove('sleeping');
-    scheduleSleepTimer();
+  document.body.classList.remove('sleeping');
+  scheduleSleepTimer();
 }
 
 
@@ -529,16 +584,16 @@ function renderLabelInModal(label) {
   const editPalette = document.createElement('div');
   editPalette.className = 'edit-color-palette';
   PASTEL_COLORS.forEach(color => {
-      const choice = document.createElement('div');
-      choice.className = 'palette-choice';
-      choice.style.backgroundColor = color;
-      choice.dataset.color = color;
-      if (color === label.color) { choice.classList.add('selected'); }
-      choice.addEventListener('click', () => {
-          editPalette.querySelectorAll('.palette-choice').forEach(c => c.classList.remove('selected'));
-          choice.classList.add('selected');
-      });
-      editPalette.appendChild(choice);
+    const choice = document.createElement('div');
+    choice.className = 'palette-choice';
+    choice.style.backgroundColor = color;
+    choice.dataset.color = color;
+    if (color === label.color) { choice.classList.add('selected'); }
+    choice.addEventListener('click', () => {
+      editPalette.querySelectorAll('.palette-choice').forEach(c => c.classList.remove('selected'));
+      choice.classList.add('selected');
+    });
+    editPalette.appendChild(choice);
   });
   editContainer.append(input, editPalette);
   const buttonsContainer = document.createElement('div');
@@ -781,30 +836,279 @@ function activateDragAndDrop() {
   });
 }
 
+// ... (Existing code ends here)
+
+// ===== Memo Functions =====
+
+// Event Listeners
+if (startMemoButton) {
+  startMemoButton.addEventListener('click', () => {
+    if (lastKnownAuthUser) {
+      enterMemoWorkspace();
+    } else {
+      // Need login
+      workspaceSelection = 'memo';
+      handleSignedOut(true);
+    }
+  });
+}
+
+if (memoBackStartupButton) {
+  memoBackStartupButton.addEventListener('click', () => {
+    showStartupScreen();
+  });
+}
+
+if (addMemoButton) {
+  addMemoButton.addEventListener('click', async () => {
+    await createNewMemo();
+  });
+}
+
+if (memoContentTextarea) {
+  memoContentTextarea.addEventListener('input', () => {
+    if (memoSaveTimeout) clearTimeout(memoSaveTimeout);
+    memoSaveTimeout = setTimeout(() => {
+      saveCurrentMemo();
+    }, 1000); // Auto-save after 1 second of inactivity
+  });
+}
+
+if (deleteMemoButton) {
+  deleteMemoButton.addEventListener('click', async () => {
+    if (currentMemoId && confirm('このメモを削除しますか？')) {
+      await deleteDoc(doc(db, "memos", currentMemoId));
+      currentMemoId = null;
+      renderMemoEditorState();
+    }
+  });
+}
+
+function subscribeMemos(userId) {
+  if (unsubscribeMemos) unsubscribeMemos();
+  // Remove orderBy to avoid needing a composite index
+  const q = query(collection(db, "memos"), where("userId", "==", userId));
+
+  unsubscribeMemos = onSnapshot(q, (snapshot) => {
+    memos = [];
+    snapshot.forEach(docSnap => {
+      memos.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    // Sort client-side
+    memos.sort((a, b) => {
+      const ta = a.updatedAt ? a.updatedAt.toMillis() : 0;
+      const tb = b.updatedAt ? b.updatedAt.toMillis() : 0;
+      return tb - ta; // Descending
+    });
+
+    renderMemoList();
+
+    // If current memo was deleted remotely, clear editor
+    if (currentMemoId && !memos.find(m => m.id === currentMemoId)) {
+      currentMemoId = null;
+    }
+    renderMemoEditorState();
+  }, (error) => {
+    console.error("Error subscribing to memos:", error);
+    if (error.code === 'failed-precondition') {
+      alert("初回のみ、データベースのインデックス構築に時間がかかる場合があります。しばらく待ってからリロードしてください。（開発者用ログ: Missing Index）");
+    }
+  });
+}
+
+async function createNewMemo() {
+  if (!currentUserId) return;
+  try {
+    const docRef = await addDoc(collection(db, "memos"), {
+      userId: currentUserId,
+      content: '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    currentMemoId = docRef.id;
+    // Don't need to manually render, snapshot will trigger
+    // But we might want to focus the editor
+    setTimeout(() => {
+      const el = document.querySelector(`[data-memo-id="${currentMemoId}"]`);
+      if (el) el.click();
+      if (memoContentTextarea) memoContentTextarea.focus();
+    }, 100);
+  } catch (e) {
+    console.error("Error creating memo:", e);
+    alert("メモの作成に失敗しました。");
+  }
+}
+
+async function saveCurrentMemo() {
+  if (!currentMemoId || !memoContentTextarea) return;
+  const content = memoContentTextarea.value;
+  try {
+    await updateDoc(doc(db, "memos", currentMemoId), {
+      content: content,
+      updatedAt: serverTimestamp()
+    });
+    const now = new Date();
+    memoLastUpdated.textContent = `保存済み: ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  } catch (e) {
+    console.error("Error saving memo:", e);
+    memoLastUpdated.textContent = "保存に失敗しました";
+  }
+}
+
+function renderMemoList() {
+  if (!memoList) return;
+  memoList.innerHTML = '';
+
+  if (memos.length === 0) {
+    const emptyLi = document.createElement('li');
+    emptyLi.textContent = 'メモがありません';
+    emptyLi.style.padding = '16px';
+    emptyLi.style.color = 'var(--text-secondary)';
+    emptyLi.style.textAlign = 'center';
+    memoList.appendChild(emptyLi);
+    return;
+  }
+
+  memos.forEach(memo => {
+    const li = document.createElement('li');
+    li.className = 'memo-item';
+    if (memo.id === currentMemoId) li.classList.add('selected');
+    li.dataset.memoId = memo.id;
+
+    const preview = document.createElement('div');
+    preview.className = 'memo-item-preview';
+    preview.textContent = memo.content ? memo.content.substring(0, 30) : '(新規メモ)';
+    if (!memo.content) preview.style.fontStyle = 'italic';
+
+    const dateSpan = document.createElement('div');
+    dateSpan.className = 'memo-item-date';
+    const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
+    dateSpan.textContent = dateObj.toLocaleDateString('ja-JP') + ' ' + dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+    li.appendChild(preview);
+    li.appendChild(dateSpan);
+
+    li.addEventListener('click', () => {
+      currentMemoId = memo.id;
+      // Update selection UI immediately for responsiveness
+      document.querySelectorAll('.memo-item').forEach(i => i.classList.remove('selected'));
+      li.classList.add('selected');
+      renderMemoEditorState();
+
+      // Mobile responsiveness: show editor
+      const layout = document.querySelector('.memo-layout');
+      if (layout) layout.classList.add('editor-active');
+    });
+
+    memoList.appendChild(li);
+  });
+}
+
+function renderMemoEditorState() {
+  if (!memoEditor || !memoEditorPlaceholder) return;
+
+  if (currentMemoId) {
+    const memo = memos.find(m => m.id === currentMemoId);
+    if (!memo) {
+      // ID exists but not in list? (deleted)
+      currentMemoId = null;
+      renderMemoEditorState();
+      return;
+    }
+
+    memoEditorPlaceholder.classList.add('hidden');
+    memoEditor.classList.remove('hidden');
+
+    // Only update value if not currently focused to avoid overwriting typing?
+    // Actually, snapshot will trigger this. If we are typing, we are updating local state via input event and remote state via debounce.
+    // If we receive a snapshot update that matches our current editing, it might jump cursor.
+    // Ideally we shouldn't update the textarea value IF it's the same as what we just saved, OR if we are typing.
+    // For simplicity, we'll check if value is different.
+    if (memoContentTextarea.value !== memo.content && document.activeElement !== memoContentTextarea) {
+      memoContentTextarea.value = memo.content || '';
+    } else if (memo.content === '' && memoContentTextarea.value === '') {
+      // Initial empty state
+      memoContentTextarea.value = '';
+    }
+
+    const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
+    memoLastUpdated.textContent = `最終更新: ${dateObj.toLocaleDateString('ja-JP')} ${dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
+
+  } else {
+    memoEditorPlaceholder.classList.remove('hidden');
+    memoEditor.classList.add('hidden');
+    memoContentTextarea.value = '';
+
+    // Mobile responsiveness: show sidebar
+    const layout = document.querySelector('.memo-layout');
+    if (layout) layout.classList.remove('editor-active');
+  }
+}
+
+// Add back button support for mobile editor
+// We need a "back" button in editor header for mobile?
+// Current design didn't include it in HTML, let's add it dynamically if needed or just rely on Sidebar toggle?
+// On mobile, sidebar is hidden when editor is active. We need a way to go back to list.
+// Let's add a back button to .memo-editor-header if not present, only visible on mobile via CSS?
+// For now, let's assume user uses the "Delete" button or we add a "Done" button.
+// Actually, let's add a "Back" button to the editor header in JS for simplicity, or just update HTML later.
+// For this iteration, I'll add a back chevron to the header via JS.
+const memoHeader = document.querySelector('.memo-editor-header');
+if (memoHeader && !document.getElementById('memo-mobile-back')) {
+  const backBtn = document.createElement('button');
+  backBtn.id = 'memo-mobile-back';
+  backBtn.className = 'icon-button mobile-only';
+  backBtn.textContent = '←';
+  backBtn.style.marginRight = 'auto'; // Push others to right
+  backBtn.style.fontSize = '1.2rem';
+  backBtn.addEventListener('click', () => {
+    currentMemoId = null; // Deselect
+    renderMemoEditorState();
+  });
+  // Insert at beginning
+  memoHeader.insertBefore(backBtn, memoHeader.firstChild);
+}
+
+// Add CSS for mobile-back via JS injection or assume style.css handles it?
+// We didn't add .mobile-only in CSS. Let's add inline style for now or update CSS.
+// Let's add a style block for this button to be safe.
+const style = document.createElement('style');
+style.textContent = `
+  #memo-mobile-back { display: none; }
+  @media (max-width: 768px) {
+    #memo-mobile-back { display: block; }
+    .memo-editor-header { gap: 10px; }
+  }
+`;
+document.head.appendChild(style);
+
+
+
 // <<< 変更点: 翌日期日のタスクを自動でFocalistに移動するロジックを復元 >>>
 async function runDailyAutomation(userId) {
-    const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
-    const snap = await getDocs(q);
-    const all = []; snap.forEach(d => all.push({ ref: d.ref, ...d.data() }));
-    let todayCount = all.filter(t => t.status === 'today').length;
-    const stocks = all.filter(t => t.status === 'stock');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
+  const snap = await getDocs(q);
+  const all = []; snap.forEach(d => all.push({ ref: d.ref, ...d.data() }));
+  let todayCount = all.filter(t => t.status === 'today').length;
+  const stocks = all.filter(t => t.status === 'stock');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-    stocks.forEach(t => {
-        if (t.dueDate) {
-            const dd = t.dueDate.toDate(); dd.setHours(0, 0, 0, 0);
-            if (dd.getTime() === tomorrow.getTime() && todayCount < 6) {
-                updateDoc(t.ref, { status: 'today', priority: todayCount });
-                todayCount++;
-            }
-        }
-    });
+  stocks.forEach(t => {
+    if (t.dueDate) {
+      const dd = t.dueDate.toDate(); dd.setHours(0, 0, 0, 0);
+      if (dd.getTime() === tomorrow.getTime() && todayCount < 6) {
+        updateDoc(t.ref, { status: 'today', priority: todayCount });
+        todayCount++;
+      }
+    }
+  });
 }
 
 document.addEventListener('click', () => { closeAllDropdowns(); });
 function closeAllDropdowns() {
-    document.querySelectorAll('.actions-dropdown.visible').forEach(d => d.classList.remove('visible'));
+  document.querySelectorAll('.actions-dropdown.visible').forEach(d => d.classList.remove('visible'));
 }
 
 if (startTaskButton) {
@@ -878,6 +1182,22 @@ if (onboardingModalCancelButton) {
 }
 if (onboardingModalSaveButton) {
   onboardingModalSaveButton.addEventListener('click', saveOnboardingDetails);
+}
+if (todoSettingsButton) {
+  todoSettingsButton.addEventListener('click', async () => {
+    todoSettingsModalBackdrop?.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    const items = await fetchGithubUpdates();
+    renderUpdatesFull(items, todoUpdatesList);
+  });
+}
+const closeTodoSettings = () => {
+  todoSettingsModalBackdrop?.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+};
+if (closeTodoSettingsModalButton) closeTodoSettingsModalButton.addEventListener('click', closeTodoSettings);
+if (todoSettingsModalBackdrop) {
+  todoSettingsModalBackdrop.addEventListener('click', (e) => { if (e.target === todoSettingsModalBackdrop) closeTodoSettings(); });
 }
 if (candidateDetailForm) {
   candidateDetailForm.addEventListener('submit', (e) => {
@@ -968,25 +1288,25 @@ function renderCandidates(list = loadCandidates()) {
 function normalizeCandidate(c) {
   const tasks = Array.isArray(c.tasks) && c.tasks.length
     ? c.tasks.map((t, idx) => ({
-        id: t.id || `t-${c.id || idx}-${idx}`,
-        text: t.text || t,
-        done: !!t.done,
-        stage: t.stage || '',
-        schedule: t.schedule || '',
-        infoProvided: !!t.infoProvided,
-        onboardingSchedule: t.onboardingSchedule || '',
-        onboardingItemsProvided: !!t.onboardingItemsProvided
-      }))
+      id: t.id || `t-${c.id || idx}-${idx}`,
+      text: t.text || t,
+      done: !!t.done,
+      stage: t.stage || '',
+      schedule: t.schedule || '',
+      infoProvided: !!t.infoProvided,
+      onboardingSchedule: t.onboardingSchedule || '',
+      onboardingItemsProvided: !!t.onboardingItemsProvided
+    }))
     : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
-        id: `t-${c.id || 'new'}-${idx}`,
-        text: t,
-        done: false,
-        stage: '',
-        schedule: '',
-        infoProvided: false,
-        onboardingSchedule: '',
-        onboardingItemsProvided: false
-      }));
+      id: `t-${c.id || 'new'}-${idx}`,
+      text: t,
+      done: false,
+      stage: '',
+      schedule: '',
+      infoProvided: false,
+      onboardingSchedule: '',
+      onboardingItemsProvided: false
+    }));
   return { ...c, tasks, interviews: normalizeInterviews(c.interviews) };
 }
 
@@ -1181,7 +1501,7 @@ if (returnStartupButton) {
 }
 
 // ===== Due date segmented inputs (YYYY / MM / DD) =====
-(function setupSegmentedDueDateInputs(){
+(function setupSegmentedDueDateInputs() {
   if (!dueYearInput || !dueMonthInput || !dueDayInput || !dueDateInput) return;
 
   const clamp = (num, min, max) => Math.min(max, Math.max(min, num));
@@ -1212,7 +1532,7 @@ if (returnStartupButton) {
     const dd = String(d).padStart(2, '0');
     const dateStr = `${y}-${mm}-${dd}`;
     const dt = new Date(dateStr);
-    if (!isNaN(dt.getTime()) && dt.getFullYear() === y && (dt.getMonth()+1) === parseInt(mm,10) && dt.getDate() === parseInt(dd,10)) {
+    if (!isNaN(dt.getTime()) && dt.getFullYear() === y && (dt.getMonth() + 1) === parseInt(mm, 10) && dt.getDate() === parseInt(dd, 10)) {
       dueDateInput.value = dateStr;
     } else {
       dueDateInput.value = '';
@@ -1433,26 +1753,26 @@ closeTaskDetailModalButton.addEventListener('click', () => { taskDetailModalBack
 taskDetailModalBackdrop.addEventListener('click', (e) => { if (e.target === taskDetailModalBackdrop) { taskDetailModalBackdrop.classList.add('hidden'); } });
 
 function switchToViewMode() {
-    modalViewMode.classList.remove('hidden');
-    editTaskButton.classList.remove('hidden');
-    modalEditMode.classList.add('hidden');
-    saveTaskButton.classList.add('hidden');
-    cancelEditButton.classList.add('hidden');
+  modalViewMode.classList.remove('hidden');
+  editTaskButton.classList.remove('hidden');
+  modalEditMode.classList.add('hidden');
+  saveTaskButton.classList.add('hidden');
+  cancelEditButton.classList.add('hidden');
 }
 function switchToEditMode() {
-    modalViewMode.classList.add('hidden');
-    editTaskButton.classList.add('hidden');
-    modalEditMode.classList.remove('hidden');
-    saveTaskButton.classList.remove('hidden');
-    cancelEditButton.classList.remove('hidden');
+  modalViewMode.classList.add('hidden');
+  editTaskButton.classList.add('hidden');
+  modalEditMode.classList.remove('hidden');
+  saveTaskButton.classList.remove('hidden');
+  cancelEditButton.classList.remove('hidden');
 }
 
 settingsButton.addEventListener('click', () => {
-    if(auth.currentUser){ settingsUserIdSpan.textContent = auth.currentUser.email; }
-    settingsModalBackdrop.classList.remove('hidden');
-    document.body.classList.add('modal-open');
-    // Load updates when settings opens
-    ensureUpdatesLoaded();
+  if (auth.currentUser) { settingsUserIdSpan.textContent = auth.currentUser.email; }
+  settingsModalBackdrop.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  // Load updates when settings opens
+  ensureUpdatesLoaded();
 });
 const closeSettings = () => {
   settingsModalBackdrop.classList.add('hidden');
@@ -1461,17 +1781,17 @@ const closeSettings = () => {
 closeSettingsModalButton.addEventListener('click', closeSettings);
 settingsModalBackdrop.addEventListener('click', (e) => { if (e.target === settingsModalBackdrop) { closeSettings(); } });
 wallpaperChoices.addEventListener('click', (e) => {
-    const choice = e.target.closest('.wallpaper-choice');
-    if (choice) {
-        const theme = choice.dataset.theme;
-        if (theme === 'custom' && !customWallpaperDataUrl) {
-            // No image yet → prompt upload
-            if (chooseCustomWallpaperButton) chooseCustomWallpaperButton.click();
-            return;
-        }
-        applyWallpaper(theme);
-        saveWallpaperPreference(currentUserId, theme);
+  const choice = e.target.closest('.wallpaper-choice');
+  if (choice) {
+    const theme = choice.dataset.theme;
+    if (theme === 'custom' && !customWallpaperDataUrl) {
+      // No image yet → prompt upload
+      if (chooseCustomWallpaperButton) chooseCustomWallpaperButton.click();
+      return;
     }
+    applyWallpaper(theme);
+    saveWallpaperPreference(currentUserId, theme);
+  }
 });
 
 // Open updates modal on window click
@@ -1656,7 +1976,7 @@ if (sleepSecondsInput) {
   });
 }
 
-['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt => {
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
   document.addEventListener(evt, () => {
     if (sleepEnabled) {
       if (document.body.classList.contains('sleeping')) {
@@ -1669,70 +1989,70 @@ if (sleepSecondsInput) {
 });
 
 document.body.addEventListener('click', async (event) => {
-    const target = event.target;
-    if (target.closest('.color-choice')) {
-      selectedLabelId = target.closest('.color-choice').dataset.labelId;
-      updateColorPicker();
-      updateSelectedLabelHint();
-      return;
-    }
-    if (target.classList.contains('due-date')) {
-      const li = target.closest('li[data-id]'); if (!li) return;
-      const ref = doc(db, "tasks", li.dataset.id);
-      const input = document.createElement('input');
-      input.type = 'date';
-      const d = await getDoc(ref);
-      if (d.exists() && d.data().dueDate) { input.value = d.data().dueDate.toDate().toISOString().split('T')[0]; }
-      target.replaceWith(input);
-      input.focus();
-      const save = () => updateDoc(ref, { dueDate: input.value ? Timestamp.fromDate(new Date(input.value)) : null });
-      input.addEventListener('blur', save);
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
-      return;
-    }
-    const labelRow = target.closest('.label-item');
-    if(labelRow){
-        const id = labelRow.dataset.id;
-        const viewContainer = labelRow.querySelector('.label-view-container');
-        const editContainer = labelRow.querySelector('.label-edit-container');
-        const buttonsContainer = labelRow.querySelector('.label-buttons-container');
+  const target = event.target;
+  if (target.closest('.color-choice')) {
+    selectedLabelId = target.closest('.color-choice').dataset.labelId;
+    updateColorPicker();
+    updateSelectedLabelHint();
+    return;
+  }
+  if (target.classList.contains('due-date')) {
+    const li = target.closest('li[data-id]'); if (!li) return;
+    const ref = doc(db, "tasks", li.dataset.id);
+    const input = document.createElement('input');
+    input.type = 'date';
+    const d = await getDoc(ref);
+    if (d.exists() && d.data().dueDate) { input.value = d.data().dueDate.toDate().toISOString().split('T')[0]; }
+    target.replaceWith(input);
+    input.focus();
+    const save = () => updateDoc(ref, { dueDate: input.value ? Timestamp.fromDate(new Date(input.value)) : null });
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+    return;
+  }
+  const labelRow = target.closest('.label-item');
+  if (labelRow) {
+    const id = labelRow.dataset.id;
+    const viewContainer = labelRow.querySelector('.label-view-container');
+    const editContainer = labelRow.querySelector('.label-edit-container');
+    const buttonsContainer = labelRow.querySelector('.label-buttons-container');
 
-        if(target.classList.contains('edit-label-btn')){
-            viewContainer.classList.add('hidden');
-            editContainer.classList.remove('hidden');
-            buttonsContainer.querySelectorAll('.edit-label-btn, .delete-label-btn').forEach(el => el.classList.add('hidden'));
-            buttonsContainer.querySelectorAll('.save-label-btn, .cancel-label-btn').forEach(el => el.classList.remove('hidden'));
-            return;
-        }
-        if(target.classList.contains('cancel-label-btn')){
-            viewContainer.classList.remove('hidden');
-            editContainer.classList.add('hidden');
-            buttonsContainer.querySelectorAll('.edit-label-btn, .delete-label-btn').forEach(el => el.classList.remove('hidden'));
-            buttonsContainer.querySelectorAll('.save-label-btn, .cancel-label-btn').forEach(el => el.classList.add('hidden'));
-            const originalColor = labels.find(l=>l.id===id).color;
-            editContainer.querySelectorAll('.palette-choice').forEach(c => c.classList.toggle('selected', c.dataset.color === originalColor));
-            return;
-        }
-        if(target.classList.contains('save-label-btn')){
-            const newName = editContainer.querySelector('.label-edit-input').value.trim();
-            const selectedColorEl = editContainer.querySelector('.palette-choice.selected');
-            const newColor = selectedColorEl ? selectedColorEl.dataset.color : labels.find(l=>l.id===id).color;
-            if(!newName) return alert('ラベル名を入力してください。');
-            if(labels.some(l=>l.name===newName && l.id!==id)) return alert('同名のラベルが存在します。');
-            await updateDoc(doc(db, "labels", id), { name: newName, color: newColor });
-            return;
-        }
-        if(target.classList.contains('delete-label-btn')){
-            const labelObj = labels.find(l => l.id === id);
-            if (!confirm(`ラベル「${labelObj?.name || ''}」を削除しますか？\n関連するタスクのラベルは解除されます。`)) return;
-            const qTasks = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("labelId", "==", id));
-            const snap = await getDocs(qTasks);
-            const batch = writeBatch(db);
-            snap.forEach(d => batch.update(d.ref, { labelId: null }));
-            batch.delete(doc(db, "labels", id));
-            await batch.commit();
-            if (selectedLabelId === id) selectedLabelId = null;
-            return;
-        }
+    if (target.classList.contains('edit-label-btn')) {
+      viewContainer.classList.add('hidden');
+      editContainer.classList.remove('hidden');
+      buttonsContainer.querySelectorAll('.edit-label-btn, .delete-label-btn').forEach(el => el.classList.add('hidden'));
+      buttonsContainer.querySelectorAll('.save-label-btn, .cancel-label-btn').forEach(el => el.classList.remove('hidden'));
+      return;
     }
+    if (target.classList.contains('cancel-label-btn')) {
+      viewContainer.classList.remove('hidden');
+      editContainer.classList.add('hidden');
+      buttonsContainer.querySelectorAll('.edit-label-btn, .delete-label-btn').forEach(el => el.classList.remove('hidden'));
+      buttonsContainer.querySelectorAll('.save-label-btn, .cancel-label-btn').forEach(el => el.classList.add('hidden'));
+      const originalColor = labels.find(l => l.id === id).color;
+      editContainer.querySelectorAll('.palette-choice').forEach(c => c.classList.toggle('selected', c.dataset.color === originalColor));
+      return;
+    }
+    if (target.classList.contains('save-label-btn')) {
+      const newName = editContainer.querySelector('.label-edit-input').value.trim();
+      const selectedColorEl = editContainer.querySelector('.palette-choice.selected');
+      const newColor = selectedColorEl ? selectedColorEl.dataset.color : labels.find(l => l.id === id).color;
+      if (!newName) return alert('ラベル名を入力してください。');
+      if (labels.some(l => l.name === newName && l.id !== id)) return alert('同名のラベルが存在します。');
+      await updateDoc(doc(db, "labels", id), { name: newName, color: newColor });
+      return;
+    }
+    if (target.classList.contains('delete-label-btn')) {
+      const labelObj = labels.find(l => l.id === id);
+      if (!confirm(`ラベル「${labelObj?.name || ''}」を削除しますか？\n関連するタスクのラベルは解除されます。`)) return;
+      const qTasks = query(collection(db, "tasks"), where("userId", "==", currentUserId), where("labelId", "==", id));
+      const snap = await getDocs(qTasks);
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.update(d.ref, { labelId: null }));
+      batch.delete(doc(db, "labels", id));
+      await batch.commit();
+      if (selectedLabelId === id) selectedLabelId = null;
+      return;
+    }
+  }
 });

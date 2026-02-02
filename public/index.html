@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IvyTask</title>
-  <link rel="stylesheet" href="style.css?v=final_cache_bust">
+  <link rel="stylesheet" href="style.css?v=memo_v1">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#AEC6CF">
   <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
+
 <body>
 
   <div id="startup-screen">
@@ -25,6 +27,11 @@
         <button id="start-todo-button" class="startup-option">
           <span class="option-label">Todo</span>
           <span class="option-desc">人事チーム用ToDo（新機能）</span>
+        </button>
+        <!-- Memo Button Added -->
+        <button id="start-memo-button" class="startup-option">
+          <span class="option-label">Memo</span>
+          <span class="option-desc">シンプルなメモ帳</span>
         </button>
       </div>
       <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
@@ -92,6 +99,7 @@
       <div class="todo-actions">
         <button id="todo-back-startup-button" type="button">スタートに戻る</button>
         <button id="todo-switch-task-button" type="button" class="secondary">Taskに切り替える</button>
+        <button id="todo-settings-button" type="button" class="secondary">設定</button>
       </div>
     </div>
     <section id="candidate-panel" class="todo-section hidden">
@@ -188,11 +196,11 @@
             <label for="candidate-detail-note">メモ</label>
             <input id="candidate-detail-note" type="text">
           </div>
-        <div class="form-row">
-          <label for="candidate-detail-type">区分</label>
-          <select id="candidate-detail-type">
-            <option value="">選択してください</option>
-            <option value="新卒">新卒</option>
+          <div class="form-row">
+            <label for="candidate-detail-type">区分</label>
+            <select id="candidate-detail-type">
+              <option value="">選択してください</option>
+              <option value="新卒">新卒</option>
               <option value="キャリア">キャリア</option>
               <option value="パート">パート</option>
               <option value="派遣">派遣</option>
@@ -256,21 +264,68 @@
       <p class="todo-note">※ これはプレビュー画面です。機能は順次追加されます。</p>
     </section>
   </div>
+  <div id="memo-container" class="hidden">
+    <div class="memo-layout">
+      <aside class="memo-sidebar">
+        <div class="memo-sidebar-header">
+          <h2>Memos</h2>
+          <button id="add-memo-button" class="icon-button" title="新規メモ">+</button>
+        </div>
+        <ul id="memo-list" class="memo-list">
+          <!-- Memo items will be injected here -->
+        </ul>
+        <button id="memo-back-startup-button" class="secondary">スタートに戻る</button>
+      </aside>
+      <main class="memo-editor-area">
+        <div id="memo-editor-placeholder" class="memo-placeholder">
+          <p>メモを選択するか、新規作成してください</p>
+        </div>
+        <div id="memo-editor" class="memo-editor hidden">
+          <div class="memo-editor-header">
+            <span id="memo-last-updated" class="memo-meta"></span>
+            <button id="delete-memo-button" class="danger icon-button" title="削除">🗑️</button>
+          </div>
+          <textarea id="memo-content-textarea" placeholder="ここにメモを入力..."></textarea>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="todo-settings-modal-backdrop" class="hidden">
+    <div id="todo-settings-modal" class="settings-modal">
+      <h2>設定</h2>
+      <div class="settings-section">
+        <h3>更新情報</h3>
+        <ul id="todo-updates-list" class="updates-list"></ul>
+      </div>
+      <div class="settings-section">
+        <h3>FAQ</h3>
+        <p class="settings-help">タスク側と同じFAQを共有しています。詳細はFAQページをご確認ください。</p>
+        <ul class="faq-list">
+          <li>「Focalist（今日の優先タスク）」は最大6件まで。毎日リセットされます。</li>
+          <li>「ストック」はやりたい/保留タスクを置く場所。期日が翌日のものは自動でFocalistに移動します。</li>
+          <li>壁紙・スリープ設定・アーカイブなどはタスク側と共通の使い方です。</li>
+        </ul>
+        <a href="/faq.html">FAQを見る</a>
+      </div>
+      <button id="close-todo-settings-modal-button" type="button">閉じる</button>
+    </div>
+  </div>
 
   <div id="archive-container" style="display: none;">
-      <div class="archive-toolbar">
-        <button id="back-to-main-button-top">メイン画面へ戻る</button>
-        <div class="archive-bulk-actions">
-          <label class="archive-select-all">
-            <input type="checkbox" id="archive-select-all-checkbox">
-            全て選択
-          </label>
-          <button id="archive-delete-selected-button" type="button" disabled>選択したタスクを削除</button>
-        </div>
+    <div class="archive-toolbar">
+      <button id="back-to-main-button-top">メイン画面へ戻る</button>
+      <div class="archive-bulk-actions">
+        <label class="archive-select-all">
+          <input type="checkbox" id="archive-select-all-checkbox">
+          全て選択
+        </label>
+        <button id="archive-delete-selected-button" type="button" disabled>選択したタスクを削除</button>
       </div>
-      <h1>アーカイブ</h1>
-      <ul id="archive-tasks"></ul>
-      <button id="back-to-main-button">メイン画面へ戻る</button>
+    </div>
+    <h1>アーカイブ</h1>
+    <ul id="archive-tasks"></ul>
+    <button id="back-to-main-button">メイン画面へ戻る</button>
   </div>
 
   <div id="label-modal-backdrop" class="hidden">
@@ -278,7 +333,7 @@
       <h2>カテゴリーラベルを管理</h2>
       <ul id="labels-list"></ul>
       <form id="add-label-form">
-        <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required/>
+        <input type="text" id="label-name-input" placeholder="ラベル名 (12文字以内)" maxlength="12" required />
         <div class="label-color-selector">
           <div id="label-color-palette"></div>
           <button type="submit">新しいラベルを追加</button>
@@ -312,7 +367,7 @@
     <div id="settings-modal">
       <h2>設定</h2>
       <div id="updates-restart-hint" class="updates-restart-hint hidden">最新の更新が見つかりました。反映のためにアプリの再読み込みをおすすめします。</div>
-      
+
       <div class="settings-section">
         <h3>アカウント</h3>
         <div class="settings-item">
@@ -345,7 +400,8 @@
         <p class="settings-help" style="margin: 0 0 8px; color: var(--text-secondary);">
           製作者への連絡先はこちらです。ご要望・バグ報告などお気軽にどうぞ。
         </p>
-        <div class="contact-box" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid var(--border-color); border-left:3px solid var(--primary-color); border-radius:4px; background-color: var(--bg-color);">
+        <div class="contact-box"
+          style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid var(--border-color); border-left:3px solid var(--primary-color); border-radius:4px; background-color: var(--bg-color);">
           <code style="font-size: 0.95em;">happy.hacking.frog@gmail.com</code>
           <a href="mailto:happy.hacking.frog@gmail.com" style="text-decoration:none;">メールを作成</a>
         </div>
@@ -408,7 +464,7 @@
           <input type="number" id="sleep-seconds" min="1" max="180" step="1" value="60" style="width:90px;">
         </div>
       </div>
-      
+
       <div class="settings-section">
         <button id="logout-button-modal" class="danger">ログアウト</button>
       </div>
@@ -489,10 +545,10 @@
           <select id="yearly-date"></select>
         </div>
 
-      <div class="recurring-form-actions">
-        <button type="submit">保存</button>
-        <button type="button" id="close-recurring-modal-button">閉じる</button>
-      </div>
+        <div class="recurring-form-actions">
+          <button type="submit">保存</button>
+          <button type="button" id="close-recurring-modal-button">閉じる</button>
+        </div>
       </form>
     </div>
   </div>
@@ -513,11 +569,14 @@
         <input type="text" id="new-task-title-input" placeholder="タスクのタイトルを入力...">
         <textarea id="new-task-memo-input" placeholder="内容やメモ...（任意）"></textarea>
         <div class="date-inputs" id="due-date-fields">
-          <input type="text" id="due-year" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" aria-label="年">
+          <input type="text" id="due-year" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY"
+            aria-label="年">
           <span class="date-sep">/</span>
-          <input type="text" id="due-month" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" aria-label="月">
+          <input type="text" id="due-month" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM"
+            aria-label="月">
           <span class="date-sep">/</span>
-          <input type="text" id="due-day" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" aria-label="日">
+          <input type="text" id="due-day" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD"
+            aria-label="日">
           <input type="date" id="due-date-input" class="hidden">
         </div>
         <button id="add-task-button">ストックに追加</button>
@@ -537,7 +596,8 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=final_cache_bust"></script>
+  <script type="module" src="./main.js?v=memo_v1"></script>
 
 </body>
+
 </html>
