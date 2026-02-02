@@ -1,0 +1,51 @@
+/* Image Editor Modal */
+#image-editor-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+#image-editor-modal-backdrop.hidden {
+    display: none;
+}
+
+#image-editor-modal {
+    background: var(--surface);
+    padding: 24px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.image-editor-container {
+    flex: 1;
+    min-height: 200px;
+    max-height: 60vh;
+    background: #f0f0f0;
+    overflow: hidden;
+    border-radius: 8px;
+    position: relative;
+}
+
+#image-editor-preview {
+    display: block;
+    max-width: 100%;
+}
+
+.image-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}

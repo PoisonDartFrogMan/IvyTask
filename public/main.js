@@ -176,6 +176,10 @@ const memoContentEditor = document.getElementById('memo-content-editor');
 const memoImageInput = document.getElementById('memo-image-input');
 const insertImageButton = document.getElementById('insert-image-button');
 const memoBackButton = document.getElementById('memo-back-button');
+const imageEditorModalBackdrop = document.getElementById('image-editor-modal-backdrop');
+const imageEditorPreview = document.getElementById('image-editor-preview');
+const imageEditorCancel = document.getElementById('image-editor-cancel');
+const imageEditorSave = document.getElementById('image-editor-save');
 
 
 // ===== Global State & Constants =====
@@ -1108,16 +1112,60 @@ function renderMemoEditorState() {
   }
 }
 
-// Image Handling
-async function handleImageUpload(file) {
-  if (!file || !currentUserId) return;
+// Image Handling & Cropper
+let cropper = null;
+let currentImageFile = null;
+
+function openImageEditor(file) {
+  if (!file) return;
+  currentImageFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    imageEditorPreview.src = e.target.result;
+    imageEditorModalBackdrop.classList.remove('hidden');
+
+    if (cropper) {
+      cropper.destroy();
+    }
+    cropper = new Cropper(imageEditorPreview, {
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      restore: false,
+      guides: true,
+      center: true,
+      highlight: false,
+      cropBoxMovable: true,
+      cropBoxResizable: true,
+      toggleDragModeOnDblclick: false,
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function closeImageEditor() {
+  imageEditorModalBackdrop.classList.add('hidden');
+  if (cropper) {
+    cropper.destroy();
+    cropper = null;
+  }
+  imageEditorPreview.src = '';
+  currentImageFile = null;
+  // Reset input so change event fires again if same file selected
+  if (memoImageInput) memoImageInput.value = '';
+}
+
+async function uploadCroppedImage(blob) {
+  if (!blob || !currentUserId) return;
 
   try {
     memoLastUpdated.textContent = "画像をアップロード中...";
-    const filePath = `memos/${currentUserId}/${Date.now()}_${file.name}`;
+    // Use original name or timestamp
+    const fileName = currentImageFile ? currentImageFile.name : `image_${Date.now()}.png`;
+    const filePath = `memos/${currentUserId}/${Date.now()}_${fileName}`;
     const imageRef = storageRef(storage, filePath);
 
-    await uploadBytes(imageRef, file);
+    await uploadBytes(imageRef, blob);
     const downloadURL = await getDownloadURL(imageRef);
 
     // Insert image at cursor
@@ -1127,6 +1175,7 @@ async function handleImageUpload(file) {
       // Trigger save
       saveCurrentMemo();
     }
+    closeImageEditor();
   } catch (e) {
     console.error("Upload error:", e);
     const msg = e.code ? e.code : e.message;
@@ -1143,8 +1192,21 @@ if (insertImageButton && memoImageInput) {
 
   memoImageInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleImageUpload(e.target.files[0]);
-      e.target.value = '';
+      openImageEditor(e.target.files[0]);
+    }
+  });
+}
+
+if (imageEditorCancel) {
+  imageEditorCancel.addEventListener('click', closeImageEditor);
+}
+
+if (imageEditorSave) {
+  imageEditorSave.addEventListener('click', () => {
+    if (cropper) {
+      cropper.getCroppedCanvas().toBlob((blob) => {
+        uploadCroppedImage(blob);
+      });
     }
   });
 }
