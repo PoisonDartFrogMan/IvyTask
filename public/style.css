@@ -1863,7 +1863,15 @@ body.sleeping #happy-hacking-sticker {
   color: var(--text-secondary);
 }
 
-#memo-content-textarea {
+/* Editor Actions */
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Content Editable Editor */
+.memo-content-editor {
   flex: 1;
   width: 100%;
   border: none;
@@ -1874,11 +1882,25 @@ body.sleeping #happy-hacking-sticker {
   padding: 10px;
   box-sizing: border-box;
   font-family: inherit;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  /* Preserve whitespace but wrap text */
 }
 
-#memo-content-textarea:focus {
+.memo-content-editor:focus {
   outline: none;
 }
+
+/* Images in Editor */
+.memo-content-editor img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 
 /* Mobile Responsiveness for Memo */
 @media (max-width: 768px) {
@@ -1886,7 +1908,20 @@ body.sleeping #happy-hacking-sticker {
     grid-template-columns: 1fr;
   }
 
-  /* When editor is active, hide sidebar on mobile */
+  .memo-sidebar {
+    display: flex;
+    /* Default show sidebar */
+    width: 100%;
+    border-right: none;
+  }
+
+  .memo-editor-area {
+    display: none;
+    /* Hide editor by default */
+    padding: 16px;
+  }
+
+  /* When editor is active */
   .memo-layout.editor-active .memo-sidebar {
     display: none;
   }
@@ -1895,7 +1930,22 @@ body.sleeping #happy-hacking-sticker {
     display: flex;
   }
 
-  .memo-layout:not(.editor-active) .memo-editor-area {
-    display: none;
+  /* Show back button on mobile */
+  .mobile-only {
+    display: inline-flex !important;
   }
+}
+
+/* Hide mobile-only elements on desktop */
+.mobile-only {
+  display: none !important;
+}
+
+.memo-layout.editor-active .memo-editor-area {
+  display: flex;
+}
+
+.memo-layout:not(.editor-active) .memo-editor-area {
+  display: none;
+}
 }

@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v15-memo';
+const CACHE_NAME = 'ivy-task-cache-v16-memo';
 const urlsToCache = [
   '/',
   '/index.html',

@@ -9,6 +9,9 @@ import {
   Timestamp, onSnapshot, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import {
   initializeRecurringTasks,
   setRecurringTaskUser,
   refreshTodayRecurringTasks,
@@ -33,6 +36,7 @@ const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
   useFetchStreams: false,
 });
+const storage = getStorage(app);
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
 initializeRecurringTasks(db);
 
@@ -168,7 +172,10 @@ const memoEditorPlaceholder = document.getElementById('memo-editor-placeholder')
 const memoEditor = document.getElementById('memo-editor');
 const memoLastUpdated = document.getElementById('memo-last-updated');
 const deleteMemoButton = document.getElementById('delete-memo-button');
-const memoContentTextarea = document.getElementById('memo-content-textarea');
+const memoContentEditor = document.getElementById('memo-content-editor');
+const memoImageInput = document.getElementById('memo-image-input');
+const insertImageButton = document.getElementById('insert-image-button');
+const memoBackButton = document.getElementById('memo-back-button');
 
 
 // ===== Global State & Constants =====
@@ -865,9 +872,10 @@ if (addMemoButton) {
   });
 }
 
-if (memoContentTextarea) {
-  memoContentTextarea.addEventListener('input', () => {
+if (memoContentEditor) {
+  memoContentEditor.addEventListener('input', () => {
     if (memoSaveTimeout) clearTimeout(memoSaveTimeout);
+    memoLastUpdated.textContent = "保存中...";
     memoSaveTimeout = setTimeout(() => {
       saveCurrentMemo();
     }, 1000); // Auto-save after 1 second of inactivity
@@ -927,12 +935,11 @@ async function createNewMemo() {
       updatedAt: serverTimestamp()
     });
     currentMemoId = docRef.id;
-    // Don't need to manually render, snapshot will trigger
-    // But we might want to focus the editor
+    // Focus editor
     setTimeout(() => {
       const el = document.querySelector(`[data-memo-id="${currentMemoId}"]`);
       if (el) el.click();
-      if (memoContentTextarea) memoContentTextarea.focus();
+      if (memoContentEditor) memoContentEditor.focus();
     }, 100);
   } catch (e) {
     console.error("Error creating memo:", e);
@@ -941,8 +948,8 @@ async function createNewMemo() {
 }
 
 async function saveCurrentMemo() {
-  if (!currentMemoId || !memoContentTextarea) return;
-  const content = memoContentTextarea.value;
+  if (!currentMemoId || !memoContentEditor) return;
+  const content = memoContentEditor.innerHTML;
   try {
     await updateDoc(doc(db, "memos", currentMemoId), {
       content: content,
@@ -1072,7 +1079,6 @@ function renderMemoEditorState() {
   if (currentMemoId) {
     const memo = memos.find(m => m.id === currentMemoId);
     if (!memo) {
-      // ID exists but not in list? (deleted)
       currentMemoId = null;
       renderMemoEditorState();
       return;
@@ -1081,16 +1087,11 @@ function renderMemoEditorState() {
     memoEditorPlaceholder.classList.add('hidden');
     memoEditor.classList.remove('hidden');
 
-    // Only update value if not currently focused to avoid overwriting typing?
-    // Actually, snapshot will trigger this. If we are typing, we are updating local state via input event and remote state via debounce.
-    // If we receive a snapshot update that matches our current editing, it might jump cursor.
-    // Ideally we shouldn't update the textarea value IF it's the same as what we just saved, OR if we are typing.
-    // For simplicity, we'll check if value is different.
-    if (memoContentTextarea.value !== memo.content && document.activeElement !== memoContentTextarea) {
-      memoContentTextarea.value = memo.content || '';
-    } else if (memo.content === '' && memoContentTextarea.value === '') {
-      // Initial empty state
-      memoContentTextarea.value = '';
+    // Update innerHTML if not focused
+    if (document.activeElement !== memoContentEditor) {
+      memoContentEditor.innerHTML = memo.content || '';
+    } else if (memo.content === '' && memoContentEditor.innerHTML === '') {
+      memoContentEditor.innerHTML = '';
     }
 
     const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
@@ -1099,15 +1100,61 @@ function renderMemoEditorState() {
   } else {
     memoEditorPlaceholder.classList.remove('hidden');
     memoEditor.classList.add('hidden');
-    memoContentTextarea.value = '';
+    if (memoContentEditor) memoContentEditor.innerHTML = '';
 
-    // Mobile responsiveness: show sidebar
+    // Mobile responsiveness
     const layout = document.querySelector('.memo-layout');
     if (layout) layout.classList.remove('editor-active');
   }
 }
 
-// Add back button support for mobile editor
+// Image Handling
+async function handleImageUpload(file) {
+  if (!file || !currentUserId) return;
+
+  try {
+    memoLastUpdated.textContent = "画像をアップロード中...";
+    const filePath = `memos/${currentUserId}/${Date.now()}_${file.name}`;
+    const imageRef = storageRef(storage, filePath);
+
+    await uploadBytes(imageRef, file);
+    const downloadURL = await getDownloadURL(imageRef);
+
+    // Insert image at cursor
+    if (memoContentEditor) {
+      memoContentEditor.focus();
+      document.execCommand('insertImage', false, downloadURL);
+      // Trigger save
+      saveCurrentMemo();
+    }
+  } catch (e) {
+    console.error("Upload error:", e);
+    const msg = e.code ? e.code : e.message;
+    memoLastUpdated.textContent = `エラー: ${msg}`;
+    alert(`画像のアップロードに失敗しました: ${msg}`);
+  }
+}
+
+// Listeners
+if (insertImageButton && memoImageInput) {
+  insertImageButton.addEventListener('click', () => {
+    memoImageInput.click();
+  });
+
+  memoImageInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleImageUpload(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+}
+
+if (memoBackButton) {
+  memoBackButton.addEventListener('click', () => {
+    currentMemoId = null;
+    renderMemoEditorState();
+  });
+}
 // We need a "back" button in editor header for mobile?
 // Current design didn't include it in HTML, let's add it dynamically if needed or just rely on Sidebar toggle?
 // On mobile, sidebar is hidden when editor is active. We need a way to go back to list.

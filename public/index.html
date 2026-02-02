@@ -285,10 +285,16 @@
         </div>
         <div id="memo-editor" class="memo-editor hidden">
           <div class="memo-editor-header">
+            <button id="memo-back-button" class="icon-button mobile-only" title="一覧に戻る">←</button>
             <span id="memo-last-updated" class="memo-meta"></span>
-            <button id="delete-memo-button" class="danger icon-button" title="削除">🗑️</button>
+            <div class="editor-actions">
+              <input type="file" id="memo-image-input" accept="image/*" capture="environment" class="hidden">
+              <button id="insert-image-button" class="icon-button" title="画像を挿入">📷</button>
+              <button id="delete-memo-button" class="danger icon-button" title="削除">🗑️</button>
+            </div>
           </div>
-          <textarea id="memo-content-textarea" placeholder="ここにメモを入力..."></textarea>
+          <div id="memo-content-editor" class="memo-content-editor" contenteditable="true" role="textbox"
+            aria-multiline="true"></div>
         </div>
       </main>
     </div>
