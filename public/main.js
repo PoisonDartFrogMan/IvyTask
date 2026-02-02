@@ -1113,34 +1113,62 @@ function renderMemoEditorState() {
 }
 
 // Image Handling & Cropper
+// Image Handling & Cropper
 let cropper = null;
 let currentImageFile = null;
+let currentlyEditingImg = null; // DOM element <img> being edited
 
-function openImageEditor(file) {
-  if (!file) return;
-  currentImageFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    imageEditorPreview.src = e.target.result;
-    imageEditorModalBackdrop.classList.remove('hidden');
+async function openImageEditor(source) {
+  if (!source) return;
 
-    if (cropper) {
-      cropper.destroy();
+  let blob = null;
+
+  try {
+    if (typeof source === 'string') {
+      // It's a URL (re-editing)
+      memoLastUpdated.textContent = "画像を読み込み中...";
+      const response = await fetch(source);
+      blob = await response.blob();
+      // We don't have original name, use timestamp
+      currentImageFile = { name: `edited_${Date.now()}.png` };
+    } else {
+      // It's a File object (new upload)
+      blob = source;
+      currentImageFile = source;
+      currentlyEditingImg = null; // Reset editing target for new uploads
     }
-    cropper = new Cropper(imageEditorPreview, {
-      viewMode: 1,
-      dragMode: 'move',
-      autoCropArea: 1,
-      restore: false,
-      guides: true,
-      center: true,
-      highlight: false,
-      cropBoxMovable: true,
-      cropBoxResizable: true,
-      toggleDragModeOnDblclick: false,
-    });
-  };
-  reader.readAsDataURL(file);
+
+    if (!blob) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imageEditorPreview.src = e.target.result;
+      imageEditorModalBackdrop.classList.remove('hidden');
+
+      if (cropper) {
+        cropper.destroy();
+      }
+      cropper = new Cropper(imageEditorPreview, {
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 1,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+      memoLastUpdated.textContent = "";
+    };
+    reader.readAsDataURL(blob);
+
+  } catch (e) {
+    console.error("Error loading image for editing:", e);
+    alert("画像の読み込みに失敗しました（CORS制限の可能性があります）");
+    memoLastUpdated.textContent = "読み込み失敗";
+  }
 }
 
 function closeImageEditor() {
@@ -1151,6 +1179,7 @@ function closeImageEditor() {
   }
   imageEditorPreview.src = '';
   currentImageFile = null;
+  currentlyEditingImg = null;
   // Reset input so change event fires again if same file selected
   if (memoImageInput) memoImageInput.value = '';
 }
@@ -1160,7 +1189,6 @@ async function uploadCroppedImage(blob) {
 
   try {
     memoLastUpdated.textContent = "画像をアップロード中...";
-    // Use original name or timestamp
     const fileName = currentImageFile ? currentImageFile.name : `image_${Date.now()}.png`;
     const filePath = `memos/${currentUserId}/${Date.now()}_${fileName}`;
     const imageRef = storageRef(storage, filePath);
@@ -1168,13 +1196,36 @@ async function uploadCroppedImage(blob) {
     await uploadBytes(imageRef, blob);
     const downloadURL = await getDownloadURL(imageRef);
 
-    // Insert image at cursor
-    if (memoContentEditor) {
+    if (currentlyEditingImg) {
+      // Replace existing image
+      currentlyEditingImg.src = downloadURL;
+    } else if (memoContentEditor) {
+      // Insert new image manually to control attributes
       memoContentEditor.focus();
-      document.execCommand('insertImage', false, downloadURL);
-      // Trigger save
-      saveCurrentMemo();
+      // Fallback or explicit insertion
+      const img = document.createElement('img');
+      img.src = downloadURL;
+      img.style.maxWidth = "100%";
+      img.style.borderRadius = "4px";
+      img.style.cursor = "pointer";
+
+      // Insert at cursor
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(img);
+        // Move cursor after image
+        range.setStartAfter(img);
+        range.setEndAfter(img);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        memoContentEditor.appendChild(img);
+      }
     }
+    // Trigger save
+    saveCurrentMemo();
     closeImageEditor();
   } catch (e) {
     console.error("Upload error:", e);
@@ -1195,6 +1246,16 @@ if (insertImageButton && memoImageInput) {
       openImageEditor(e.target.files[0]);
     }
   });
+
+  // Re-edit image on click
+  if (memoContentEditor) {
+    memoContentEditor.addEventListener('click', (e) => {
+      if (e.target.tagName === 'IMG') {
+        currentlyEditingImg = e.target;
+        openImageEditor(e.target.src);
+      }
+    });
+  }
 }
 
 if (imageEditorCancel) {
