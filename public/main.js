@@ -180,6 +180,8 @@ const imageEditorModalBackdrop = document.getElementById('image-editor-modal-bac
 const imageEditorPreview = document.getElementById('image-editor-preview');
 const imageEditorCancel = document.getElementById('image-editor-cancel');
 const imageEditorSave = document.getElementById('image-editor-save');
+const imageEditorWidth = document.getElementById('image-editor-width');
+const imageEditorHeight = document.getElementById('image-editor-height');
 
 
 // ===== Global State & Constants =====
@@ -1113,7 +1115,6 @@ function renderMemoEditorState() {
 }
 
 // Image Handling & Cropper
-// Image Handling & Cropper
 let cropper = null;
 let currentImageFile = null;
 let currentlyEditingImg = null; // DOM element <img> being edited
@@ -1125,17 +1126,16 @@ async function openImageEditor(source) {
 
   try {
     if (typeof source === 'string') {
-      // It's a URL (re-editing)
+      // Re-editing
       memoLastUpdated.textContent = "画像を読み込み中...";
       const response = await fetch(source);
       blob = await response.blob();
-      // We don't have original name, use timestamp
       currentImageFile = { name: `edited_${Date.now()}.png` };
     } else {
-      // It's a File object (new upload)
+      // New upload
       blob = source;
       currentImageFile = source;
-      currentlyEditingImg = null; // Reset editing target for new uploads
+      currentlyEditingImg = null;
     }
 
     if (!blob) return;
@@ -1159,6 +1159,13 @@ async function openImageEditor(source) {
         cropBoxMovable: true,
         cropBoxResizable: true,
         toggleDragModeOnDblclick: false,
+        crop(event) {
+          // Update inputs only if user is NOT typing
+          if (document.activeElement !== imageEditorWidth && document.activeElement !== imageEditorHeight) {
+            imageEditorWidth.value = Math.round(event.detail.width);
+            imageEditorHeight.value = Math.round(event.detail.height);
+          }
+        }
       });
       memoLastUpdated.textContent = "";
     };
@@ -1169,6 +1176,25 @@ async function openImageEditor(source) {
     alert("画像の読み込みに失敗しました（CORS制限の可能性があります）");
     memoLastUpdated.textContent = "読み込み失敗";
   }
+}
+
+// Logic to maintain aspect ratio when typing
+if (imageEditorWidth && imageEditorHeight) {
+  imageEditorWidth.addEventListener('input', () => {
+    if (!cropper) return;
+    const data = cropper.getData();
+    const ratio = data.width / data.height;
+    const newWidth = parseInt(imageEditorWidth.value) || 0;
+    imageEditorHeight.value = Math.round(newWidth / ratio);
+  });
+
+  imageEditorHeight.addEventListener('input', () => {
+    if (!cropper) return;
+    const data = cropper.getData();
+    const ratio = data.width / data.height;
+    const newHeight = parseInt(imageEditorHeight.value) || 0;
+    imageEditorWidth.value = Math.round(newHeight * ratio);
+  });
 }
 
 function closeImageEditor() {
@@ -1265,7 +1291,12 @@ if (imageEditorCancel) {
 if (imageEditorSave) {
   imageEditorSave.addEventListener('click', () => {
     if (cropper) {
-      cropper.getCroppedCanvas().toBlob((blob) => {
+      // Use inputs for output size
+      const w = parseInt(imageEditorWidth.value);
+      const h = parseInt(imageEditorHeight.value);
+      const options = (w > 0 && h > 0) ? { width: w, height: h } : {};
+
+      cropper.getCroppedCanvas(options).toBlob((blob) => {
         uploadCroppedImage(blob);
       });
     }
@@ -1274,7 +1305,7 @@ if (imageEditorSave) {
 
 if (memoBackButton) {
   memoBackButton.addEventListener('click', () => {
-    currentMemoId = null;
+    currentMemoId = null; // Deselect
     renderMemoEditorState();
   });
 }
