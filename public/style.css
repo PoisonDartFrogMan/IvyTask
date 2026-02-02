@@ -1800,6 +1800,13 @@ body.sleeping #happy-hacking-sticker {
   flex-direction: column;
   height: 100%;
   box-sizing: border-box;
+  /* Override global main styles */
+  max-width: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
 }
 
 .memo-placeholder {
