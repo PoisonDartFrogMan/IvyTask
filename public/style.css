@@ -1923,18 +1923,36 @@ body.sleeping #happy-hacking-sticker {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Mobile Responsiveness for Memo */
+.memo-content-editor img {
+  touch-action: none;
+  /* Prevent browser scrolling on images to allow dragging */
+}
+
 /* Resize Handle (dynamically added) */
 .memo-resize-handle {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  /* Increased size for mobile */
+  height: 24px;
   background-color: var(--primary-color);
-  border: 1px solid #fff;
+  border: 2px solid #fff;
   border-radius: 50%;
   cursor: se-resize;
   z-index: 20;
   transform: translate(-50%, -50%);
+  touch-action: none;
   /* Will be positioned via JS */
+}
+
+/* Increase hit area for resize handle */
+.memo-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
 }
 
 /* Toolbar Styles */

@@ -1470,10 +1470,117 @@ if (memoContentEditor) {
     }
   });
 
-  // Touch support for mobile (simplified, mainly for drag, resizing might be hard with this tiny handle)
-  // ... (Keeping previous touch logic but updating for handle awareness)
-  // For brevity, let's assume iPad/Desktop mainly for this detailed resize feature.
-  // But if we want touch drag, we need to adapt.
+  // Touch support for mobile
+  memoContentEditor.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+
+    // 1. Handle Resize Start (Touch)
+    if (e.target.classList.contains('memo-resize-handle')) {
+      e.stopPropagation(); // Don't deselect
+      // Prevent default to stop scrolling/zooming while resizing?
+      // e.preventDefault(); 
+      isResizing = true;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      initialWidth = selectedImage.offsetWidth;
+      initialHeight = selectedImage.offsetHeight;
+      return;
+    }
+
+    // 2. Handle Image Drag Start (Touch)
+    if (e.target.tagName === 'IMG') {
+      // Don't preventDefault immediately, allow tap (click) or scroll start?
+      // But we want to drag. If we don't preventDefault, it might scroll.
+      // Strategy: PreventDefault ONLY if we decide it's a drag later?
+      // No, for "Free Positioning", dragging usually overrides scrolling on the image.
+      // But "Click" needs to work.
+
+      // If clicking a different image, select it first
+      if (selectedImage !== e.target) {
+        selectImage(e.target);
+      }
+
+      isDraggingImage = true;
+      dragTarget = e.target;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      didMove = false;
+
+      const computed = window.getComputedStyle(dragTarget);
+      if (computed.position === 'absolute') {
+        initialLeft = parseFloat(computed.left) || 0;
+        initialTop = parseFloat(computed.top) || 0;
+      } else {
+        const imgRect = dragTarget.getBoundingClientRect();
+        const containerRect = memoContentEditor.getBoundingClientRect();
+        initialLeft = imgRect.left - containerRect.left + memoContentEditor.scrollLeft;
+        initialTop = imgRect.top - containerRect.top + memoContentEditor.scrollTop;
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+
+    // Resizing
+    if (isResizing && selectedImage) {
+      e.preventDefault(); // Stop scroll
+      const dx = touch.clientX - startX;
+      // Simple Width/Height scaling
+      const newW = Math.max(20, initialWidth + dx);
+
+      selectedImage.style.width = `${newW}px`;
+      selectedImage.style.height = 'auto';
+      updateResizeHandlePosition();
+      return;
+    }
+
+    // Dragging
+    if (isDraggingImage && dragTarget) {
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        didMove = true;
+        e.preventDefault(); // Stop scrolling once we are definitely dragging
+      }
+
+      if (didMove) {
+        if (dragTarget.style.position !== 'absolute') {
+          dragTarget.style.position = 'absolute';
+          dragTarget.style.zIndex = '10';
+          dragTarget.style.width = dragTarget.offsetWidth + 'px';
+        }
+        dragTarget.style.left = (initialLeft + dx) + 'px';
+        dragTarget.style.top = (initialTop + dy) + 'px';
+
+        if (dragTarget === selectedImage) {
+          updateResizeHandlePosition();
+        }
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (e) => {
+    if (isResizing) {
+      isResizing = false;
+      saveCurrentMemo();
+      return;
+    }
+
+    if (isDraggingImage && dragTarget) {
+      if (!didMove) {
+        // Tap. Do nothing (Select happened in touchstart).
+      } else {
+        // Drag finished
+        saveCurrentMemo();
+      }
+    }
+    isDraggingImage = false;
+    dragTarget = null;
+  });
 }
 
 // Listeners
