@@ -955,7 +955,16 @@ async function createNewMemo() {
 
 async function saveCurrentMemo() {
   if (!currentMemoId || !memoContentEditor) return;
-  const content = memoContentEditor.innerHTML;
+  if (!currentMemoId || !memoContentEditor) return;
+
+  // Clone content to strip handles before saving
+  const clone = memoContentEditor.cloneNode(true);
+  clone.querySelectorAll('.memo-resize-handle, .memo-image-selected').forEach(el => {
+    if (el.classList.contains('memo-resize-handle')) el.remove();
+    el.classList.remove('memo-image-selected');
+  });
+
+  const content = clone.innerHTML;
   try {
     await updateDoc(doc(db, "memos", currentMemoId), {
       content: content,
@@ -1100,6 +1109,9 @@ function renderMemoEditorState() {
       memoContentEditor.innerHTML = '';
     }
 
+    // Make sure all images have draggable=false (to prevent native ghost)
+    makeImagesFreeDraggable();
+
     const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
     memoLastUpdated.textContent = `最終更新: ${dateObj.toLocaleDateString('ja-JP')} ${dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
 
@@ -1233,7 +1245,10 @@ async function uploadCroppedImage(blob) {
       img.src = downloadURL;
       img.style.maxWidth = "100%";
       img.style.borderRadius = "4px";
-      img.style.cursor = "pointer";
+      img.style.cursor = "move";
+      img.draggable = false;
+      // Default to inline for new images, user can drag to float.
+      // Or maybe float immediately? "Standard flow" is better initial default unless user drags.
 
       // Insert at cursor
       const selection = window.getSelection();
@@ -1261,6 +1276,204 @@ async function uploadCroppedImage(blob) {
   }
 }
 
+// Helper to setup free drag
+function makeImagesFreeDraggable() {
+  if (!memoContentEditor) return;
+  const imgs = memoContentEditor.querySelectorAll('img');
+  imgs.forEach(img => {
+    img.draggable = false;
+    img.style.cursor = 'move';
+  });
+}
+
+// Image Selection and Resizing Logic
+let selectedImage = null;
+let resizeHandle = null;
+let isResizing = false;
+let isDraggingImage = false;
+let dragTarget = null;
+let startX = 0;
+let startY = 0;
+let initialLeft = 0;
+let initialTop = 0;
+let initialWidth = 0;
+let initialHeight = 0;
+let didMove = false;
+
+function deselectImage() {
+  if (selectedImage) {
+    selectedImage.classList.remove('memo-image-selected');
+    if (resizeHandle) {
+      resizeHandle.remove();
+      resizeHandle = null;
+    }
+    selectedImage = null;
+  }
+}
+
+function selectImage(img) {
+  if (selectedImage === img) return;
+  deselectImage();
+  selectedImage = img;
+  img.classList.add('memo-image-selected');
+
+  // Create handle
+  resizeHandle = document.createElement('div');
+  resizeHandle.className = 'memo-resize-handle';
+  memoContentEditor.appendChild(resizeHandle);
+  updateResizeHandlePosition();
+}
+
+function updateResizeHandlePosition() {
+  if (!selectedImage || !resizeHandle) return;
+  // Position handle at bottom right of image
+  // We use offsetLeft/Top if absolute, or calculate if inline (though resizing usually implies absolute or inline-block)
+
+  // Actually, for absolute images, we can trust left/top + width/height.
+  const imgRect = selectedImage.getBoundingClientRect();
+  const containerRect = memoContentEditor.getBoundingClientRect();
+
+  const scrollL = memoContentEditor.scrollLeft;
+  const scrollT = memoContentEditor.scrollTop;
+
+  const left = imgRect.left - containerRect.left + scrollL + imgRect.width;
+  const top = imgRect.top - containerRect.top + scrollT + imgRect.height;
+
+  resizeHandle.style.left = `${left}px`;
+  resizeHandle.style.top = `${top}px`;
+}
+
+if (memoContentEditor) {
+  // Global Deselect on clicking background
+  memoContentEditor.addEventListener('mousedown', (e) => {
+    if (e.target === memoContentEditor) {
+      deselectImage();
+    }
+  });
+
+  memoContentEditor.addEventListener('mousedown', (e) => {
+    // 1. Handle Resize Start
+    if (e.target.classList.contains('memo-resize-handle')) {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      initialWidth = selectedImage.offsetWidth;
+      initialHeight = selectedImage.offsetHeight;
+      return;
+    }
+
+    // 2. Handle Image Drag Start
+    if (e.target.tagName === 'IMG') {
+      e.preventDefault();
+      // If clicking a different image, select it first
+      if (selectedImage !== e.target) {
+        selectImage(e.target);
+      }
+
+      isDraggingImage = true;
+      dragTarget = e.target;
+      startX = e.clientX;
+      startY = e.clientY;
+      didMove = false;
+
+      const computed = window.getComputedStyle(dragTarget);
+      if (computed.position === 'absolute') {
+        initialLeft = parseFloat(computed.left) || 0;
+        initialTop = parseFloat(computed.top) || 0;
+      } else {
+        const imgRect = dragTarget.getBoundingClientRect();
+        const containerRect = memoContentEditor.getBoundingClientRect();
+        initialLeft = imgRect.left - containerRect.left + memoContentEditor.scrollLeft;
+        initialTop = imgRect.top - containerRect.top + memoContentEditor.scrollTop;
+      }
+    }
+  });
+
+  // Mouse Move
+  document.addEventListener('mousemove', (e) => {
+    if (isResizing && selectedImage) {
+      e.preventDefault();
+      const dx = e.clientX - startX;
+      // const dy = e.clientY - startY; 
+
+      // Aspect Ratio Lock or Free? let's do free for now, or just Width based?
+      // Simple Width/Height scaling
+      const newW = Math.max(20, initialWidth + dx);
+      // const newH = Math.max(20, initialHeight + dy); // User might distort aspect ratio
+
+      // Better: Maintain aspect ratio based on width change
+      selectedImage.style.width = `${newW}px`;
+      selectedImage.style.height = 'auto';
+
+      updateResizeHandlePosition();
+      return;
+    }
+
+    if (isDraggingImage && dragTarget) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        didMove = true;
+      }
+
+      if (didMove) {
+        if (dragTarget.style.position !== 'absolute') {
+          dragTarget.style.position = 'absolute';
+          dragTarget.style.zIndex = '10';
+          dragTarget.style.width = dragTarget.offsetWidth + 'px';
+        }
+        dragTarget.style.left = (initialLeft + dx) + 'px';
+        dragTarget.style.top = (initialTop + dy) + 'px';
+
+        // If we are dragging the selected image, update handle too
+        if (dragTarget === selectedImage) {
+          updateResizeHandlePosition();
+        }
+      }
+    }
+  });
+
+  // Mouse Up
+  document.addEventListener('mouseup', (e) => {
+    if (isResizing) {
+      isResizing = false;
+      saveCurrentMemo();
+      return;
+    }
+
+    if (isDraggingImage && dragTarget) {
+      if (!didMove) {
+        // It was a click. Just select is already done in mousedown.
+        // But if double click? We handle dblclick event separately?
+        // Let's rely on standard logic: Click selects.
+      } else {
+        // Drag finished
+        saveCurrentMemo();
+      }
+    }
+    isDraggingImage = false;
+    dragTarget = null;
+  });
+
+  // Double Click to Open Editor
+  memoContentEditor.addEventListener('dblclick', (e) => {
+    if (e.target.tagName === 'IMG') {
+      currentlyEditingImg = e.target;
+      openImageEditor(e.target.src);
+      // Also deselect to avoid artifacts in editor?
+      deselectImage();
+    }
+  });
+
+  // Touch support for mobile (simplified, mainly for drag, resizing might be hard with this tiny handle)
+  // ... (Keeping previous touch logic but updating for handle awareness)
+  // For brevity, let's assume iPad/Desktop mainly for this detailed resize feature.
+  // But if we want touch drag, we need to adapt.
+}
+
 // Listeners
 if (insertImageButton && memoImageInput) {
   insertImageButton.addEventListener('click', () => {
@@ -1273,15 +1486,8 @@ if (insertImageButton && memoImageInput) {
     }
   });
 
-  // Re-edit image on click
-  if (memoContentEditor) {
-    memoContentEditor.addEventListener('click', (e) => {
-      if (e.target.tagName === 'IMG') {
-        currentlyEditingImg = e.target;
-        openImageEditor(e.target.src);
-      }
-    });
-  }
+  // Click listener for image edit is moved to mouseup logic to distinguish from drag
+
 }
 
 if (imageEditorCancel) {

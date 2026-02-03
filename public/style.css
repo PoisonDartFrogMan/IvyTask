@@ -1892,6 +1892,7 @@ body.sleeping #happy-hacking-sticker {
   overflow-y: auto;
   white-space: pre-wrap;
   /* Preserve whitespace but wrap text */
+  position: relative;
 }
 
 .memo-content-editor:focus {
@@ -1913,7 +1914,27 @@ body.sleeping #happy-hacking-sticker {
 
 /* Hide mobile-only elements on desktop by default */
 .mobile-only {
-  display: none !important;
+  display: none;
+}
+
+/* Selected Image State */
+.memo-image-selected {
+  outline: 2px solid var(--primary-color);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Resize Handle (dynamically added) */
+.memo-resize-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-color: var(--primary-color);
+  border: 1px solid #fff;
+  border-radius: 50%;
+  cursor: se-resize;
+  z-index: 20;
+  transform: translate(-50%, -50%);
+  /* Will be positioned via JS */
 }
 
 /* Mobile Responsiveness for Memo */
