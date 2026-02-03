@@ -1937,6 +1937,95 @@ body.sleeping #happy-hacking-sticker {
   /* Will be positioned via JS */
 }
 
+/* Toolbar Styles */
+.memo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: background-color 0.2s;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-btn.active {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--primary-color);
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.color-picker-wrapper {
+  position: relative;
+}
+
+.color-indicator {
+  font-weight: bold;
+  font-family: serif;
+  border-bottom: 3px solid currentColor;
+  line-height: 1;
+}
+
+.color-palette {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  z-index: 100;
+  width: 140px;
+}
+
+.color-palette.hidden {
+  display: none;
+}
+
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+  padding: 0;
+  margin: 0;
+}
+
+.color-dot:hover {
+  transform: scale(1.1);
+}
+
+
 /* Mobile Responsiveness for Memo */
 @media (max-width: 768px) {
   .memo-layout {

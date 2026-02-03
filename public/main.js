@@ -182,6 +182,9 @@ const imageEditorCancel = document.getElementById('image-editor-cancel');
 const imageEditorSave = document.getElementById('image-editor-save');
 const imageEditorWidth = document.getElementById('image-editor-width');
 const imageEditorHeight = document.getElementById('image-editor-height');
+const toolbarBold = document.getElementById('toolbar-bold');
+const toolbarColor = document.getElementById('toolbar-color');
+const toolbarColorPalette = document.getElementById('toolbar-color-palette');
 
 
 // ===== Global State & Constants =====
@@ -1138,7 +1141,6 @@ async function openImageEditor(source) {
 
   try {
     if (typeof source === 'string') {
-      // Re-editing
       memoLastUpdated.textContent = "画像を読み込み中...";
       const response = await fetch(source);
       blob = await response.blob();
@@ -1475,6 +1477,57 @@ if (memoContentEditor) {
 }
 
 // Listeners
+// Text Formatting Toolbar Logic
+if (toolbarBold) {
+  toolbarBold.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // Prevent losing focus from editor
+    document.execCommand('bold', false, null);
+    updateToolbarState();
+  });
+}
+
+if (toolbarColor) {
+  toolbarColor.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    toolbarColorPalette.classList.toggle('hidden');
+  });
+}
+
+if (toolbarColorPalette) {
+  toolbarColorPalette.querySelectorAll('.color-dot').forEach(btn => {
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const color = btn.dataset.color;
+      if (color === 'inherit') {
+        document.execCommand('removeFormat', false, 'foreColor');
+        document.execCommand('foreColor', false, '#333333');
+      } else {
+        document.execCommand('foreColor', false, color);
+      }
+      toolbarColorPalette.classList.add('hidden');
+
+      const indicator = toolbarColor.querySelector('.color-indicator');
+      if (indicator) indicator.style.color = color === 'inherit' ? 'var(--text-primary)' : color;
+    });
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (toolbarColor && !toolbarColor.contains(e.target) && !toolbarColorPalette.contains(e.target)) {
+      toolbarColorPalette.classList.add('hidden');
+    }
+  });
+}
+
+function updateToolbarState() {
+  // Optional: Update button state
+}
+
+if (memoContentEditor) {
+  memoContentEditor.addEventListener('keyup', updateToolbarState);
+  memoContentEditor.addEventListener('mouseup', updateToolbarState);
+  memoContentEditor.addEventListener('touchend', updateToolbarState);
+}
+
 if (insertImageButton && memoImageInput) {
   insertImageButton.addEventListener('click', () => {
     memoImageInput.click();

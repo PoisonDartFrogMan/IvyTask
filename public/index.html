@@ -295,6 +295,28 @@
               <button id="delete-memo-button" class="danger icon-button" title="削除">🗑️</button>
             </div>
           </div>
+          <div id="memo-toolbar" class="memo-toolbar">
+            <button id="toolbar-bold" class="toolbar-btn" title="太字"><b>B</b></button>
+            <div class="toolbar-separator"></div>
+            <div class="color-picker-wrapper">
+              <button id="toolbar-color" class="toolbar-btn" title="文字色">
+                <span class="color-indicator">A</span>
+              </button>
+              <div id="toolbar-color-palette" class="color-palette hidden">
+                <button class="color-dot" data-color="inherit" style="background:#555; border:1px solid #ddd;"
+                  title="リセット"></button>
+                <button class="color-dot" data-color="#e57373" style="background:#e57373;" title="赤"></button>
+                <button class="color-dot" data-color="#f06292" style="background:#f06292;" title="ピンク"></button>
+                <button class="color-dot" data-color="#ba68c8" style="background:#ba68c8;" title="紫"></button>
+                <button class="color-dot" data-color="#64b5f6" style="background:#64b5f6;" title="青"></button>
+                <button class="color-dot" data-color="#4dd0e1" style="background:#4dd0e1;" title="シアン"></button>
+                <button class="color-dot" data-color="#81c784" style="background:#81c784;" title="緑"></button>
+                <button class="color-dot" data-color="#ffd54f" style="background:#ffd54f;" title="黄"></button>
+                <button class="color-dot" data-color="#ff8a65" style="background:#ff8a65;" title="オレンジ"></button>
+                <button class="color-dot" data-color="#a1887f" style="background:#a1887f;" title="茶"></button>
+              </div>
+            </div>
+          </div>
           <div id="memo-content-editor" class="memo-content-editor" contenteditable="true" role="textbox"
             aria-multiline="true"></div>
         </div>
