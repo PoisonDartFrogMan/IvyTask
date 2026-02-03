@@ -1814,8 +1814,13 @@ body.sleeping #happy-hacking-sticker {
   color: var(--text-secondary);
 }
 
-#memo-back-startup-button {
-  margin: 16px;
+.memo-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  height: calc(100vh - 160px);
+  /* Fixed height for internal scrolling */
+  min-height: 500px;
 }
 
 /* Editor Area */
@@ -1824,6 +1829,8 @@ body.sleeping #happy-hacking-sticker {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  /* Important for flex child scrolling */
   box-sizing: border-box;
   /* Override global main styles */
   max-width: none;
@@ -1935,7 +1942,30 @@ body.sleeping #happy-hacking-sticker {
 
   .memo-layout.editor-active .memo-editor-area {
     display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    /* dynamic viewport height */
+    z-index: 1000;
+    background: var(--bg-color);
+    margin: 0;
+    border-radius: 0;
   }
+
+  .memo-layout.editor-active .memo-editor {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .memo-layout.editor-active .memo-content-editor {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Adjust padding for fixed header likely needed, but flex handles it */
+
 
   /* Show back button on mobile */
   .mobile-only {

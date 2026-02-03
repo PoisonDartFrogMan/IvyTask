@@ -1,5 +1,5 @@
 // <<< 変更点: キャッシュのバージョンを更新 >>>
-const CACHE_NAME = 'ivy-task-cache-v17-memo-cropper';
+const CACHE_NAME = 'ivy-task-cache-v18-mobile-scroll';
 const urlsToCache = [
   '/',
   '/index.html',
