@@ -631,9 +631,7 @@ body.theme-lunar {
 }
 
 /* Base override for specific IDs over .startup-option class */
-.startup-option {
-  /* Keep base transitional properties */
-}
+/* .startup-option styles are handled generically above */
 
 .todo-actions button.secondary {
   background: transparent;
