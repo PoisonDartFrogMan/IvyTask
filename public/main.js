@@ -2160,21 +2160,6 @@ if (memoHeader && !document.getElementById('memo-mobile-back')) {
   memoHeader.insertBefore(backBtn, memoHeader.firstChild);
 }
 
-// Add CSS for mobile-back via JS injection or assume style.css handles it?
-// We didn't add .mobile-only in CSS. Let's add inline style for now or update CSS.
-// Let's add a style block for this button to be safe.
-const style = document.createElement('style');
-style.textContent = `
-  #memo-mobile-back { display: none; }
-  @media (max-width: 768px) {
-    #memo-mobile-back { display: block; }
-    .memo-editor-header { gap: 10px; }
-  }
-`;
-document.head.appendChild(style);
-
-
-
 // <<< 変更点: 翌日期日のタスクを自動でFocalistに移動するロジックを復元 >>>
 async function runDailyAutomation(userId) {
   const q = query(collection(db, "tasks"), where("userId", "==", userId), where("status", "in", ["stock", "today"]));
