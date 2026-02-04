@@ -1778,6 +1778,43 @@ body.sleeping #happy-hacking-sticker {
   height: 100%;
 }
 
+/* Editor Area Layout */
+.memo-editor-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  padding: 0 !important;
+  /* Override main padding */
+  margin: 0 !important;
+  /* Override main margin */
+  max-width: none !important;
+  /* Override main max-width */
+  border: none !important;
+  background-color: var(--surface-color);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#memo-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 20px;
+  /* Add internal padding */
+  box-sizing: border-box;
+}
+
+#memo-editor-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
 /* Folder List Styles */
 .memo-folder-list-container {
   border-bottom: 1px solid var(--border-color);
