@@ -1147,7 +1147,7 @@ function renderMemoEditorState() {
     }
 
     // Make sure all images have draggable=false (to prevent native ghost)
-    makeImagesFreeDraggable();
+    makeElementsFreeDraggable();
 
     const formatDateFull = (t) => {
       if (!t) return '---';
@@ -1321,20 +1321,20 @@ async function uploadCroppedImage(blob) {
 }
 
 // Helper to setup free drag
-function makeImagesFreeDraggable() {
+function makeElementsFreeDraggable() {
   if (!memoContentEditor) return;
-  const imgs = memoContentEditor.querySelectorAll('img');
-  imgs.forEach(img => {
-    img.draggable = false;
-    img.style.cursor = 'move';
+  const elements = memoContentEditor.querySelectorAll('img, .memo-box');
+  elements.forEach(el => {
+    el.draggable = false;
+    el.style.cursor = 'move';
   });
 }
 
-// Image Selection and Resizing Logic
-let selectedImage = null;
+// Element Selection and Resizing Logic
+let selectedElement = null; // Renamed from selectedImage
 let resizeHandle = null;
 let isResizing = false;
-let isDraggingImage = false;
+let isDraggingElement = false;
 let dragTarget = null;
 let startX = 0;
 let startY = 0;
@@ -1344,22 +1344,43 @@ let initialWidth = 0;
 let initialHeight = 0;
 let didMove = false;
 
-function deselectImage() {
-  if (selectedImage) {
-    selectedImage.classList.remove('memo-image-selected');
+// Box Drawing Logic
+let isDrawingBox = false;
+const insertBoxButton = document.getElementById('insert-box-button');
+let currentDrawingBox = null;
+
+if (insertBoxButton) {
+  insertBoxButton.addEventListener('click', () => {
+    isDrawingBox = true;
+    memoContentEditor.style.cursor = 'crosshair';
+    // Clear selection
+    deselectElement();
+    memoLastUpdated.textContent = 'ドラッグして枠を描画してください';
+  });
+}
+
+function deselectElement() {
+  if (selectedElement) {
+    selectedElement.classList.remove('memo-image-selected');
+    selectedElement.classList.remove('selected');
     if (resizeHandle) {
       resizeHandle.remove();
       resizeHandle = null;
     }
-    selectedImage = null;
+    selectedElement = null;
   }
 }
 
-function selectImage(img) {
-  if (selectedImage === img) return;
-  deselectImage();
-  selectedImage = img;
-  img.classList.add('memo-image-selected');
+function selectElement(el) {
+  if (selectedElement === el) return;
+  deselectElement();
+  selectedElement = el;
+
+  if (el.tagName === 'IMG') {
+    el.classList.add('memo-image-selected');
+  } else if (el.classList.contains('memo-box')) {
+    el.classList.add('selected');
+  }
 
   // Create handle
   resizeHandle = document.createElement('div');
@@ -1369,19 +1390,16 @@ function selectImage(img) {
 }
 
 function updateResizeHandlePosition() {
-  if (!selectedImage || !resizeHandle) return;
-  // Position handle at bottom right of image
-  // We use offsetLeft/Top if absolute, or calculate if inline (though resizing usually implies absolute or inline-block)
+  if (!selectedElement || !resizeHandle) return;
 
-  // Actually, for absolute images, we can trust left/top + width/height.
-  const imgRect = selectedImage.getBoundingClientRect();
+  const elRect = selectedElement.getBoundingClientRect();
   const containerRect = memoContentEditor.getBoundingClientRect();
 
   const scrollL = memoContentEditor.scrollLeft;
   const scrollT = memoContentEditor.scrollTop;
 
-  const left = imgRect.left - containerRect.left + scrollL + imgRect.width;
-  const top = imgRect.top - containerRect.top + scrollT + imgRect.height;
+  const left = elRect.left - containerRect.left + scrollL + elRect.width;
+  const top = elRect.top - containerRect.top + scrollT + elRect.height;
 
   resizeHandle.style.left = `${left}px`;
   resizeHandle.style.top = `${top}px`;
@@ -1390,12 +1408,37 @@ function updateResizeHandlePosition() {
 if (memoContentEditor) {
   // Global Deselect on clicking background
   memoContentEditor.addEventListener('mousedown', (e) => {
+    if (isDrawingBox) return; // Drawing handled below
     if (e.target === memoContentEditor) {
-      deselectImage();
+      deselectElement();
     }
   });
 
   memoContentEditor.addEventListener('mousedown', (e) => {
+    // 0. Handle Box Drawing Start
+    if (isDrawingBox && e.target === memoContentEditor) {
+      e.preventDefault();
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const containerRect = memoContentEditor.getBoundingClientRect();
+      const scrollL = memoContentEditor.scrollLeft;
+      const scrollT = memoContentEditor.scrollTop;
+
+      const relativeX = startX - containerRect.left + scrollL;
+      const relativeY = startY - containerRect.top + scrollT;
+
+      currentDrawingBox = document.createElement('div');
+      currentDrawingBox.className = 'memo-box';
+      currentDrawingBox.style.left = `${relativeX}px`;
+      currentDrawingBox.style.top = `${relativeY}px`;
+      currentDrawingBox.style.width = '0px';
+      currentDrawingBox.style.height = '0px';
+
+      memoContentEditor.appendChild(currentDrawingBox);
+      return;
+    }
+
     // 1. Handle Resize Start
     if (e.target.classList.contains('memo-resize-handle')) {
       e.preventDefault();
@@ -1403,20 +1446,22 @@ if (memoContentEditor) {
       isResizing = true;
       startX = e.clientX;
       startY = e.clientY;
-      initialWidth = selectedImage.offsetWidth;
-      initialHeight = selectedImage.offsetHeight;
+      initialWidth = selectedElement.offsetWidth;
+      initialHeight = selectedElement.offsetHeight;
       return;
     }
 
-    // 2. Handle Image Drag Start
-    if (e.target.tagName === 'IMG') {
+    // 2. Handle Element (Image/Box) Drag Start
+    if (e.target.tagName === 'IMG' || e.target.classList.contains('memo-box')) {
+      if (isDrawingBox) return; // Don't allow drag while drawing mode is active (though shouldn't happen if clicking on element)
+
       e.preventDefault();
-      // If clicking a different image, select it first
-      if (selectedImage !== e.target) {
-        selectImage(e.target);
+      // If clicking a different element, select it first
+      if (selectedElement !== e.target) {
+        selectElement(e.target);
       }
 
-      isDraggingImage = true;
+      isDraggingElement = true;
       dragTarget = e.target;
       startX = e.clientX;
       startY = e.clientY;
@@ -1427,35 +1472,76 @@ if (memoContentEditor) {
         initialLeft = parseFloat(computed.left) || 0;
         initialTop = parseFloat(computed.top) || 0;
       } else {
-        const imgRect = dragTarget.getBoundingClientRect();
+        const rect = dragTarget.getBoundingClientRect();
         const containerRect = memoContentEditor.getBoundingClientRect();
-        initialLeft = imgRect.left - containerRect.left + memoContentEditor.scrollLeft;
-        initialTop = imgRect.top - containerRect.top + memoContentEditor.scrollTop;
+        initialLeft = rect.left - containerRect.left + memoContentEditor.scrollLeft;
+        initialTop = rect.top - containerRect.top + memoContentEditor.scrollTop;
       }
     }
   });
 
   // Mouse Move
   document.addEventListener('mousemove', (e) => {
-    if (isResizing && selectedImage) {
+    // Drawing Box
+    if (isDrawingBox && currentDrawingBox) {
+      e.preventDefault();
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      // Allow dragging in any direction
+      if (dx >= 0) {
+        currentDrawingBox.style.width = `${dx}px`;
+      } else {
+        // Dragging left
+        // We set new left and width
+        // But need initial reference?
+        // Simpler implementation: just width/height > 0
+        // For accurate reverse dragging, we need startX/Y relative to container.
+        // Let's stick to simple right-down drawing for MVP or calculate properly.
+      }
+      currentDrawingBox.style.width = `${Math.abs(dx)}px`;
+      currentDrawingBox.style.height = `${Math.abs(dy)}px`;
+
+      // Handle negative direction
+      const containerRect = memoContentEditor.getBoundingClientRect();
+      const scrollL = memoContentEditor.scrollLeft;
+      const scrollT = memoContentEditor.scrollTop;
+      const relativeStartX = startX - containerRect.left + scrollL;
+      const relativeStartY = startY - containerRect.top + scrollT;
+
+      if (dx < 0) {
+        currentDrawingBox.style.left = `${relativeStartX + dx}px`;
+      }
+      if (dy < 0) {
+        currentDrawingBox.style.top = `${relativeStartY + dy}px`;
+      }
+
+      return;
+    }
+
+    if (isResizing && selectedElement) {
       e.preventDefault();
       const dx = e.clientX - startX;
       // const dy = e.clientY - startY; 
 
-      // Aspect Ratio Lock or Free? let's do free for now, or just Width based?
-      // Simple Width/Height scaling
       const newW = Math.max(20, initialWidth + dx);
-      // const newH = Math.max(20, initialHeight + dy); // User might distort aspect ratio
+      selectedElement.style.width = `${newW}px`;
 
-      // Better: Maintain aspect ratio based on width change
-      selectedImage.style.width = `${newW}px`;
-      selectedImage.style.height = 'auto';
+      if (selectedElement.tagName === 'IMG') {
+        // Maintain aspect ratio for images
+        selectedElement.style.height = 'auto';
+      } else {
+        // Free aspect ratio for boxes
+        const dy = e.clientY - startY;
+        const newH = Math.max(20, initialHeight + dy);
+        selectedElement.style.height = `${newH}px`;
+      }
 
       updateResizeHandlePosition();
       return;
     }
 
-    if (isDraggingImage && dragTarget) {
+    if (isDraggingElement && dragTarget) {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
@@ -1466,14 +1552,15 @@ if (memoContentEditor) {
       if (didMove) {
         if (dragTarget.style.position !== 'absolute') {
           dragTarget.style.position = 'absolute';
-          dragTarget.style.zIndex = '10';
-          dragTarget.style.width = dragTarget.offsetWidth + 'px';
+          dragTarget.style.zIndex = '5'; // Box default, Image might need 10?
+          if (dragTarget.tagName === 'IMG') dragTarget.style.zIndex = '10';
+          dragTarget.style.width = dragTarget.offsetWidth + 'px'; // Fix width
         }
         dragTarget.style.left = (initialLeft + dx) + 'px';
         dragTarget.style.top = (initialTop + dy) + 'px';
 
-        // If we are dragging the selected image, update handle too
-        if (dragTarget === selectedImage) {
+        // If we are dragging the selected element, update handle too
+        if (dragTarget === selectedElement) {
           updateResizeHandlePosition();
         }
       }
@@ -1482,23 +1569,39 @@ if (memoContentEditor) {
 
   // Mouse Up
   document.addEventListener('mouseup', (e) => {
+    // Finish Drawing
+    if (isDrawingBox && currentDrawingBox) {
+      isDrawingBox = false;
+      currentDrawingBox = null;
+      memoContentEditor.style.cursor = 'text';
+      saveCurrentMemo();
+      makeElementsFreeDraggable(); // Ensure new box is draggable
+      memoLastUpdated.textContent = '保存済み';
+      return;
+    }
+    // Cancel drawing if clicked without dragging or released outside
+    if (isDrawingBox && !currentDrawingBox) {
+      // Just clicked? Cancel mode
+      isDrawingBox = false;
+      memoContentEditor.style.cursor = 'text';
+      memoLastUpdated.textContent = '';
+    }
+
     if (isResizing) {
       isResizing = false;
       saveCurrentMemo();
       return;
     }
 
-    if (isDraggingImage && dragTarget) {
+    if (isDraggingElement && dragTarget) {
       if (!didMove) {
-        // It was a click. Just select is already done in mousedown.
-        // But if double click? We handle dblclick event separately?
-        // Let's rely on standard logic: Click selects.
+        // Clicked. Already selected.
       } else {
         // Drag finished
         saveCurrentMemo();
       }
     }
-    isDraggingImage = false;
+    isDraggingElement = false;
     dragTarget = null;
   });
 
@@ -1508,7 +1611,24 @@ if (memoContentEditor) {
       currentlyEditingImg = e.target;
       openImageEditor(e.target.src);
       // Also deselect to avoid artifacts in editor?
-      deselectImage();
+      deselectElement();
+    }
+  });
+
+  // Remove element on Backspace?
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Backspace' || e.key === 'Delete') && selectedElement) {
+      // If editing text inside box? Box is container?
+      // Current implementation: Box is empty div.
+      // Prevent if focus is inside? 
+      if (memoContentEditor.contains(document.activeElement)) {
+        // If user is typing text, don't delete box?
+        // But selectedElement is set via click.
+        // If we add support for text inside box later, check selection.
+      }
+      selectedElement.remove();
+      deselectElement();
+      saveCurrentMemo();
     }
   });
 
@@ -1525,25 +1645,19 @@ if (memoContentEditor) {
       isResizing = true;
       startX = touch.clientX;
       startY = touch.clientY;
-      initialWidth = selectedImage.offsetWidth;
-      initialHeight = selectedImage.offsetHeight;
+      initialWidth = selectedElement.offsetWidth;
+      initialHeight = selectedElement.offsetHeight;
       return;
     }
 
-    // 2. Handle Image Drag Start (Touch)
-    if (e.target.tagName === 'IMG') {
-      // Don't preventDefault immediately, allow tap (click) or scroll start?
-      // But we want to drag. If we don't preventDefault, it might scroll.
-      // Strategy: PreventDefault ONLY if we decide it's a drag later?
-      // No, for "Free Positioning", dragging usually overrides scrolling on the image.
-      // But "Click" needs to work.
-
-      // If clicking a different image, select it first
-      if (selectedImage !== e.target) {
-        selectImage(e.target);
+    // 2. Handle Element Drag Start (Touch)
+    if (e.target.tagName === 'IMG' || e.target.classList.contains('memo-box')) {
+      // If clicking a different element, select it first
+      if (selectedElement !== e.target) {
+        selectElement(e.target);
       }
 
-      isDraggingImage = true;
+      isDraggingElement = true;
       dragTarget = e.target;
       startX = touch.clientX;
       startY = touch.clientY;
@@ -1554,10 +1668,10 @@ if (memoContentEditor) {
         initialLeft = parseFloat(computed.left) || 0;
         initialTop = parseFloat(computed.top) || 0;
       } else {
-        const imgRect = dragTarget.getBoundingClientRect();
+        const rect = dragTarget.getBoundingClientRect();
         const containerRect = memoContentEditor.getBoundingClientRect();
-        initialLeft = imgRect.left - containerRect.left + memoContentEditor.scrollLeft;
-        initialTop = imgRect.top - containerRect.top + memoContentEditor.scrollTop;
+        initialLeft = rect.left - containerRect.left + memoContentEditor.scrollLeft;
+        initialTop = rect.top - containerRect.top + memoContentEditor.scrollTop;
       }
     }
   }, { passive: false });
@@ -1567,20 +1681,26 @@ if (memoContentEditor) {
     const touch = e.touches[0];
 
     // Resizing
-    if (isResizing && selectedImage) {
+    if (isResizing && selectedElement) {
       e.preventDefault(); // Stop scroll
       const dx = touch.clientX - startX;
       // Simple Width/Height scaling
       const newW = Math.max(20, initialWidth + dx);
 
-      selectedImage.style.width = `${newW}px`;
-      selectedImage.style.height = 'auto';
+      selectedElement.style.width = `${newW}px`;
+      if (selectedElement.tagName === 'IMG') {
+        selectedElement.style.height = 'auto';
+      } else {
+        const dy = touch.clientY - startY;
+        const newH = Math.max(20, initialHeight + dy);
+        selectedElement.style.height = `${newH}px`;
+      }
       updateResizeHandlePosition();
       return;
     }
 
     // Dragging
-    if (isDraggingImage && dragTarget) {
+    if (isDraggingElement && dragTarget) {
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
 
@@ -1612,7 +1732,7 @@ if (memoContentEditor) {
       return;
     }
 
-    if (isDraggingImage && dragTarget) {
+    if (isDraggingElement && dragTarget) {
       if (!didMove) {
         // Tap. Do nothing (Select happened in touchstart).
       } else {
@@ -1620,7 +1740,7 @@ if (memoContentEditor) {
         saveCurrentMemo();
       }
     }
-    isDraggingImage = false;
+    isDraggingElement = false;
     dragTarget = null;
   });
 }
