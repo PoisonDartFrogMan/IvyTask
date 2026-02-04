@@ -49,7 +49,7 @@ const startMemoButton = document.getElementById('start-memo-button');
 const todoComingSoon = document.getElementById('todo-coming-soon');
 const todoContainer = document.getElementById('todo-container');
 const todoBackStartupButton = document.getElementById('todo-back-startup-button');
-const todoSwitchTaskButton = document.getElementById('todo-switch-task-button');
+
 const openCandidatePanelButton = document.getElementById('open-candidate-panel');
 const candidatePanel = document.getElementById('candidate-panel');
 const candidateForm = document.getElementById('candidate-form');
@@ -1748,9 +1748,7 @@ if (startTodoButton) {
 if (todoBackStartupButton) {
   todoBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
 }
-if (todoSwitchTaskButton) {
-  todoSwitchTaskButton.addEventListener('click', () => { enterTaskWorkspace(); });
-}
+
 if (openCandidatePanelButton) {
   openCandidatePanelButton.addEventListener('click', () => {
     if (candidatePanel) candidatePanel.classList.remove('hidden');
