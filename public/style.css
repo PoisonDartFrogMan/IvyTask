@@ -2285,8 +2285,34 @@ body.sleeping #happy-hacking-sticker {
 
 /* Mobile Responsiveness for Memo */
 @media (max-width: 768px) {
+
+  html,
+  body {
+    height: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
+    /* Prevent bounce if needed, or remove if bounce desired */
+  }
+
+  body {
+    background-attachment: scroll !important;
+    /* Fix for iOS Safari scroll lock */
+    min-height: 100vh;
+    position: static !important;
+    /* Ensure not fixed */
+  }
+
+  #memo-container {
+    height: auto !important;
+    overflow: visible !important;
+    display: block;
+  }
+
   .memo-layout {
     grid-template-columns: 1fr;
+    height: auto !important;
+    display: block;
   }
 
   .memo-sidebar {
