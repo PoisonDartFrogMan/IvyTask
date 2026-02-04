@@ -891,6 +891,11 @@ if (memoBackStartupButton) {
 
 if (addMemoButton) {
   addMemoButton.addEventListener('click', async () => {
+    console.log("Add Memo Button Clicked. CurrentUserId:", currentUserId);
+    if (!currentUserId) {
+      alert("ログイン状態が確認できませんでした。リロードしてください。");
+      return;
+    }
     await createNewMemo();
   });
 }
@@ -1098,13 +1103,20 @@ if (memoTagInput) {
 // ===== Memo Logic =====
 function subscribeMemos(userId) {
   if (unsubscribeMemos) unsubscribeMemos();
-  // Remove orderBy to avoid needing a composite index
-  const q = query(collection(db, "memos"), where("userId", "==", userId), orderBy("updatedAt", "desc"));
+  // Remove orderBy to avoid needing a composite index (Fix for Missing Index error)
+  const q = query(collection(db, "memos"), where("userId", "==", userId));
 
   unsubscribeMemos = onSnapshot(q, (snapshot) => {
     memos = [];
     snapshot.forEach(docSnap => {
       memos.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    // Sort client-side
+    memos.sort((a, b) => {
+      const ta = a.updatedAt ? a.updatedAt.toMillis() : 0;
+      const tb = b.updatedAt ? b.updatedAt.toMillis() : 0;
+      return tb - ta; // Descending
     });
 
     // After memos update, we also need to update folder counts
@@ -1125,12 +1137,21 @@ function subscribeMemos(userId) {
 }
 
 async function createNewMemo() {
+  console.log("createNewMemo called");
   if (!currentUserId) return;
+
+  // Determine initial folder
+  let initialFolderId = null;
+  if (currentViewFolderId && currentViewFolderId !== 'all' && currentViewFolderId !== 'uncategorized') {
+    initialFolderId = currentViewFolderId;
+  }
+
   try {
     const docRef = await addDoc(collection(db, "memos"), {
       userId: currentUserId,
       title: '',
       content: '',
+      folderId: initialFolderId, // Set folder if in view
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
