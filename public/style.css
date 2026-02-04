@@ -1742,6 +1742,13 @@ body.sleeping #happy-hacking-sticker {
   height: 24px;
   font-size: 18px;
   padding: 0;
+  color: var(--text-secondary);
+  /* Make it visible (gray) instead of default/white */
+}
+
+.icon-button.small:hover {
+  color: var(--primary-color);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .memo-folder-list {

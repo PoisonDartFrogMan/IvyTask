@@ -891,11 +891,7 @@ if (memoBackStartupButton) {
 
 if (addMemoButton) {
   addMemoButton.addEventListener('click', async () => {
-    console.log("Add Memo Button Clicked. CurrentUserId:", currentUserId);
-    if (!currentUserId) {
-      alert("ログイン状態が確認できませんでした。リロードしてください。");
-      return;
-    }
+    if (!currentUserId) return;
     await createNewMemo();
   });
 }
@@ -1137,7 +1133,6 @@ function subscribeMemos(userId) {
 }
 
 async function createNewMemo() {
-  console.log("createNewMemo called");
   if (!currentUserId) return;
 
   // Determine initial folder
