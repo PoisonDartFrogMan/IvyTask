@@ -579,6 +579,41 @@ body.theme-lunar {
   font-size: 0.95rem;
 }
 
+/* Startup Options Colors */
+#start-task-button {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+#start-todo-button {
+  background: #4a90e2;
+  /* Blue */
+  color: #fff;
+  border-color: #4a90e2;
+}
+
+#start-memo-button {
+  background: #f5a623;
+  /* Orange */
+  color: #fff;
+  border-color: #f5a623;
+}
+
+#start-task-button:hover,
+#start-todo-button:hover,
+#start-memo-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.05);
+  /* Slightly brighter on hover */
+}
+
+/* Base override for specific IDs over .startup-option class */
+.startup-option {
+  /* Keep base transitional properties */
+}
+
 .todo-actions button.secondary {
   background: transparent;
   color: var(--text-primary);
