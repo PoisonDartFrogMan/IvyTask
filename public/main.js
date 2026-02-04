@@ -187,6 +187,7 @@ const imageEditorHeight = document.getElementById('image-editor-height');
 const toolbarBold = document.getElementById('toolbar-bold');
 const toolbarColor = document.getElementById('toolbar-color');
 const toolbarColorPalette = document.getElementById('toolbar-color-palette');
+const memoSearchInput = document.getElementById('memo-search-input');
 
 
 // ===== Global State & Constants =====
@@ -217,6 +218,7 @@ let memos = [];
 let currentMemoId = null;
 let unsubscribeMemos = () => { };
 let memoSaveTimeout = null;
+let memoSearchQuery = ''; // Search query state
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -1000,6 +1002,18 @@ function renderMemoList() {
   if (!memoList) return;
   memoList.innerHTML = '';
 
+  // Filter memos if search query exists
+  let displayMemos = memos;
+  if (memoSearchQuery) {
+    const q = memoSearchQuery.toLowerCase();
+    displayMemos = memos.filter(m => {
+      const title = (m.title || '').toLowerCase();
+      // Simple content text extraction (rough)
+      const contentText = (m.content || '').replace(/<[^>]*>/g, '').toLowerCase();
+      return title.includes(q) || contentText.includes(q);
+    });
+  }
+
   const bulkBtn = document.getElementById('bulk-delete-memo-button');
 
   function updateBulkDeleteButtonState() {
@@ -1022,9 +1036,21 @@ function renderMemoList() {
     return;
   }
 
+  if (displayMemos.length === 0) {
+    const emptyLi = document.createElement('li');
+    emptyLi.textContent = '一致するメモがありません';
+    emptyLi.style.padding = '16px';
+    emptyLi.style.color = 'var(--text-secondary)';
+    emptyLi.style.textAlign = 'center';
+    memoList.appendChild(emptyLi);
+    // Even if filtered out, allow bulk delete? No, maybe hide.
+    if (bulkBtn) bulkBtn.classList.add('hidden');
+    return;
+  }
+
   updateBulkDeleteButtonState();
 
-  memos.forEach(memo => {
+  displayMemos.forEach(memo => {
     const li = document.createElement('li');
     li.className = 'memo-item';
     if (memo.id === currentMemoId) li.classList.add('selected');
@@ -1845,6 +1871,13 @@ if (imageEditorSave) {
         uploadCroppedImage(blob);
       });
     }
+  });
+}
+
+if (memoSearchInput) {
+  memoSearchInput.addEventListener('input', (e) => {
+    memoSearchQuery = e.target.value.trim();
+    renderMemoList();
   });
 }
 

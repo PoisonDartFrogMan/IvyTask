@@ -1786,6 +1786,31 @@ body.sleeping #happy-hacking-sticker {
   min-width: 0;
 }
 
+/* Search Box */
+.memo-search-container {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+}
+
+#memo-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background-color: var(--bg-color);
+  margin-bottom: 0px !important;
+  /* Override default input margin */
+}
+
+#memo-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(178, 200, 186, 0.2);
+}
+
 .memo-item:hover {
   background-color: var(--bg-color);
 }
@@ -2180,6 +2205,7 @@ body.sleeping #happy-hacking-sticker {
   justify-content: flex-end;
   gap: 12px;
 }
+
 /* Memo Box */
 .memo-box {
   position: absolute;
