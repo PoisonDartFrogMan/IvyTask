@@ -1609,6 +1609,7 @@ function makeElementsFreeDraggable() {
 // Element Selection and Resizing Logic
 let selectedElement = null; // Renamed from selectedImage
 let resizeHandle = null;
+let deleteHandle = null;
 let isResizing = false;
 let isDraggingElement = false;
 let dragTarget = null;
@@ -1643,6 +1644,10 @@ function deselectElement() {
       resizeHandle.remove();
       resizeHandle = null;
     }
+    if (deleteHandle) {
+      deleteHandle.remove();
+      deleteHandle = null;
+    }
     selectedElement = null;
   }
 }
@@ -1667,6 +1672,28 @@ function selectElement(el) {
   resizeHandle = document.createElement('div');
   resizeHandle.className = 'memo-resize-handle';
   memoContentEditor.appendChild(resizeHandle);
+
+  // Create delete handle
+  deleteHandle = document.createElement('div');
+  deleteHandle.className = 'memo-delete-handle';
+  deleteHandle.innerHTML = '×';
+  // Prevent drag start on handle
+  deleteHandle.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+  deleteHandle.addEventListener('touchstart', (e) => { e.stopPropagation(); });
+
+  const deleteAction = (e) => {
+    e.stopPropagation();
+    if (confirm('この要素を削除しますか？')) {
+      selectedElement.remove();
+      deselectElement();
+      saveCurrentMemo();
+    }
+  };
+  deleteHandle.addEventListener('click', deleteAction);
+  // Touch often fires click, but sticking to click is safer if propagation stopped.
+
+  memoContentEditor.appendChild(deleteHandle);
+
   updateResizeHandlePosition();
 }
 
@@ -1684,6 +1711,14 @@ function updateResizeHandlePosition() {
 
   resizeHandle.style.left = `${left}px`;
   resizeHandle.style.top = `${top}px`;
+
+  if (deleteHandle) {
+    // Top-Right corner
+    const delLeft = elRect.left - containerRect.left + scrollL + elRect.width;
+    const delTop = elRect.top - containerRect.top + scrollT;
+    deleteHandle.style.left = `${delLeft}px`;
+    deleteHandle.style.top = `${delTop}px`;
+  }
 }
 
 if (memoContentEditor) {

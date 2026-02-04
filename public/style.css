@@ -2169,6 +2169,31 @@ body.sleeping #happy-hacking-sticker {
   bottom: -12px;
 }
 
+.memo-delete-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 25;
+  transform: translate(-50%, -50%);
+  /* Center on corner */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.memo-delete-handle:hover {
+  background-color: var(--danger-color);
+  color: #fff;
+  border-color: var(--danger-color);
+}
+
 /* Toolbar Styles */
 .memo-toolbar {
   display: flex;
