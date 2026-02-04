@@ -1061,8 +1061,21 @@ function renderMemoList() {
 
     const dateSpan = document.createElement('div');
     dateSpan.className = 'memo-item-date';
-    const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
-    dateSpan.textContent = dateObj.toLocaleDateString('ja-JP') + ' ' + dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+    // Helper for date formatting
+    const formatDate = (t) => {
+      if (!t) return '---';
+      const d = t.toDate();
+      const dateStr = d.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' });
+      const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      return `${dateStr} ${timeStr}`;
+    };
+
+    const createdStr = formatDate(memo.createdAt);
+    const updatedStr = formatDate(memo.updatedAt);
+
+    // Use innerHTML for multi-line
+    dateSpan.innerHTML = `作: ${createdStr}<br>更: ${updatedStr}`;
 
     infoDiv.appendChild(preview);
     infoDiv.appendChild(dateSpan);
@@ -1136,8 +1149,16 @@ function renderMemoEditorState() {
     // Make sure all images have draggable=false (to prevent native ghost)
     makeImagesFreeDraggable();
 
-    const dateObj = memo.updatedAt ? memo.updatedAt.toDate() : new Date();
-    memoLastUpdated.textContent = `最終更新: ${dateObj.toLocaleDateString('ja-JP')} ${dateObj.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
+    const formatDateFull = (t) => {
+      if (!t) return '---';
+      const d = t.toDate();
+      return `${d.toLocaleDateString('ja-JP')} ${d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
+    };
+
+    const createdText = memo.createdAt ? formatDateFull(memo.createdAt) : '---';
+    const updatedText = memo.updatedAt ? formatDateFull(memo.updatedAt) : '---';
+
+    memoLastUpdated.textContent = `作成: ${createdText} / 最終更新: ${updatedText}`;
 
   } else {
     memoEditorPlaceholder.classList.remove('hidden');
