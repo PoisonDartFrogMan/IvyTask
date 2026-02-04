@@ -170,6 +170,8 @@ const addMemoButton = document.getElementById('add-memo-button');
 const memoEditorArea = document.querySelector('.memo-editor-area'); // use class or add id? class is fine
 const memoEditorPlaceholder = document.getElementById('memo-editor-placeholder');
 const memoEditor = document.getElementById('memo-editor');
+const memoTitleInput = document.getElementById('memo-title-input');
+const memoTitleSaveButton = document.getElementById('memo-title-save-button');
 const memoLastUpdated = document.getElementById('memo-last-updated');
 const deleteMemoButton = document.getElementById('delete-memo-button');
 const memoContentEditor = document.getElementById('memo-content-editor');
@@ -891,6 +893,12 @@ if (memoContentEditor) {
   });
 }
 
+if (memoTitleSaveButton) {
+  memoTitleSaveButton.addEventListener('click', () => {
+    saveCurrentMemo();
+  });
+}
+
 if (deleteMemoButton) {
   deleteMemoButton.addEventListener('click', async () => {
     if (currentMemoId && confirm('このメモを削除しますか？')) {
@@ -939,6 +947,7 @@ async function createNewMemo() {
   try {
     const docRef = await addDoc(collection(db, "memos"), {
       userId: currentUserId,
+      title: '',
       content: '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -948,7 +957,7 @@ async function createNewMemo() {
     setTimeout(() => {
       const el = document.querySelector(`[data-memo-id="${currentMemoId}"]`);
       if (el) el.click();
-      if (memoContentEditor) memoContentEditor.focus();
+      if (memoTitleInput) memoTitleInput.focus();
     }, 100);
   } catch (e) {
     console.error("Error creating memo:", e);
@@ -968,8 +977,10 @@ async function saveCurrentMemo() {
   });
 
   const content = clone.innerHTML;
+  const title = memoTitleInput ? memoTitleInput.value : '';
   try {
     await updateDoc(doc(db, "memos", currentMemoId), {
+      title: title,
       content: content,
       updatedAt: serverTimestamp()
     });
@@ -1040,8 +1051,13 @@ function renderMemoList() {
 
     const preview = document.createElement('div');
     preview.className = 'memo-item-preview';
-    preview.textContent = memo.content ? memo.content.substring(0, 30) : '(新規メモ)';
-    if (!memo.content) preview.style.fontStyle = 'italic';
+    if (memo.title) {
+      preview.textContent = memo.title;
+      preview.style.fontWeight = 'bold';
+    } else {
+      preview.textContent = memo.content ? memo.content.substring(0, 30).replace(/<[^>]*>/g, '') : '(新規メモ)';
+      if (!memo.content) preview.style.fontStyle = 'italic';
+    }
 
     const dateSpan = document.createElement('div');
     dateSpan.className = 'memo-item-date';
@@ -1104,6 +1120,11 @@ function renderMemoEditorState() {
 
     memoEditorPlaceholder.classList.add('hidden');
     memoEditor.classList.remove('hidden');
+
+    // Update title
+    if (memoTitleInput) {
+      memoTitleInput.value = memo.title || '';
+    }
 
     // Update innerHTML if not focused
     if (document.activeElement !== memoContentEditor) {

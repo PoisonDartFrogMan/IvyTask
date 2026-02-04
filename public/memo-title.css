@@ -1,0 +1,55 @@
+/* Memo Title Input */
+.memo-title-wrapper {
+    flex: 1;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memo-title-input {
+    flex: 1;
+    font-size: 1.2rem;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px solid transparent;
+    /* Hidden by default */
+    background: transparent;
+    padding: 6px 0;
+    margin: 0;
+    transition: border-color 0.2s;
+    color: var(--text-primary);
+}
+
+.memo-title-input:focus {
+    outline: none;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.small-button {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* Adjust memo editor header layout */
+.memo-editor-header {
+    align-items: center;
+    /* Ensure vertical alignment */
+}
+
+/* Hide updated at if title takes space? Or move it? 
+   Let's enable showing both, but maybe updated at becomes smaller or moves to bottom?
+   For now, existing layout puts `memo-last-updated` before actions. 
+   We inserted title before actions. 
+   `memo-last-updated` is currently span.memo-meta inside header.
+*/
+
+.memo-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    margin-right: 12px;
+    display: none;
+    /* Hide for now to save space, or show elsewhere? Let's hide it to clean up header for Title */
+}

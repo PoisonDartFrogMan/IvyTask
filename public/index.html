@@ -7,6 +7,7 @@
   <title>IvyTask</title>
   <link rel="stylesheet" href="style.css?v=memo_v_mobile_fix_2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+  <link rel="stylesheet" href="memo-title.css">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
   <link rel="manifest" href="/manifest.json">
@@ -289,6 +290,10 @@
           <div class="memo-editor-header">
             <button id="memo-back-button" class="icon-button mobile-only" title="一覧に戻る">←</button>
             <span id="memo-last-updated" class="memo-meta"></span>
+            <div class="memo-title-wrapper">
+              <input type="text" id="memo-title-input" placeholder="タイトルを入力..." class="memo-title-input">
+              <button id="memo-title-save-button" class="primary small-button">保存</button>
+            </div>
             <div class="editor-actions">
               <input type="file" id="memo-image-input" accept="image/*" class="hidden">
               <button id="insert-image-button" class="icon-button" title="画像を挿入">📷</button>
@@ -352,13 +357,14 @@
       </div>
       <div class="settings-section">
         <h3>FAQ</h3>
-        <p class="settings-help">タスク側と同じFAQを共有しています。詳細はFAQページをご確認ください。</p>
+
+        <p class="settings-help">Team Todoについてよくある質問です。</p>
         <ul class="faq-list">
-          <li>「Focalist（今日の優先タスク）」は最大6件まで。毎日リセットされます。</li>
-          <li>「ストック」はやりたい/保留タスクを置く場所。期日が翌日のものは自動でFocalistに移動します。</li>
-          <li>壁紙・スリープ設定・アーカイブなどはタスク側と共通の使い方です。</li>
+          <li>「入社・退社タスク」で求職者ごとの進捗を管理できます。</li>
+          <li>データはブラウザ内に保存され、サーバーには送信されません（プライバシー重視）。</li>
+          <li>ブラウザの履歴削除などでデータが消える場合がありますのでご注意ください。</li>
         </ul>
-        <a href="/faq.html">FAQを見る</a>
+        <a href="/faq-todo.html">FAQを見る</a>
       </div>
       <button id="close-todo-settings-modal-button" type="button">閉じる</button>
     </div>
