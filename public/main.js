@@ -246,6 +246,8 @@ function showStartupScreen(showTodoMessage = false) {
   workspaceSelection = showTodoMessage ? 'todo' : null; // Keep this logic for 'todo' message, but general reset
   if (!showTodoMessage) workspaceSelection = null;
 
+  // Reset workspace
+  document.body.removeAttribute('data-workspace');
   handleSignedOut(false);
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (todoContainer) todoContainer.classList.add('hidden');
@@ -255,6 +257,7 @@ function showStartupScreen(showTodoMessage = false) {
 
 async function enterTaskWorkspace() {
   workspaceSelection = 'task';
+  document.body.dataset.workspace = 'task';
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (startupScreen) startupScreen.classList.add('hidden');
   if (lastKnownAuthUser) {
@@ -268,6 +271,7 @@ async function enterTaskWorkspace() {
 
 function enterTodoWorkspace() {
   workspaceSelection = 'todo';
+  document.body.dataset.workspace = 'todo';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
@@ -279,6 +283,7 @@ function enterTodoWorkspace() {
 
 async function enterMemoWorkspace() {
   workspaceSelection = 'memo';
+  document.body.dataset.workspace = 'memo';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
