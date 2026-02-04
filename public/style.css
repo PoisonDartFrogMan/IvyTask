@@ -1710,6 +1710,81 @@ body.sleeping #happy-hacking-sticker {
   height: 100%;
 }
 
+/* Folder List Styles */
+.memo-folder-list-container {
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.folder-list-header {
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+}
+
+.folder-list-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  border: none;
+  padding: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.icon-button.small {
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  padding: 0;
+}
+
+.memo-folder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.folder-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  transition: background-color 0.2s;
+}
+
+.folder-item:hover {
+  background-color: var(--bg-color);
+}
+
+.folder-item.selected {
+  background-color: var(--primary-color);
+  color: #fff;
+  font-weight: 500;
+}
+
+.folder-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.folder-item.selected .folder-count {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .memo-sidebar-header {
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
@@ -1724,7 +1799,6 @@ body.sleeping #happy-hacking-sticker {
   border: none;
   font-size: 1.2rem;
   font-weight: 600;
-  /* flex: 1; Removed */
   color: var(--text-primary);
   margin-right: auto;
 }
@@ -1763,6 +1837,28 @@ body.sleeping #happy-hacking-sticker {
   list-style: none;
   padding: 0;
   margin: 0;
+  /* Add border top if folders exist? */
+}
+
+/* Tag Chip Styles in List */
+.memo-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.memo-tag-chip-small {
+  font-size: 0.75rem;
+  background-color: #eee;
+  color: #555;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.memo-item.selected .memo-tag-chip-small {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .memo-item {
@@ -1771,126 +1867,104 @@ body.sleeping #happy-hacking-sticker {
   cursor: pointer;
   transition: background-color 0.2s;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  /* Changed to align-start for tags */
   gap: 12px;
 }
 
-.memo-checkbox {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-}
-
-.memo-info {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Search Box */
-.memo-search-container {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--surface-color);
-}
-
-#memo-search-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background-color: var(--bg-color);
-  margin-bottom: 0px !important;
-  /* Override default input margin */
-}
-
-#memo-search-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(178, 200, 186, 0.2);
-}
-
-.memo-item:hover {
-  background-color: var(--bg-color);
-}
-
-.memo-item.selected {
-  background-color: var(--primary-color);
-  color: #fff;
-}
-
-.memo-item.selected .memo-item-preview,
-.memo-item.selected .memo-item-date {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.memo-item-preview {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.95rem;
-  margin-bottom: 4px;
-}
-
-.memo-item-date {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  line-height: 1.3;
-  text-align: right;
-  min-width: 110px;
-}
-
-.memo-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-  height: calc(100vh - 160px);
-  /* Fixed height for internal scrolling */
-  min-height: 500px;
-}
-
-/* Editor Area */
-.memo-editor-area {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  /* Important for flex child scrolling */
-  box-sizing: border-box;
-  /* Override global main styles */
-  max-width: none;
-  margin: 0;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background-color: transparent;
-}
-
-.memo-placeholder {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-}
-
-.memo-editor {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 10px;
-}
+/* ... existing memo-item styles ... */
 
 .memo-editor-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  /* Changed to column for rows */
+  gap: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.memo-header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.memo-folder-selector-wrapper {
+  flex: 1;
+  margin: 0 10px;
+}
+
+.memo-folder-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background-color: var(--surface-color);
+  color: var(--text-primary);
+  max-width: 200px;
+}
+
+.memo-title-wrapper {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.memo-tags-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.memo-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.memo-tag-chip {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 2px 8px 2px 10px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #333;
+}
+
+.tag-remove-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.tag-remove-btn:hover {
+  color: var(--danger-color);
+}
+
+.memo-tag-input {
+  border: none;
+  background: transparent;
+  border-bottom: 1px dashed #ccc;
+  padding: 2px 4px;
+  font-size: 0.9rem;
+  width: 120px;
+  color: var(--text-secondary);
+}
+
+.memo-tag-input:focus {
+  outline: none;
+  border-bottom-color: var(--primary-color);
+  color: var(--text-primary);
 }
 
 .memo-meta {

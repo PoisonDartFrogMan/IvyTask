@@ -277,6 +277,15 @@
             <button id="add-memo-button" class="icon-button" title="新規メモ">+</button>
           </div>
         </div>
+        <div class="memo-folder-list-container">
+          <div class="folder-list-header">
+            <h3>Folders</h3>
+            <button id="create-folder-button" class="icon-button small" title="フォルダ作成">+</button>
+          </div>
+          <ul id="memo-folder-list" class="memo-folder-list">
+            <!-- Folders will be injected here -->
+          </ul>
+        </div>
         <div class="memo-search-container">
           <input type="text" id="memo-search-input" placeholder="メモを検索..." autocomplete="off">
         </div>
@@ -291,12 +300,26 @@
         </div>
         <div id="memo-editor" class="memo-editor hidden">
           <div class="memo-editor-header">
-            <button id="memo-back-button" class="icon-button mobile-only" title="一覧に戻る">←</button>
-            <span id="memo-last-updated" class="memo-meta"></span>
+            <div class="memo-header-top-row">
+              <button id="memo-back-button" class="icon-button mobile-only" title="一覧に戻る">←</button>
+              <div class="memo-folder-selector-wrapper">
+                <select id="memo-folder-select" class="memo-folder-select">
+                  <option value="">未分類</option>
+                </select>
+              </div>
+              <span id="memo-last-updated" class="memo-meta"></span>
+            </div>
+
             <div class="memo-title-wrapper">
               <input type="text" id="memo-title-input" placeholder="タイトルを入力..." class="memo-title-input">
               <button id="memo-title-save-button" class="primary small-button">保存</button>
             </div>
+
+            <div class="memo-tags-wrapper">
+              <div id="memo-tags-list" class="memo-tags-list"></div>
+              <input type="text" id="memo-tag-input" class="memo-tag-input" placeholder="+ タグ (#で追加)">
+            </div>
+
             <div class="editor-actions">
               <input type="file" id="memo-image-input" accept="image/*" class="hidden">
               <button id="insert-image-button" class="icon-button" title="画像を挿入">📷</button>

@@ -188,6 +188,8 @@ const toolbarBold = document.getElementById('toolbar-bold');
 const toolbarColor = document.getElementById('toolbar-color');
 const toolbarColorPalette = document.getElementById('toolbar-color-palette');
 const memoSearchInput = document.getElementById('memo-search-input');
+const memoTagsList = document.getElementById('memo-tags-list');
+const memoTagInput = document.getElementById('memo-tag-input');
 
 
 // ===== Global State & Constants =====
@@ -217,6 +219,9 @@ let currentOnboardingTaskId = null;
 let memos = [];
 let currentMemoId = null;
 let unsubscribeMemos = () => { };
+let memoFolders = []; // { id, name, userId, order }
+let unsubscribeMemoFolders = () => { };
+let currentViewFolderId = 'all'; // 'all', 'uncategorized', or folderId
 let memoSaveTimeout = null;
 let memoSearchQuery = ''; // Search query state
 const PASTEL_COLORS = [
@@ -286,6 +291,9 @@ async function enterMemoWorkspace() {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     // We need to ensure settings are loaded for wallpaper
     await loadUserSettings(currentUserId);
+    // We need to ensure settings are loaded for wallpaper
+    await loadUserSettings(currentUserId);
+    subscribeMemoFolders(currentUserId);
     subscribeMemos(currentUserId);
   } else {
     // If somehow entered without user, show auth
@@ -365,7 +373,9 @@ function handleSignedOut(showAuthScreen = true) {
   teardownRecurringTasks();
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
+  if (unsubscribeTasks) unsubscribeTasks();
   if (unsubscribeMemos) unsubscribeMemos();
+  if (unsubscribeMemoFolders) unsubscribeMemoFolders();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
@@ -911,10 +921,185 @@ if (deleteMemoButton) {
   });
 }
 
+// ===== Memo Folders Logic =====
+const memoFolderList = document.getElementById('memo-folder-list');
+const createFolderButton = document.getElementById('create-folder-button');
+const memoFolderSelect = document.getElementById('memo-folder-select');
+
+function subscribeMemoFolders(userId) {
+  if (unsubscribeMemoFolders) unsubscribeMemoFolders();
+  // Ensure we sort by some order or creation time if needed. Currently no explicit order field, use createdAt or name
+  // Let's add createdAt to folder creation
+  const q = query(collection(db, "memo_folders"), where("userId", "==", userId));
+  unsubscribeMemoFolders = onSnapshot(q, (snapshot) => {
+    memoFolders = [];
+    snapshot.forEach(docSnap => {
+      memoFolders.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    // Sort by name or custom order
+    memoFolders.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    renderMemoFolderList();
+    renderMemoFolderSelect(); // Update editor dropdown
+    // If deleted current folder, switch to all
+    if (currentViewFolderId !== 'all' && currentViewFolderId !== 'uncategorized' && !memoFolders.find(f => f.id === currentViewFolderId)) {
+      currentViewFolderId = 'all';
+    }
+    // Re-render list because folder counts or selection capabilities might change
+    renderMemoList(); // Counts need memos, memos need folders? Actually just count display from Memos.
+  });
+}
+
+function renderMemoFolderList() {
+  if (!memoFolderList) return;
+  memoFolderList.innerHTML = '';
+
+  // Static Folders
+  const allItem = createFolderListItem('all', 'すべてのメモ', memos.length);
+  const uncategorizedCount = memos.filter(m => !m.folderId).length;
+  const uncategorizedItem = createFolderListItem('uncategorized', '未分類', uncategorizedCount);
+
+  memoFolderList.appendChild(allItem);
+  memoFolderList.appendChild(uncategorizedItem);
+
+  // User Folders
+  memoFolders.forEach(f => {
+    // Count logic: Memos having this folderId
+    const count = memos.filter(m => m.folderId === f.id).length;
+    memoFolderList.appendChild(createFolderListItem(f.id, f.name, count));
+  });
+}
+
+function createFolderListItem(id, name, count) {
+  const li = document.createElement('li');
+  li.className = 'folder-item';
+  if (currentViewFolderId === id) li.classList.add('selected');
+
+  const spanName = document.createElement('span');
+  spanName.textContent = name;
+
+  const spanCount = document.createElement('span');
+  spanCount.className = 'folder-count';
+  spanCount.textContent = count;
+
+  li.appendChild(spanName);
+  li.appendChild(spanCount);
+
+  li.addEventListener('click', () => {
+    currentViewFolderId = id;
+    renderMemoFolderList(); // Update highlight
+    renderMemoList(); // Update content filtering
+    // If mobile, maybe close sidebar? No specification.
+  });
+
+  return li;
+}
+
+if (createFolderButton) {
+  createFolderButton.addEventListener('click', async () => {
+    const name = prompt('新しいフォルダ名を入力してください:');
+    if (!name || !name.trim()) return;
+    try {
+      if (!currentUserId) return;
+      await addDoc(collection(db, "memo_folders"), {
+        userId: currentUserId,
+        name: name.trim(),
+        createdAt: serverTimestamp()
+      });
+      // Snapshot will update UI
+    } catch (e) {
+      console.error("Error creating folder:", e);
+      alert("フォルダ作成に失敗しました");
+    }
+  });
+}
+
+// Update the dropdown in the editor
+function renderMemoFolderSelect() {
+  if (!memoFolderSelect) return;
+  // Keep selected value if possible
+  const currentVal = memoFolderSelect.value;
+  memoFolderSelect.innerHTML = '';
+
+  const optUncat = document.createElement('option');
+  optUncat.value = ''; // empty string for uncategorized/null
+  optUncat.textContent = '未分類';
+  memoFolderSelect.appendChild(optUncat);
+
+  memoFolders.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name;
+    memoFolderSelect.appendChild(opt);
+  });
+
+  // Restore selection or default to current memo's folder
+  // Handled in renderMemoEditorState
+}
+
+if (memoFolderSelect) {
+  memoFolderSelect.addEventListener('change', () => {
+    // User changed folder in editor
+    saveCurrentMemo(); // Save immediately with new folder
+  });
+}
+
+// ===== Tags Logic =====
+function renderMemoTags(tags) {
+  if (!memoTagsList) return;
+  memoTagsList.innerHTML = '';
+  tags.forEach(tag => {
+    const chip = document.createElement('div');
+    chip.className = 'memo-tag-chip';
+
+    const span = document.createElement('span');
+    span.textContent = tag;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'tag-remove-btn';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = 'タグを削除';
+    removeBtn.addEventListener('click', () => {
+      chip.remove();
+      saveCurrentMemo();
+    });
+
+    chip.appendChild(span);
+    chip.appendChild(removeBtn);
+    memoTagsList.appendChild(chip);
+  });
+}
+
+if (memoTagInput) {
+  memoTagInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = memoTagInput.value.trim();
+      if (!val) return;
+
+      // Handle # prefix logic if user typed it
+      const cleanVal = val.startsWith('#') ? val.substring(1) : val;
+      if (!cleanVal) return;
+
+      // Add tag visual
+      const currentTags = Array.from(memoTagsList.querySelectorAll('.memo-tag-chip span')).map(s => s.textContent);
+      if (!currentTags.includes(cleanVal)) {
+        // Optimistic render
+        const newTags = [...currentTags, cleanVal];
+        renderMemoTags(newTags);
+        saveCurrentMemo();
+      }
+
+      memoTagInput.value = '';
+    }
+  });
+}
+
+// ===== Memo Logic =====
 function subscribeMemos(userId) {
   if (unsubscribeMemos) unsubscribeMemos();
   // Remove orderBy to avoid needing a composite index
-  const q = query(collection(db, "memos"), where("userId", "==", userId));
+  const q = query(collection(db, "memos"), where("userId", "==", userId), orderBy("updatedAt", "desc"));
 
   unsubscribeMemos = onSnapshot(q, (snapshot) => {
     memos = [];
@@ -922,13 +1107,8 @@ function subscribeMemos(userId) {
       memos.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // Sort client-side
-    memos.sort((a, b) => {
-      const ta = a.updatedAt ? a.updatedAt.toMillis() : 0;
-      const tb = b.updatedAt ? b.updatedAt.toMillis() : 0;
-      return tb - ta; // Descending
-    });
-
+    // After memos update, we also need to update folder counts
+    renderMemoFolderList();
     renderMemoList();
 
     // If current memo was deleted remotely, clear editor
@@ -969,7 +1149,6 @@ async function createNewMemo() {
 
 async function saveCurrentMemo() {
   if (!currentMemoId || !memoContentEditor) return;
-  if (!currentMemoId || !memoContentEditor) return;
 
   // Clone content to strip handles before saving
   const clone = memoContentEditor.cloneNode(true);
@@ -980,10 +1159,23 @@ async function saveCurrentMemo() {
 
   const content = clone.innerHTML;
   const title = memoTitleInput ? memoTitleInput.value : '';
+  const folderId = memoFolderSelect ? memoFolderSelect.value : null;
+
+  // Collect tags from UI
+  const currentTags = [];
+  if (memoTagsList) {
+    memoTagsList.querySelectorAll('.memo-tag-chip').forEach(chip => {
+      const text = chip.querySelector('span')?.textContent;
+      if (text) currentTags.push(text);
+    });
+  }
+
   try {
     await updateDoc(doc(db, "memos", currentMemoId), {
       title: title,
       content: content,
+      folderId: folderId, // Save Folder ID
+      tags: currentTags,  // Save Tags
       updatedAt: serverTimestamp()
     });
     const now = new Date();
@@ -1002,15 +1194,30 @@ function renderMemoList() {
   if (!memoList) return;
   memoList.innerHTML = '';
 
-  // Filter memos if search query exists
+  // 1. Filter by Folder
   let displayMemos = memos;
+  if (currentViewFolderId === 'uncategorized') {
+    displayMemos = memos.filter(m => !m.folderId);
+  } else if (currentViewFolderId !== 'all') {
+    displayMemos = memos.filter(m => m.folderId === currentViewFolderId);
+  }
+
+  // 2. Filter by Search Query
   if (memoSearchQuery) {
     const q = memoSearchQuery.toLowerCase();
-    displayMemos = memos.filter(m => {
+    const isTagSearch = q.startsWith('#');
+    const searchVal = isTagSearch ? q.substring(1) : q;
+
+    displayMemos = displayMemos.filter(m => {
+      if (isTagSearch) {
+        // Tag match
+        return m.tags && m.tags.some(t => t.toLowerCase().includes(searchVal));
+      }
+
       const title = (m.title || '').toLowerCase();
       // Simple content text extraction (rough)
       const contentText = (m.content || '').replace(/<[^>]*>/g, '').toLowerCase();
-      return title.includes(q) || contentText.includes(q);
+      return title.includes(q) || contentText.includes(q) || (m.tags && m.tags.some(t => t.toLowerCase().includes(q)));
     });
   }
 
@@ -1104,6 +1311,20 @@ function renderMemoList() {
     dateSpan.innerHTML = `作: ${createdStr}<br>更: ${updatedStr}`;
 
     infoDiv.appendChild(preview);
+
+    // Render Tags in List
+    if (memo.tags && memo.tags.length > 0) {
+      const tagsDiv = document.createElement('div');
+      tagsDiv.className = 'memo-item-tags';
+      memo.tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'memo-tag-chip-small';
+        chip.textContent = tag;
+        tagsDiv.appendChild(chip);
+      });
+      infoDiv.appendChild(tagsDiv);
+    }
+
     infoDiv.appendChild(dateSpan);
 
     li.appendChild(checkbox);
@@ -1164,6 +1385,14 @@ function renderMemoEditorState() {
     if (memoTitleInput) {
       memoTitleInput.value = memo.title || '';
     }
+
+    // Update Folder Select
+    if (memoFolderSelect) {
+      memoFolderSelect.value = memo.folderId || '';
+    }
+
+    // Update Tags
+    renderMemoTags(memo.tags || []);
 
     // Update innerHTML if not focused
     if (document.activeElement !== memoContentEditor) {
