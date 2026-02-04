@@ -2309,26 +2309,33 @@ body.sleeping #happy-hacking-sticker {
 
   .memo-layout.editor-active .memo-editor-area {
     display: flex;
-    position: fixed;
-    top: 0;
-    left: 0;
+    position: relative;
+    /* Changed from fixed to allow scroll */
     width: 100%;
-    height: 100dvh;
-    /* dynamic viewport height */
+    min-height: 100vh;
+    /* Ensure full height */
+    height: auto;
     z-index: 1000;
     background: var(--bg-color);
     margin: 0;
     border-radius: 0;
+    overflow: visible;
+    /* Allow external scroll */
   }
 
   .memo-layout.editor-active .memo-editor {
-    height: 100%;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
   }
 
   .memo-layout.editor-active .memo-content-editor {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
+    /* Content expands naturally */
+    height: auto;
+    flex: none;
+    /* Disable flex sizing */
+    min-height: calc(100vh - 100px);
+    /* Minimum height for clicking */
   }
 
   /* Adjust padding for fixed header likely needed, but flex handles it */

@@ -1173,9 +1173,13 @@ async function saveCurrentMemo() {
 
   // Clone content to strip handles before saving
   const clone = memoContentEditor.cloneNode(true);
-  clone.querySelectorAll('.memo-resize-handle, .memo-image-selected').forEach(el => {
-    if (el.classList.contains('memo-resize-handle')) el.remove();
-    el.classList.remove('memo-image-selected');
+  clone.querySelectorAll('.memo-resize-handle, .memo-delete-handle, .memo-image-selected, .selected').forEach(el => {
+    if (el.classList.contains('memo-resize-handle') || el.classList.contains('memo-delete-handle')) {
+      el.remove();
+    } else {
+      el.classList.remove('memo-image-selected');
+      el.classList.remove('selected');
+    }
   });
 
   const content = clone.innerHTML;
@@ -1868,9 +1872,8 @@ if (memoContentEditor) {
       if (didMove) {
         if (dragTarget.style.position !== 'absolute') {
           dragTarget.style.position = 'absolute';
-          dragTarget.style.zIndex = '5'; // Box default, Image might need 10?
-          if (dragTarget.tagName === 'IMG') dragTarget.style.zIndex = '10';
-          dragTarget.style.width = dragTarget.offsetWidth + 'px'; // Fix width
+          dragTarget.style.zIndex = '100'; // High z-index while dragging
+          dragTarget.style.width = dragTarget.offsetWidth + 'px';
         }
         dragTarget.style.left = (initialLeft + dx) + 'px';
         dragTarget.style.top = (initialTop + dy) + 'px';
@@ -1914,6 +1917,12 @@ if (memoContentEditor) {
         // Clicked. Already selected.
       } else {
         // Drag finished
+        // Reset z-index to allow DOM ordering to take effect
+        // unless we want to keep it floating "above" text permanently?
+        // But for layering feature, we rely on DOM order.
+        if (dragTarget.style.position === 'absolute') {
+          dragTarget.style.zIndex = '';
+        }
         saveCurrentMemo();
       }
     }
@@ -2053,6 +2062,9 @@ if (memoContentEditor) {
         // Tap. Do nothing (Select happened in touchstart).
       } else {
         // Drag finished
+        if (dragTarget.style.position === 'absolute') {
+          dragTarget.style.zIndex = '';
+        }
         saveCurrentMemo();
       }
     }
@@ -2076,6 +2088,45 @@ if (toolbarColor) {
     e.preventDefault();
     toolbarColorPalette.classList.toggle('hidden');
   });
+}
+
+const toolbarLayerFront = document.getElementById('toolbar-layer-front');
+const toolbarLayerBack = document.getElementById('toolbar-layer-back');
+
+if (toolbarLayerFront) {
+  toolbarLayerFront.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (selectedElement && folderIdIsAbsolute(selectedElement)) {
+      memoContentEditor.appendChild(selectedElement);
+      // Re-select to ensure handles are on top
+      const el = selectedElement;
+      deselectElement(); // removes handles
+      selectElement(el); // adds handles at end
+      saveCurrentMemo();
+    }
+  });
+}
+
+if (toolbarLayerBack) {
+  toolbarLayerBack.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (selectedElement && folderIdIsAbsolute(selectedElement)) {
+      if (memoContentEditor.firstChild) {
+        memoContentEditor.insertBefore(selectedElement, memoContentEditor.firstChild);
+      } else {
+        memoContentEditor.appendChild(selectedElement);
+      }
+      const el = selectedElement;
+      deselectElement();
+      selectElement(el);
+      saveCurrentMemo();
+    }
+  });
+}
+
+function folderIdIsAbsolute(el) {
+  // Use computed style to detect position: absolute even from CSS classes
+  return window.getComputedStyle(el).position === 'absolute';
 }
 
 if (toolbarColorPalette) {
