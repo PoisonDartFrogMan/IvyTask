@@ -1380,6 +1380,11 @@ function selectElement(el) {
     el.classList.add('memo-image-selected');
   } else if (el.classList.contains('memo-box')) {
     el.classList.add('selected');
+    // Sync toolbar color indicator
+    const indicator = document.getElementById('toolbar-color')?.querySelector('.color-indicator');
+    if (indicator) {
+      indicator.style.color = el.style.borderColor || '#555';
+    }
   }
 
   // Create handle
@@ -1767,12 +1772,24 @@ if (toolbarColorPalette) {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const color = btn.dataset.color;
-      if (color === 'inherit') {
-        document.execCommand('removeFormat', false, 'foreColor');
-        document.execCommand('foreColor', false, '#333333');
-      } else {
-        document.execCommand('foreColor', false, color);
+
+      // Handle Box Color
+      if (selectedElement && selectedElement.classList.contains('memo-box')) {
+        const borderColor = color === 'inherit' ? '#555' : color;
+        selectedElement.style.borderColor = borderColor;
+        saveCurrentMemo();
       }
+      // Handle Image Border? (Optional, future)
+      // Default: Handle Text Color
+      else {
+        if (color === 'inherit') {
+          document.execCommand('removeFormat', false, 'foreColor');
+          document.execCommand('foreColor', false, '#333333');
+        } else {
+          document.execCommand('foreColor', false, color);
+        }
+      }
+
       toolbarColorPalette.classList.add('hidden');
 
       const indicator = toolbarColor.querySelector('.color-indicator');
