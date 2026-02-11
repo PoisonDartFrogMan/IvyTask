@@ -3273,15 +3273,27 @@ async function enterVaultWorkspace() {
 
 function subscribeVaults(userId) {
   if (unsubscribeVaults) unsubscribeVaults();
+
+  // 複合インデックスエラーを避けるため orderBy を外す
   const q = query(
     collection(db, 'vaults'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
+
   unsubscribeVaults = onSnapshot(q, (snapshot) => {
     vaults = [];
     snapshot.forEach(d => vaults.push({ id: d.id, ...d.data() }));
+
+    // クライアント側で作成日の新しい順（降順）にソート
+    vaults.sort((a, b) => {
+      const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+
     renderVaultList();
+  }, (error) => {
+    console.error("Vault読み込みエラー:", error);
   });
 }
 
