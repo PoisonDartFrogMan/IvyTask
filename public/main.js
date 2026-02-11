@@ -191,6 +191,24 @@ const memoSearchInput = document.getElementById('memo-search-input');
 const memoTagsList = document.getElementById('memo-tags-list');
 const memoTagInput = document.getElementById('memo-tag-input');
 
+// Vault Workspace Elements
+const vaultContainer = document.getElementById('vault-container');
+const startVaultButton = document.getElementById('start-vault-button');
+const vaultBackButton = document.getElementById('vault-back-startup-button');
+const vaultAddButton = document.getElementById('vault-add-button');
+const vaultSearchInput = document.getElementById('vault-search-input');
+const vaultListEl = document.getElementById('vault-list');
+const vaultModalBackdrop = document.getElementById('vault-modal-backdrop');
+const vaultModalTitle = document.getElementById('vault-modal-title');
+const vaultForm = document.getElementById('vault-form');
+const vaultInputTitle = document.getElementById('vault-input-title');
+const vaultInputUrl = document.getElementById('vault-input-url');
+const vaultInputLoginId = document.getElementById('vault-input-login-id');
+const vaultInputPassword = document.getElementById('vault-input-password');
+const vaultInputMemo = document.getElementById('vault-input-memo');
+const vaultModalTogglePw = document.getElementById('vault-modal-toggle-pw');
+const vaultModalCancel = document.getElementById('vault-modal-cancel');
+
 
 // ===== Global State & Constants =====
 let currentUserId = null;
@@ -224,6 +242,11 @@ let unsubscribeMemoFolders = () => { };
 let currentViewFolderId = 'all'; // 'all', 'uncategorized', or folderId
 let memoSaveTimeout = null;
 let memoSearchQuery = ''; // Search query state
+// Vault State
+let vaults = [];
+let unsubscribeVaults = () => { };
+let vaultSearchQuery = '';
+let editingVaultId = null;
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -252,6 +275,7 @@ function showStartupScreen(showTodoMessage = false) {
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -267,6 +291,7 @@ async function enterTaskWorkspace() {
   }
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
 }
 
 function enterTodoWorkspace() {
@@ -278,6 +303,8 @@ function enterTodoWorkspace() {
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
   if (todoContainer) todoContainer.classList.remove('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
   renderCandidates();
 }
 
@@ -291,6 +318,7 @@ async function enterMemoWorkspace() {
   if (archiveContainer) archiveContainer.style.display = 'none';
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.remove('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
 
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
@@ -315,6 +343,8 @@ onAuthStateChanged(auth, async (user) => {
     enterTodoWorkspace();
   } else if (workspaceSelection === 'memo') {
     enterMemoWorkspace();
+  } else if (workspaceSelection === 'vault') {
+    enterVaultWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -381,6 +411,7 @@ function handleSignedOut(showAuthScreen = true) {
   if (unsubscribeTasks) unsubscribeTasks();
   if (unsubscribeMemos) unsubscribeMemos();
   if (unsubscribeMemoFolders) unsubscribeMemoFolders();
+  if (unsubscribeVaults) unsubscribeVaults();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
@@ -3215,3 +3246,301 @@ document.body.addEventListener('click', async (event) => {
     }
   }
 });
+
+
+// ===== Vault Functions =====
+
+async function enterVaultWorkspace() {
+  workspaceSelection = 'vault';
+  document.body.dataset.workspace = 'vault';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    await loadUserSettings(currentUserId);
+    subscribeVaults(currentUserId);
+  } else {
+    handleSignedOut(true);
+  }
+}
+
+function subscribeVaults(userId) {
+  if (unsubscribeVaults) unsubscribeVaults();
+  const q = query(
+    collection(db, 'vaults'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+  unsubscribeVaults = onSnapshot(q, (snapshot) => {
+    vaults = [];
+    snapshot.forEach(d => vaults.push({ id: d.id, ...d.data() }));
+    renderVaultList();
+  });
+}
+
+function renderVaultList() {
+  if (!vaultListEl) return;
+  vaultListEl.innerHTML = '';
+
+  const filtered = vaults.filter(v => {
+    if (!vaultSearchQuery) return true;
+    const q = vaultSearchQuery.toLowerCase();
+    return (v.title || '').toLowerCase().includes(q)
+      || (v.loginId || '').toLowerCase().includes(q);
+  });
+
+  if (filtered.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'vault-empty';
+    empty.textContent = vaults.length === 0 ? 'まだパスワードが登録されていません' : '該当する項目がありません';
+    vaultListEl.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(v => {
+    const li = document.createElement('li');
+    li.className = 'vault-item';
+    li.dataset.id = v.id;
+
+    // Header: title + actions
+    const header = document.createElement('div');
+    header.className = 'vault-item-header';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'vault-item-title';
+    titleEl.textContent = v.title || '(無題)';
+    header.appendChild(titleEl);
+    const actions = document.createElement('div');
+    actions.className = 'vault-item-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'vault-edit-btn';
+    editBtn.textContent = '編集';
+    editBtn.addEventListener('click', () => openVaultModal(v.id));
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'vault-delete-btn';
+    deleteBtn.textContent = '削除';
+    deleteBtn.addEventListener('click', () => deleteVault(v.id, v.title));
+    actions.append(editBtn, deleteBtn);
+    header.appendChild(actions);
+    li.appendChild(header);
+
+    // URL
+    if (v.url) {
+      const urlEl = document.createElement('a');
+      urlEl.className = 'vault-item-url';
+      urlEl.href = v.url.startsWith('http') ? v.url : `https://${v.url}`;
+      urlEl.target = '_blank';
+      urlEl.rel = 'noopener noreferrer';
+      urlEl.textContent = v.url;
+      li.appendChild(urlEl);
+    }
+
+    // Fields
+    const fields = document.createElement('div');
+    fields.className = 'vault-item-fields';
+
+    // Login ID
+    if (v.loginId) {
+      const idRow = document.createElement('div');
+      idRow.className = 'vault-field-row';
+      const idLabel = document.createElement('span');
+      idLabel.className = 'vault-field-label';
+      idLabel.textContent = 'ID';
+      const idValue = document.createElement('span');
+      idValue.className = 'vault-field-value';
+      idValue.textContent = v.loginId;
+      const idCopyBtn = document.createElement('button');
+      idCopyBtn.className = 'vault-copy-btn';
+      idCopyBtn.textContent = '📋';
+      idCopyBtn.title = 'IDをコピー';
+      idCopyBtn.addEventListener('click', () => vaultCopyToClipboard(v.loginId, idCopyBtn));
+      idRow.append(idLabel, idValue, idCopyBtn);
+      fields.appendChild(idRow);
+    }
+
+    // Password
+    if (v.password) {
+      const pwRow = document.createElement('div');
+      pwRow.className = 'vault-field-row';
+      const pwLabel = document.createElement('span');
+      pwLabel.className = 'vault-field-label';
+      pwLabel.textContent = 'PW';
+      const pwValue = document.createElement('span');
+      pwValue.className = 'vault-field-value masked';
+      pwValue.textContent = '••••••••';
+      pwValue.dataset.plain = v.password;
+      pwValue.dataset.visible = 'false';
+      const pwToggle = document.createElement('button');
+      pwToggle.className = 'vault-toggle-btn';
+      pwToggle.textContent = '👁️';
+      pwToggle.title = 'パスワードを表示';
+      pwToggle.addEventListener('click', () => {
+        const isVisible = pwValue.dataset.visible === 'true';
+        pwValue.textContent = isVisible ? '••••••••' : pwValue.dataset.plain;
+        pwValue.classList.toggle('masked', isVisible);
+        pwValue.dataset.visible = String(!isVisible);
+        pwToggle.textContent = isVisible ? '👁️' : '🙈';
+        pwToggle.title = isVisible ? 'パスワードを表示' : 'パスワードを隠す';
+      });
+      const pwCopyBtn = document.createElement('button');
+      pwCopyBtn.className = 'vault-copy-btn';
+      pwCopyBtn.textContent = '📋';
+      pwCopyBtn.title = 'パスワードをコピー';
+      pwCopyBtn.addEventListener('click', () => vaultCopyToClipboard(v.password, pwCopyBtn));
+      pwRow.append(pwLabel, pwValue, pwToggle, pwCopyBtn);
+      fields.appendChild(pwRow);
+    }
+
+    li.appendChild(fields);
+
+    // Memo
+    if (v.memo) {
+      const memoEl = document.createElement('div');
+      memoEl.className = 'vault-item-memo';
+      memoEl.textContent = v.memo;
+      li.appendChild(memoEl);
+    }
+
+    vaultListEl.appendChild(li);
+  });
+}
+
+function openVaultModal(vaultId) {
+  if (vaultId) {
+    // Edit mode
+    editingVaultId = vaultId;
+    const v = vaults.find(x => x.id === vaultId);
+    if (!v) return;
+    vaultModalTitle.textContent = 'パスワードを編集';
+    vaultInputTitle.value = v.title || '';
+    vaultInputUrl.value = v.url || '';
+    vaultInputLoginId.value = v.loginId || '';
+    vaultInputPassword.value = v.password || '';
+    vaultInputMemo.value = v.memo || '';
+  } else {
+    // Add mode
+    editingVaultId = null;
+    vaultModalTitle.textContent = 'パスワードを追加';
+    vaultForm.reset();
+  }
+  // Reset password visibility in modal
+  vaultInputPassword.type = 'password';
+  vaultModalTogglePw.textContent = '👁️';
+  vaultModalBackdrop.classList.remove('hidden');
+}
+
+function closeVaultModal() {
+  vaultModalBackdrop.classList.add('hidden');
+  editingVaultId = null;
+  vaultForm.reset();
+}
+
+async function saveVault() {
+  if (!currentUserId) return;
+  const data = {
+    userId: currentUserId,
+    title: vaultInputTitle.value.trim(),
+    url: vaultInputUrl.value.trim(),
+    loginId: vaultInputLoginId.value.trim(),
+    password: vaultInputPassword.value,
+    memo: vaultInputMemo.value.trim(),
+    updatedAt: serverTimestamp()
+  };
+  if (!data.title) {
+    alert('サービス名を入力してください。');
+    return;
+  }
+  try {
+    if (editingVaultId) {
+      await updateDoc(doc(db, 'vaults', editingVaultId), data);
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db, 'vaults'), data);
+    }
+    closeVaultModal();
+  } catch (err) {
+    console.error('Vault save error:', err);
+    alert('保存に失敗しました。');
+  }
+}
+
+async function deleteVault(id, title) {
+  if (!confirm(`「${title || '(無題)'}」を削除しますか？`)) return;
+  try {
+    await deleteDoc(doc(db, 'vaults', id));
+  } catch (err) {
+    console.error('Vault delete error:', err);
+    alert('削除に失敗しました。');
+  }
+}
+
+function vaultCopyToClipboard(text, btnEl) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btnEl.textContent;
+    btnEl.textContent = '✅';
+    setTimeout(() => { btnEl.textContent = original; }, 1200);
+  }).catch(err => {
+    console.error('Copy failed:', err);
+  });
+}
+
+// Vault Event Listeners
+if (startVaultButton) {
+  startVaultButton.addEventListener('click', () => {
+    if (lastKnownAuthUser) {
+      enterVaultWorkspace();
+    } else {
+      workspaceSelection = 'vault';
+      handleSignedOut(true);
+    }
+  });
+}
+
+if (vaultBackButton) {
+  vaultBackButton.addEventListener('click', () => {
+    showStartupScreen();
+  });
+}
+
+if (vaultAddButton) {
+  vaultAddButton.addEventListener('click', () => openVaultModal());
+}
+
+if (vaultForm) {
+  vaultForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveVault();
+  });
+}
+
+if (vaultModalCancel) {
+  vaultModalCancel.addEventListener('click', () => closeVaultModal());
+}
+
+if (vaultModalBackdrop) {
+  vaultModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === vaultModalBackdrop) closeVaultModal();
+  });
+}
+
+if (vaultModalTogglePw) {
+  vaultModalTogglePw.addEventListener('click', () => {
+    const isPw = vaultInputPassword.type === 'password';
+    vaultInputPassword.type = isPw ? 'text' : 'password';
+    vaultModalTogglePw.textContent = isPw ? '🙈' : '👁️';
+  });
+}
+
+if (vaultSearchInput) {
+  vaultSearchInput.addEventListener('input', () => {
+    vaultSearchQuery = vaultSearchInput.value.trim();
+    renderVaultList();
+  });
+}
+

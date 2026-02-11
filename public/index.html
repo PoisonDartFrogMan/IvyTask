@@ -36,6 +36,11 @@
           <span class="option-label">Memo</span>
           <span class="option-desc">シンプルなメモ帳</span>
         </button>
+        <!-- Vault Button Added -->
+        <button id="start-vault-button" class="startup-option">
+          <span class="option-label">🔐 Vault</span>
+          <span class="option-desc">パスワード管理</span>
+        </button>
       </div>
       <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
     </div>
@@ -356,6 +361,57 @@
             aria-multiline="true"></div>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- ===== Vault Container ===== -->
+  <div id="vault-container" class="hidden">
+    <div class="vault-header">
+      <h1 class="vault-title">🔐 Vault</h1>
+      <div class="vault-header-actions">
+        <button id="vault-back-startup-button" class="secondary">スタートに戻る</button>
+        <button id="vault-add-button">+ 新規追加</button>
+      </div>
+    </div>
+    <div class="vault-search-container">
+      <input type="text" id="vault-search-input" placeholder="サービス名やIDで検索..." autocomplete="off">
+    </div>
+    <ul id="vault-list" class="vault-list"></ul>
+  </div>
+
+  <!-- Vault Modal -->
+  <div id="vault-modal-backdrop" class="hidden">
+    <div id="vault-modal">
+      <h2 id="vault-modal-title">パスワードを追加</h2>
+      <form id="vault-form" autocomplete="off">
+        <div class="vault-form-row">
+          <label for="vault-input-title">サービス名</label>
+          <input type="text" id="vault-input-title" placeholder="例: Google" required>
+        </div>
+        <div class="vault-form-row">
+          <label for="vault-input-url">URL</label>
+          <input type="text" id="vault-input-url" placeholder="https://...">
+        </div>
+        <div class="vault-form-row">
+          <label for="vault-input-login-id">ログインID / メール</label>
+          <input type="text" id="vault-input-login-id" placeholder="user@example.com">
+        </div>
+        <div class="vault-form-row">
+          <label for="vault-input-password">パスワード</label>
+          <div class="vault-password-wrapper">
+            <input type="password" id="vault-input-password" placeholder="パスワード">
+            <button type="button" id="vault-modal-toggle-pw" class="vault-toggle-btn" title="表示/非表示">👁️</button>
+          </div>
+        </div>
+        <div class="vault-form-row">
+          <label for="vault-input-memo">メモ</label>
+          <textarea id="vault-input-memo" placeholder="備考..."></textarea>
+        </div>
+        <div class="vault-form-actions">
+          <button type="button" id="vault-modal-cancel">キャンセル</button>
+          <button type="submit" id="vault-modal-save">保存</button>
+        </div>
+      </form>
     </div>
   </div>
 

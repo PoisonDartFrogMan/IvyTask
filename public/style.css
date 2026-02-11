@@ -621,9 +621,17 @@ body.theme-lunar {
   border-color: #f5a623;
 }
 
+#start-vault-button {
+  background: #7c4dff;
+  /* Purple */
+  color: #fff;
+  border-color: #7c4dff;
+}
+
 #start-task-button:hover,
 #start-todo-button:hover,
-#start-memo-button:hover {
+#start-memo-button:hover,
+#start-vault-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   filter: brightness(1.05);
@@ -1031,7 +1039,8 @@ button:hover {
 #add-task-modal-backdrop,
 #updates-modal-backdrop,
 #recurring-task-modal-backdrop,
-#recurring-list-modal-backdrop {
+#recurring-list-modal-backdrop,
+#vault-modal-backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
@@ -1048,7 +1057,8 @@ button:hover {
 #add-task-modal,
 #updates-modal,
 #recurring-task-modal,
-#recurring-list-modal {
+#recurring-list-modal,
+#vault-modal {
   background-color: var(--surface-color);
   padding: 30px;
   border-radius: 4px;
@@ -2482,4 +2492,311 @@ body.sleeping #happy-hacking-sticker {
 .memo-box.selected {
   outline: 2px dashed var(--primary-color);
   outline-offset: 2px;
+}
+
+/* ===== Vault Styles ===== */
+#vault-container {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 24px 28px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-color);
+  border-top: 6px solid #7c4dff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.vault-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.vault-title {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.vault-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vault-header-actions .secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.vault-search-container {
+  margin-bottom: 16px;
+}
+
+.vault-search-container input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 14px;
+  background: var(--bg-color);
+  margin-bottom: 0;
+}
+
+.vault-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 40px;
+}
+
+.vault-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #7c4dff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.vault-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.vault-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vault-item-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-item-url {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.vault-item-url:hover {
+  color: #7c4dff;
+  text-decoration: underline;
+}
+
+.vault-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vault-item-actions button {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.vault-edit-btn {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.vault-delete-btn {
+  background: transparent;
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
+}
+
+.vault-delete-btn:hover {
+  background: var(--danger-color);
+  color: #fff;
+}
+
+.vault-item-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vault-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  min-height: 28px;
+}
+
+.vault-field-label {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.vault-field-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 0.88rem;
+}
+
+.vault-field-value.masked {
+  letter-spacing: 2px;
+}
+
+.vault-copy-btn,
+.vault-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin: 0;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background-color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.vault-copy-btn:hover,
+.vault-toggle-btn:hover {
+  background: var(--bg-color);
+  border-color: #7c4dff;
+}
+
+.vault-item-memo {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vault-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 40px 0;
+  font-size: 0.95rem;
+}
+
+/* Vault Modal */
+#vault-modal {
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#vault-modal h2 {
+  margin: 0 0 16px;
+  padding: 0;
+  border: none;
+  font-size: 1.2rem;
+}
+
+.vault-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.vault-form-row label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.vault-form-row input,
+.vault-form-row textarea {
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vault-form-row textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.vault-password-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vault-password-wrapper input {
+  flex: 1;
+}
+
+.vault-password-wrapper .vault-toggle-btn {
+  padding: 8px 10px;
+  font-size: 16px;
+}
+
+.vault-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.vault-form-actions button {
+  margin: 0;
+}
+
+#vault-modal-cancel {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+@media (max-width: 600px) {
+  #vault-container {
+    margin: 16px 8px;
+    padding: 16px 14px;
+  }
+
+  .vault-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vault-header-actions {
+    justify-content: space-between;
+  }
+
+  .vault-field-row {
+    flex-wrap: wrap;
+  }
 }
