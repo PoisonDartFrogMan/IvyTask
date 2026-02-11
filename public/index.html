@@ -370,6 +370,7 @@
       <h1 class="vault-title">🔐 Vault</h1>
       <div class="vault-header-actions">
         <button id="vault-back-startup-button" class="secondary">スタートに戻る</button>
+        <button id="vault-lock-button" class="secondary" title="ロックする">🔒</button>
         <button id="vault-add-button">+ 新規追加</button>
       </div>
     </div>
@@ -377,6 +378,16 @@
       <input type="text" id="vault-search-input" placeholder="サービス名やIDで検索..." autocomplete="off">
     </div>
     <ul id="vault-list" class="vault-list"></ul>
+
+    <!-- Lock Screen Overlay -->
+    <div id="vault-lock-screen" class="vault-lock-screen">
+      <div class="vault-lock-content">
+        <h2>🔐 Vault Locked</h2>
+        <p>マスターパスワードを入力して解除</p>
+        <input type="password" id="vault-master-password-input" placeholder="Master Password">
+        <button id="vault-unlock-button" class="primary">解除</button>
+      </div>
+    </div>
   </div>
 
   <!-- Vault Modal -->

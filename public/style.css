@@ -2800,3 +2800,58 @@ body.sleeping #happy-hacking-sticker {
     flex-wrap: wrap;
   }
 }
+
+/* Vault Lock Screen */
+.vault-lock-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+  /* Match container radius */
+}
+
+.vault-lock-screen.hidden {
+  display: none;
+}
+
+.vault-lock-content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  width: min(320px, 90%);
+  border: 1px solid var(--border-color);
+}
+
+.vault-lock-content h2 {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+  border-bottom: none;
+  color: var(--text-primary);
+}
+
+.vault-lock-content p {
+  margin: 0 0 20px;
+  color: var(--text-secondary);
+}
+
+.vault-lock-content input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 15px;
+  padding: 12px;
+  font-size: 1rem;
+}
+
+.vault-lock-content button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+}

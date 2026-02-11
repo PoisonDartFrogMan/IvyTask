@@ -195,6 +195,7 @@ const memoTagInput = document.getElementById('memo-tag-input');
 const vaultContainer = document.getElementById('vault-container');
 const startVaultButton = document.getElementById('start-vault-button');
 const vaultBackButton = document.getElementById('vault-back-startup-button');
+const vaultLockButton = document.getElementById('vault-lock-button'); // New
 const vaultAddButton = document.getElementById('vault-add-button');
 const vaultSearchInput = document.getElementById('vault-search-input');
 const vaultListEl = document.getElementById('vault-list');
@@ -208,6 +209,9 @@ const vaultInputPassword = document.getElementById('vault-input-password');
 const vaultInputMemo = document.getElementById('vault-input-memo');
 const vaultModalTogglePw = document.getElementById('vault-modal-toggle-pw');
 const vaultModalCancel = document.getElementById('vault-modal-cancel');
+const vaultLockScreen = document.getElementById('vault-lock-screen'); // New
+const vaultMasterPasswordInput = document.getElementById('vault-master-password-input'); // New
+const vaultUnlockButton = document.getElementById('vault-unlock-button'); // New
 
 
 // ===== Global State & Constants =====
@@ -247,6 +251,8 @@ let vaults = [];
 let unsubscribeVaults = () => { };
 let vaultSearchQuery = '';
 let editingVaultId = null;
+let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
+let isVaultLocked = true; // New: Default locked
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -3250,6 +3256,95 @@ document.body.addEventListener('click', async (event) => {
 
 // ===== Vault Functions =====
 
+// ===== Vault Crypto & State Functions =====
+
+async function deriveKey(password, salt) {
+  const passwordBuffer = new TextEncoder().encode(password);
+  const importKey = await window.crypto.subtle.importKey(
+    'raw', passwordBuffer, { name: 'PBKDF2' }, false, ['deriveKey']
+  );
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt, iterations: 100_000, hash: 'SHA-256' },
+    importKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptPassword(plainText, masterPassword) {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(masterPassword, salt);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    new TextEncoder().encode(plainText)
+  );
+  return {
+    encryptedData: arrayBufferToBase64(encrypted),
+    iv: arrayBufferToBase64(iv),
+    salt: arrayBufferToBase64(salt)
+  };
+}
+
+async function decryptPassword(encryptedObj, masterPassword) {
+  try {
+    const salt = base64ToArrayBuffer(encryptedObj.salt);
+    const iv = base64ToArrayBuffer(encryptedObj.iv);
+    const encryptedData = base64ToArrayBuffer(encryptedObj.encryptedData);
+    const key = await deriveKey(masterPassword, salt);
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      encryptedData
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch (e) {
+    console.error('Decryption failed:', e);
+    return null; // Identify failure
+  }
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary_string = window.atob(base64);
+  const len = binary_string.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function lockVault() {
+  isVaultLocked = true;
+  vaultMasterPassword = null;
+  if (vaultListEl) vaultListEl.innerHTML = '';
+  if (vaultLockScreen) vaultLockScreen.classList.remove('hidden');
+  if (vaultLockButton) vaultLockButton.classList.add('hidden');
+  if (vaultMasterPasswordInput) vaultMasterPasswordInput.value = '';
+}
+
+function unlockVault(password) {
+  if (!password) return;
+  vaultMasterPassword = password;
+  isVaultLocked = false;
+  if (vaultLockScreen) vaultLockScreen.classList.add('hidden');
+  if (vaultLockButton) vaultLockButton.classList.remove('hidden');
+  renderVaultList();
+}
+
+
 async function enterVaultWorkspace() {
   workspaceSelection = 'vault';
   document.body.dataset.workspace = 'vault';
@@ -3266,6 +3361,13 @@ async function enterVaultWorkspace() {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
     subscribeVaults(currentUserId);
+
+    // Check lock state
+    if (!vaultMasterPassword) {
+      lockVault();
+    } else {
+      unlockVault(vaultMasterPassword);
+    }
   } else {
     handleSignedOut(true);
   }
@@ -3280,7 +3382,7 @@ function subscribeVaults(userId) {
     where('userId', '==', userId)
   );
 
-  unsubscribeVaults = onSnapshot(q, (snapshot) => {
+  unsubscribeVaults = onSnapshot(q, async (snapshot) => {
     vaults = [];
     snapshot.forEach(d => vaults.push({ id: d.id, ...d.data() }));
 
@@ -3291,15 +3393,20 @@ function subscribeVaults(userId) {
       return tb - ta;
     });
 
-    renderVaultList();
+    await renderVaultList();
   }, (error) => {
     console.error("Vault読み込みエラー:", error);
   });
 }
 
-function renderVaultList() {
+async function renderVaultList() {
   if (!vaultListEl) return;
   vaultListEl.innerHTML = '';
+
+  if (isVaultLocked) {
+    // Locked view handled by overlay, just ensure list is empty
+    return;
+  }
 
   const filtered = vaults.filter(v => {
     if (!vaultSearchQuery) return true;
@@ -3316,7 +3423,7 @@ function renderVaultList() {
     return;
   }
 
-  filtered.forEach(v => {
+  for (const v of filtered) {
     const li = document.createElement('li');
     li.className = 'vault-item';
     li.dataset.id = v.id;
@@ -3378,6 +3485,14 @@ function renderVaultList() {
 
     // Password
     if (v.password) {
+      let plainPw = '';
+      if (typeof v.password === 'object' && v.password.encryptedData) {
+        const decrypted = await decryptPassword(v.password, vaultMasterPassword);
+        plainPw = decrypted !== null ? decrypted : '⛔ 復号失敗';
+      } else {
+        plainPw = v.password; // Legacy or plain
+      }
+
       const pwRow = document.createElement('div');
       pwRow.className = 'vault-field-row';
       const pwLabel = document.createElement('span');
@@ -3386,8 +3501,9 @@ function renderVaultList() {
       const pwValue = document.createElement('span');
       pwValue.className = 'vault-field-value masked';
       pwValue.textContent = '••••••••';
-      pwValue.dataset.plain = v.password;
+      pwValue.dataset.plain = plainPw;
       pwValue.dataset.visible = 'false';
+
       const pwToggle = document.createElement('button');
       pwToggle.className = 'vault-toggle-btn';
       pwToggle.textContent = '👁️';
@@ -3404,7 +3520,7 @@ function renderVaultList() {
       pwCopyBtn.className = 'vault-copy-btn';
       pwCopyBtn.textContent = '📋';
       pwCopyBtn.title = 'パスワードをコピー';
-      pwCopyBtn.addEventListener('click', () => vaultCopyToClipboard(v.password, pwCopyBtn));
+      pwCopyBtn.addEventListener('click', () => vaultCopyToClipboard(plainPw, pwCopyBtn));
       pwRow.append(pwLabel, pwValue, pwToggle, pwCopyBtn);
       fields.appendChild(pwRow);
     }
@@ -3420,10 +3536,10 @@ function renderVaultList() {
     }
 
     vaultListEl.appendChild(li);
-  });
+  }
 }
 
-function openVaultModal(vaultId) {
+async function openVaultModal(vaultId) {
   if (vaultId) {
     // Edit mode
     editingVaultId = vaultId;
@@ -3433,7 +3549,17 @@ function openVaultModal(vaultId) {
     vaultInputTitle.value = v.title || '';
     vaultInputUrl.value = v.url || '';
     vaultInputLoginId.value = v.loginId || '';
-    vaultInputPassword.value = v.password || '';
+
+    let plainPw = '';
+    if (v.password) {
+      if (typeof v.password === 'object' && v.password.encryptedData) {
+        const decrypted = await decryptPassword(v.password, vaultMasterPassword);
+        plainPw = decrypted !== null ? decrypted : '⛔ 復号失敗';
+      } else {
+        plainPw = v.password;
+      }
+    }
+    vaultInputPassword.value = plainPw || '';
     vaultInputMemo.value = v.memo || '';
   } else {
     // Add mode
@@ -3455,12 +3581,23 @@ function closeVaultModal() {
 
 async function saveVault() {
   if (!currentUserId) return;
+
+  let pwToSave = vaultInputPassword.value;
+  // Encrypt
+  if (pwToSave) {
+    if (!vaultMasterPassword) {
+      alert('マスターパスワードが設定されていません。一度ロック解除してください。');
+      return;
+    }
+    pwToSave = await encryptPassword(pwToSave, vaultMasterPassword);
+  }
+
   const data = {
     userId: currentUserId,
     title: vaultInputTitle.value.trim(),
     url: vaultInputUrl.value.trim(),
     loginId: vaultInputLoginId.value.trim(),
-    password: vaultInputPassword.value,
+    password: pwToSave,
     memo: vaultInputMemo.value.trim(),
     updatedAt: serverTimestamp()
   };
@@ -3553,6 +3690,26 @@ if (vaultSearchInput) {
   vaultSearchInput.addEventListener('input', () => {
     vaultSearchQuery = vaultSearchInput.value.trim();
     renderVaultList();
+  });
+}
+
+if (vaultLockButton) {
+  vaultLockButton.addEventListener('click', () => {
+    lockVault();
+  });
+}
+
+if (vaultUnlockButton) {
+  vaultUnlockButton.addEventListener('click', () => {
+    unlockVault(vaultMasterPasswordInput.value);
+  });
+}
+
+if (vaultMasterPasswordInput) {
+  vaultMasterPasswordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      unlockVault(vaultMasterPasswordInput.value);
+    }
   });
 }
 
