@@ -3693,6 +3693,47 @@ if (vaultSearchInput) {
   });
 }
 
+async function attemptUnlock(inputPassword) {
+  if (!inputPassword || !currentUserId) return;
+
+  try {
+    const settingsRef = doc(db, 'settings', currentUserId);
+    const docSnap = await getDoc(settingsRef);
+    const settingsData = docSnap.exists() ? docSnap.data() : {};
+
+    if (!settingsData.vaultVerification) {
+      // First time setup or no verification data: encrypt fixed string
+      // Use the input password to encrypt the validation string
+      const verificationData = await encryptPassword("IVY_VAULT_VALID", inputPassword);
+      await setDoc(settingsRef, { vaultVerification: verificationData }, { merge: true });
+
+      // Unlock success
+      unlockVault(inputPassword);
+      vaultMasterPasswordInput.value = '';
+    } else {
+      // Verification exists: try to decrypt
+      try {
+        const decrypted = await decryptPassword(settingsData.vaultVerification, inputPassword);
+        if (decrypted === "IVY_VAULT_VALID") {
+          // Unlock success
+          unlockVault(inputPassword);
+          vaultMasterPasswordInput.value = '';
+        } else {
+          throw new Error("Invalid password content");
+        }
+      } catch (decryptError) {
+        console.error("Decryption failed:", decryptError);
+        alert('マスターパスワードが違います。');
+        vaultMasterPasswordInput.value = '';
+        vaultMasterPasswordInput.focus();
+      }
+    }
+  } catch (error) {
+    console.error("Verification error:", error);
+    alert('エラーが発生しました。再読み込みしてください。');
+  }
+}
+
 if (vaultLockButton) {
   vaultLockButton.addEventListener('click', () => {
     lockVault();
@@ -3701,14 +3742,14 @@ if (vaultLockButton) {
 
 if (vaultUnlockButton) {
   vaultUnlockButton.addEventListener('click', () => {
-    unlockVault(vaultMasterPasswordInput.value);
+    attemptUnlock(vaultMasterPasswordInput.value);
   });
 }
 
 if (vaultMasterPasswordInput) {
   vaultMasterPasswordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      unlockVault(vaultMasterPasswordInput.value);
+      attemptUnlock(vaultMasterPasswordInput.value);
     }
   });
 }
