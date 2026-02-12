@@ -2855,3 +2855,19 @@ body.sleeping #happy-hacking-sticker {
   padding: 12px;
   font-size: 1rem;
 }
+
+/* Vault Sort & Filter */
+.vault-search-container select {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background-color: #fff;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.vault-search-container select:focus {
+  outline: 2px solid var(--primary-color);
+  border-color: var(--primary-color);
+}

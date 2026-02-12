@@ -376,6 +376,15 @@
     </div>
     <div class="vault-search-container">
       <input type="text" id="vault-search-input" placeholder="サービス名やIDで検索..." autocomplete="off">
+      <select id="vault-sort-select">
+        <option value="newest">新しい順</option>
+        <option value="oldest">古い順</option>
+        <option value="name-asc">名前順</option>
+      </select>
+      <select id="vault-filter-category">
+        <option value="all">すべて</option>
+        <!-- Options dynamically populated -->
+      </select>
     </div>
     <ul id="vault-list" class="vault-list"></ul>
 
@@ -398,6 +407,11 @@
         <div class="vault-form-row">
           <label for="vault-input-title">サービス名</label>
           <input type="text" id="vault-input-title" placeholder="例: Google" required>
+        </div>
+        <div class="vault-form-row">
+          <label for="vault-input-category">カテゴリ</label>
+          <input type="text" id="vault-input-category" list="vault-category-suggestions" placeholder="カテゴリを入力...">
+          <datalist id="vault-category-suggestions"></datalist>
         </div>
         <div class="vault-form-row">
           <label for="vault-input-url">URL</label>

@@ -3351,6 +3351,16 @@ function unlockVault(password) {
 }
 
 
+// Global State for Vault Sort & Filter
+let currentVaultSort = 'newest';
+let currentVaultCategory = 'all';
+
+// DOM Elements for Vault Sort & Filter
+const vaultSortSelect = document.getElementById('vault-sort-select');
+const vaultFilterCategory = document.getElementById('vault-filter-category');
+const vaultInputCategory = document.getElementById('vault-input-category');
+const vaultCategorySuggestions = document.getElementById('vault-category-suggestions');
+
 async function enterVaultWorkspace() {
   workspaceSelection = 'vault';
   document.body.dataset.workspace = 'vault';
@@ -3367,14 +3377,10 @@ async function enterVaultWorkspace() {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
 
-    // ロック状態を先に確定させてから onSnapshot リスナーを登録する。
-    // こうすることで onSnapshot の即時コールバック発火時に
-    // isVaultLocked が正しい状態になっており、描画の競合を防ぐ。
+    // Check lock state
     if (!vaultMasterPassword) {
       lockVault();
     } else {
-      // isVaultLocked フラグとUIだけ更新し、renderVaultList は
-      // subscribeVaults の onSnapshot コールバックに任せる。
       isVaultLocked = false;
       if (vaultLockScreen) vaultLockScreen.classList.add('hidden');
       if (vaultLockButton) vaultLockButton.classList.remove('hidden');
@@ -3396,16 +3402,11 @@ function subscribeVaults(userId) {
   );
 
   unsubscribeVaults = onSnapshot(q, async (snapshot) => {
-    vaults = []; // 【重要】ここでの初期化を必ず行うこと
+    vaults = []; // 【重要】初期化
 
     snapshot.forEach(d => vaults.push({ id: d.id, ...d.data() }));
 
-    // クライアントサイドで新しい順にソート
-    vaults.sort((a, b) => {
-      const ta = a.createdAt ? a.createdAt.toMillis() : 0;
-      const tb = b.createdAt ? b.createdAt.toMillis() : 0;
-      return tb - ta;
-    });
+    // Sort logic moved to renderVaultList
 
     await renderVaultList();
   }, (error) => {
@@ -3417,16 +3418,79 @@ async function renderVaultList() {
   if (!vaultListEl) return;
   vaultListEl.innerHTML = '';
 
-  if (isVaultLocked) {
-    // Locked view handled by overlay, just ensure list is empty
-    return;
+  if (isVaultLocked) return;
+
+  // 1. Extract Categories
+  const categories = new Set();
+  vaults.forEach(v => {
+    if (v.category) categories.add(v.category);
+  });
+  const sortedCategories = Array.from(categories).sort();
+
+  // 2. Update UI Controls (Filter & Suggestions)
+  // Save current selection to restore if possible
+  const currentFilterVal = vaultFilterCategory ? vaultFilterCategory.value : 'all';
+
+  if (vaultFilterCategory) {
+    vaultFilterCategory.innerHTML = '<option value="all">すべて</option>';
+    sortedCategories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      vaultFilterCategory.appendChild(opt);
+    });
+    // Restore selection if it still exists, otherwise 'all'
+    if (sortedCategories.includes(currentVaultCategory)) {
+      vaultFilterCategory.value = currentVaultCategory;
+    } else {
+      vaultFilterCategory.value = 'all';
+      currentVaultCategory = 'all';
+    }
   }
 
-  const filtered = vaults.filter(v => {
-    if (!vaultSearchQuery) return true;
-    const q = vaultSearchQuery.toLowerCase();
-    return (v.title || '').toLowerCase().includes(q)
-      || (v.loginId || '').toLowerCase().includes(q);
+  if (vaultCategorySuggestions) {
+    vaultCategorySuggestions.innerHTML = '';
+    sortedCategories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      vaultCategorySuggestions.appendChild(opt);
+    });
+  }
+
+  // 3. Filter
+  let filtered = vaults.filter(v => {
+    // Initial search filter
+    if (vaultSearchQuery) {
+      const q = vaultSearchQuery.toLowerCase();
+      const matchesSearch = (v.title || '').toLowerCase().includes(q)
+        || (v.loginId || '').toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
+    // Category filter
+    if (currentVaultCategory !== 'all') {
+      if (v.category !== currentVaultCategory) return false;
+    }
+    return true;
+  });
+
+  // 4. Sort
+  filtered.sort((a, b) => {
+    if (currentVaultSort === 'newest') {
+      const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    } else if (currentVaultSort === 'oldest') {
+      const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+      return ta - tb;
+    } else if (currentVaultSort === 'name-asc') {
+      const nameA = (a.title || '').toLowerCase();
+      const nameB = (b.title || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    }
+    return 0;
   });
 
   if (filtered.length === 0) {
@@ -3442,13 +3506,34 @@ async function renderVaultList() {
     li.className = 'vault-item';
     li.dataset.id = v.id;
 
-    // Header: title + actions
+    // Header: title + category + actions
     const header = document.createElement('div');
     header.className = 'vault-item-header';
+
+    // Title Wrapper
+    const titleWrapper = document.createElement('div');
+    titleWrapper.style.display = 'flex';
+    titleWrapper.style.alignItems = 'center';
+    titleWrapper.style.gap = '8px';
+
     const titleEl = document.createElement('span');
     titleEl.className = 'vault-item-title';
     titleEl.textContent = v.title || '(無題)';
-    header.appendChild(titleEl);
+    titleWrapper.appendChild(titleEl);
+
+    if (v.category) {
+      const catBadge = document.createElement('span');
+      catBadge.className = 'vault-category-badge';
+      catBadge.textContent = v.category;
+      catBadge.style.fontSize = '0.75rem';
+      catBadge.style.padding = '2px 6px';
+      catBadge.style.backgroundColor = '#e0e0e0';
+      catBadge.style.borderRadius = '4px';
+      catBadge.style.color = '#333';
+      titleWrapper.appendChild(catBadge);
+    }
+    header.appendChild(titleWrapper);
+
     const actions = document.createElement('div');
     actions.className = 'vault-item-actions';
     const editBtn = document.createElement('button');
@@ -3561,6 +3646,7 @@ async function openVaultModal(vaultId) {
     if (!v) return;
     vaultModalTitle.textContent = 'パスワードを編集';
     vaultInputTitle.value = v.title || '';
+    vaultInputCategory.value = v.category || '';
     vaultInputUrl.value = v.url || '';
     vaultInputLoginId.value = v.loginId || '';
 
@@ -3609,6 +3695,7 @@ async function saveVault() {
   const data = {
     userId: currentUserId,
     title: vaultInputTitle.value.trim(),
+    category: vaultInputCategory.value.trim(),
     url: vaultInputUrl.value.trim(),
     loginId: vaultInputLoginId.value.trim(),
     password: pwToSave,
@@ -3654,6 +3741,20 @@ function vaultCopyToClipboard(text, btnEl) {
 }
 
 // Vault Event Listeners
+if (vaultSortSelect) {
+  vaultSortSelect.addEventListener('change', () => {
+    currentVaultSort = vaultSortSelect.value;
+    renderVaultList();
+  });
+}
+
+if (vaultFilterCategory) {
+  vaultFilterCategory.addEventListener('change', () => {
+    currentVaultCategory = vaultFilterCategory.value;
+    renderVaultList();
+  });
+}
+
 if (startVaultButton) {
   startVaultButton.addEventListener('click', () => {
     if (lastKnownAuthUser) {
