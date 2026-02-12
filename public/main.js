@@ -3376,17 +3376,18 @@ async function enterVaultWorkspace() {
 function subscribeVaults(userId) {
   if (unsubscribeVaults) unsubscribeVaults();
 
-  // 複合インデックスエラーを避けるため orderBy を外す
+  // クライアントサイドソートのため orderBy は使用しない
   const q = query(
     collection(db, 'vaults'),
     where('userId', '==', userId)
   );
 
   unsubscribeVaults = onSnapshot(q, async (snapshot) => {
-    vaults = [];
+    vaults = []; // 【重要】ここでの初期化を必ず行うこと
+
     snapshot.forEach(d => vaults.push({ id: d.id, ...d.data() }));
 
-    // クライアント側で作成日の新しい順（降順）にソート
+    // クライアントサイドで新しい順にソート
     vaults.sort((a, b) => {
       const ta = a.createdAt ? a.createdAt.toMillis() : 0;
       const tb = b.createdAt ? b.createdAt.toMillis() : 0;
