@@ -3341,7 +3341,13 @@ function unlockVault(password) {
   isVaultLocked = false;
   if (vaultLockScreen) vaultLockScreen.classList.add('hidden');
   if (vaultLockButton) vaultLockButton.classList.remove('hidden');
-  renderVaultList();
+  // onSnapshot が既にデータを保持している場合は renderVaultList を直接呼ぶ。
+  // subscribeVaults 呼び出し後に unlockVault が呼ばれるケースでは
+  // onSnapshot コールバックからの renderVaultList と競合しないよう、
+  // vaults に既にデータがある場合のみここで描画する。
+  if (vaults.length > 0) {
+    renderVaultList();
+  }
 }
 
 
@@ -3360,14 +3366,21 @@ async function enterVaultWorkspace() {
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
-    subscribeVaults(currentUserId);
 
-    // Check lock state
+    // ロック状態を先に確定させてから onSnapshot リスナーを登録する。
+    // こうすることで onSnapshot の即時コールバック発火時に
+    // isVaultLocked が正しい状態になっており、描画の競合を防ぐ。
     if (!vaultMasterPassword) {
       lockVault();
     } else {
-      unlockVault(vaultMasterPassword);
+      // isVaultLocked フラグとUIだけ更新し、renderVaultList は
+      // subscribeVaults の onSnapshot コールバックに任せる。
+      isVaultLocked = false;
+      if (vaultLockScreen) vaultLockScreen.classList.add('hidden');
+      if (vaultLockButton) vaultLockButton.classList.remove('hidden');
     }
+
+    subscribeVaults(currentUserId);
   } else {
     handleSignedOut(true);
   }
