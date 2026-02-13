@@ -2,45 +2,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // settings: ユーザー自身のドキュメントのみ読み書き可能
+    // settings: ドキュメントIDがユーザーIDと一致する場合のみ
     match /settings/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // tasks: 自分の userId を持つドキュメントのみ
+    // tasks
     match /tasks/{taskId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
 
-    // labels: 自分の userId を持つドキュメントのみ
+    // labels
     match /labels/{labelId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
 
-    // memos: 自分の userId を持つドキュメントのみ
+    // memos
     match /memos/{memoId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
 
-    // memo_folders: 自分の userId を持つドキュメントのみ
+    // memo_folders
     match /memo_folders/{folderId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
 
-    // vaults: 自分の userId を持つドキュメントのみ
+    // vaults
     match /vaults/{vaultId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
 
-    // candidates: 自分の userId を持つドキュメントのみ
+    // candidates
     match /candidates/{candidateId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
     }
   }
 }

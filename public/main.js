@@ -307,13 +307,19 @@ function enterTodoWorkspace() {
   document.body.dataset.workspace = 'todo';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
-  if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.remove('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
-  renderCandidates();
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    if (authContainer) authContainer.style.display = 'none';
+    if (todoContainer) todoContainer.classList.remove('hidden');
+    subscribeCandidates(currentUserId);
+    renderCandidates();
+  } else {
+    handleSignedOut(true);
+  }
 }
 
 async function enterMemoWorkspace() {
@@ -2350,13 +2356,19 @@ if (candidateForm) {
       onboardingSchedule: '',
       onboardingItemsProvided: false
     }));
-    await addDoc(collection(db, 'candidates'), {
-      userId: currentUserId,
-      name, start, dept, grade, note, type,
-      tasks,
-      interviews: normalizeInterviews([]),
-      createdAt: serverTimestamp()
-    });
+    try {
+      await addDoc(collection(db, 'candidates'), {
+        userId: currentUserId,
+        name, start, dept, grade, note, type,
+        tasks,
+        interviews: normalizeInterviews([]),
+        createdAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('candidates addDoc error:', err);
+      alert('追加失敗: ' + err.message);
+      return;
+    }
     if (candidateNameInput) candidateNameInput.value = '';
     if (candidateStartInput) candidateStartInput.value = '';
     if (candidateDeptInput) candidateDeptInput.value = '';
@@ -2432,6 +2444,8 @@ function subscribeCandidates(userId) {
       candidates.push(normalizeCandidate({ id: docSnap.id, ...docSnap.data() }));
     });
     renderCandidates(candidates);
+  }, (err) => {
+    console.error('candidates onSnapshot error:', err);
   });
 }
 function renderCandidates(list = candidates) {
