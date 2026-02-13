@@ -250,6 +250,9 @@ let memoSearchQuery = ''; // Search query state
 let vaults = [];
 let unsubscribeVaults = () => { };
 let vaultSearchQuery = '';
+// Candidate (Todo) State
+let candidates = [];
+let unsubscribeCandidates = () => { };
 let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
@@ -258,7 +261,6 @@ const PASTEL_COLORS = [
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
   '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
 ];
-const CANDIDATE_STORAGE_KEY = 'todo_candidates_v1';
 const DEFAULT_CANDIDATE_TASKS = [
   '面接',
   '入社前説明',
@@ -404,6 +406,7 @@ async function handleSignedIn(user) {
   });
 
   activateDragAndDrop();
+  subscribeCandidates(user.uid);
 }
 
 function handleSignedOut(showAuthScreen = true) {
@@ -418,6 +421,7 @@ function handleSignedOut(showAuthScreen = true) {
   if (unsubscribeMemos) unsubscribeMemos();
   if (unsubscribeMemoFolders) unsubscribeMemoFolders();
   if (unsubscribeVaults) unsubscribeVaults();
+  if (unsubscribeCandidates) unsubscribeCandidates();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
@@ -2326,8 +2330,9 @@ if (openCandidatePanelButton) {
   });
 }
 if (candidateForm) {
-  candidateForm.addEventListener('submit', (e) => {
+  candidateForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!currentUserId) return;
     const name = (candidateNameInput?.value || '').trim();
     const start = (candidateStartInput?.value || '').trim();
     const dept = (candidateDeptInput?.value || '').trim();
@@ -2345,9 +2350,13 @@ if (candidateForm) {
       onboardingSchedule: '',
       onboardingItemsProvided: false
     }));
-    const next = [...loadCandidates(), { id: Date.now().toString(), name, start, dept, grade, note, type, tasks, interviews: normalizeInterviews([]) }];
-    saveCandidates(next);
-    renderCandidates(next);
+    await addDoc(collection(db, 'candidates'), {
+      userId: currentUserId,
+      name, start, dept, grade, note, type,
+      tasks,
+      interviews: normalizeInterviews([]),
+      createdAt: serverTimestamp()
+    });
     if (candidateNameInput) candidateNameInput.value = '';
     if (candidateStartInput) candidateStartInput.value = '';
     if (candidateDeptInput) candidateDeptInput.value = '';
@@ -2396,15 +2405,11 @@ if (todoSettingsModalBackdrop) {
   todoSettingsModalBackdrop.addEventListener('click', (e) => { if (e.target === todoSettingsModalBackdrop) closeTodoSettings(); });
 }
 if (candidateDetailForm) {
-  candidateDetailForm.addEventListener('submit', (e) => {
+  candidateDetailForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentCandidateId) return closeCandidateModal();
-    const list = loadCandidates();
-    const idx = list.findIndex(c => c.id === currentCandidateId);
-    if (idx === -1) return closeCandidateModal();
     const tasks = readDetailTasks();
-    list[idx] = {
-      ...list[idx],
+    await updateDoc(doc(db, 'candidates', currentCandidateId), {
       name: candidateDetailNameInput?.value.trim() || '',
       start: candidateDetailStartInput?.value.trim() || '',
       dept: candidateDetailDeptInput?.value.trim() || '',
@@ -2413,25 +2418,23 @@ if (candidateDetailForm) {
       type: candidateDetailTypeInput?.value.trim() || '',
       tasks,
       interviews: currentInterviews
-    };
-    saveCandidates(list);
-    renderCandidates(list);
+    });
     closeCandidateModal();
   });
 }
 
-function loadCandidates() {
-  try {
-    const raw = localStorage.getItem(CANDIDATE_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) return parsed.map(normalizeCandidate);
-  } catch (e) { console.warn('Failed to parse candidates', e); }
-  return [];
+function subscribeCandidates(userId) {
+  if (unsubscribeCandidates) unsubscribeCandidates();
+  const q = query(collection(db, 'candidates'), where('userId', '==', userId));
+  unsubscribeCandidates = onSnapshot(q, (snapshot) => {
+    candidates = [];
+    snapshot.forEach(docSnap => {
+      candidates.push(normalizeCandidate({ id: docSnap.id, ...docSnap.data() }));
+    });
+    renderCandidates(candidates);
+  });
 }
-function saveCandidates(list) {
-  try { localStorage.setItem(CANDIDATE_STORAGE_KEY, JSON.stringify(list)); } catch (e) { console.warn('Failed to save candidates', e); }
-}
-function renderCandidates(list = loadCandidates()) {
+function renderCandidates(list = candidates) {
   if (!candidateList) return;
   candidateList.innerHTML = '';
   if (!list.length) {
@@ -2468,9 +2471,7 @@ function renderCandidates(list = loadCandidates()) {
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!confirm('この求職者を削除しますか？')) return;
-      const next = loadCandidates().filter(item => item.id !== c.id);
-      saveCandidates(next);
-      renderCandidates(next);
+      deleteDoc(doc(db, 'candidates', c.id));
     });
     li.append(info, removeBtn);
     li.addEventListener('click', (e) => {
@@ -2517,8 +2518,7 @@ function normalizeInterviews(interviews) {
 }
 
 function openCandidateModal(id) {
-  const list = loadCandidates();
-  const candidate = list.find(c => c.id === id);
+  const candidate = candidates.find(c => c.id === id);
   if (!candidate || !candidateModalBackdrop) return;
   currentCandidateId = id;
   currentDetailTasks = (candidate.tasks || []).map(t => ({ ...t }));
