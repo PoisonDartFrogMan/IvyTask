@@ -3811,41 +3811,40 @@ if (vaultSearchInput) {
 async function attemptUnlock(inputPassword) {
   if (!inputPassword || !currentUserId) return;
 
+  let settingsData = {};
   try {
     const settingsRef = doc(db, 'settings', currentUserId);
     const docSnap = await getDoc(settingsRef);
-    const settingsData = docSnap.exists() ? docSnap.data() : {};
+    settingsData = docSnap.exists() ? docSnap.data() : {};
+  } catch (error) {
+    console.error("Verification error (getDoc):", error);
+    alert('Firestoreへのアクセスに失敗しました。ネットワーク接続を確認して再読み込みしてください。\n\n詳細: ' + error.message);
+    return;
+  }
 
-    if (!settingsData.vaultVerification) {
-      // First time setup or no verification data: encrypt fixed string
-      // Use the input password to encrypt the validation string
+  if (!settingsData.vaultVerification) {
+    // First time setup or no verification data: encrypt fixed string
+    try {
       const verificationData = await encryptPassword("IVY_VAULT_VALID", inputPassword);
+      const settingsRef = doc(db, 'settings', currentUserId);
       await setDoc(settingsRef, { vaultVerification: verificationData }, { merge: true });
-
-      // Unlock success
+      unlockVault(inputPassword);
+      vaultMasterPasswordInput.value = '';
+    } catch (error) {
+      console.error("Verification error (initial setup):", error);
+      alert('初期設定に失敗しました。再読み込みしてください。\n\n詳細: ' + error.message);
+    }
+  } else {
+    // Verification exists: try to decrypt
+    const decrypted = await decryptPassword(settingsData.vaultVerification, inputPassword);
+    if (decrypted === "IVY_VAULT_VALID") {
       unlockVault(inputPassword);
       vaultMasterPasswordInput.value = '';
     } else {
-      // Verification exists: try to decrypt
-      try {
-        const decrypted = await decryptPassword(settingsData.vaultVerification, inputPassword);
-        if (decrypted === "IVY_VAULT_VALID") {
-          // Unlock success
-          unlockVault(inputPassword);
-          vaultMasterPasswordInput.value = '';
-        } else {
-          throw new Error("Invalid password content");
-        }
-      } catch (decryptError) {
-        console.error("Decryption failed:", decryptError);
-        alert('マスターパスワードが違います。');
-        vaultMasterPasswordInput.value = '';
-        vaultMasterPasswordInput.focus();
-      }
+      alert('マスターパスワードが違います。');
+      vaultMasterPasswordInput.value = '';
+      vaultMasterPasswordInput.focus();
     }
-  } catch (error) {
-    console.error("Verification error:", error);
-    alert('エラーが発生しました。再読み込みしてください。');
   }
 }
 
