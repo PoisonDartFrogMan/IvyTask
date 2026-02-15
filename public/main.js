@@ -130,6 +130,7 @@ const resetDayButton = document.getElementById('reset-day-button');
 const archiveViewButton = document.getElementById('archive-view-button');
 const backToMainButton = document.getElementById('back-to-main-button');
 const backToMainButtonTop = document.getElementById('back-to-main-button-top');
+const taskBackStartupButton = document.getElementById('task-back-startup-button');
 
 const manageLabelsButton = document.getElementById('manage-labels-button');
 const labelModalBackdrop = document.getElementById('label-modal-backdrop');
@@ -3882,3 +3883,8 @@ if (vaultMasterPasswordInput) {
   });
 }
 
+if (taskBackStartupButton) {
+  taskBackStartupButton.addEventListener('click', () => {
+    showStartupScreen();
+  });
+}
