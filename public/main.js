@@ -4175,6 +4175,16 @@ function sortEmployees() {
     let valA = a[currentSort.key] || '';
     let valB = b[currentSort.key] || '';
 
+    // Numeric sort for Employee ID
+    if (currentSort.key === 'empId') {
+      const numA = parseInt(valA, 10);
+      const numB = parseInt(valB, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        valA = numA;
+        valB = numB;
+      }
+    }
+
     // Numeric sort for Grade/Age if needed, but strings work for now roughly
     // Special handling for numeric-like strings could be added here
 
