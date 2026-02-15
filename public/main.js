@@ -4034,6 +4034,18 @@ function formatEmpId(id) {
   return id;
 }
 
+function formatDateForInput(dateStr) {
+  if (!dateStr) return '';
+  // Try to parse YYYY/MM/DD or YYYY-MM-DD
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return ''; // Invalid date
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // DataBase Logic
 // DOM Elements
 const startDatabaseButton = document.getElementById('start-database-button');
@@ -4322,12 +4334,14 @@ function openEmployeeModal(id = null) {
     empInputDepartment.value = e.department || '';
     empInputTitle.value = e.title || '';
     empInputGrade.value = e.grade || '';
-    empInputBirthday.value = e.birthday || '';
-    empInputHireDate.value = e.hireDate || '';
+    empInputTitle.value = e.title || '';
+    empInputGrade.value = e.grade || '';
+    empInputBirthday.value = formatDateForInput(e.birthday || '');
+    empInputHireDate.value = formatDateForInput(e.hireDate || '');
     empInputContractType.value = e.contractType || '無期';
-    empInputContractEnd.value = e.contractEnd || '';
+    empInputContractEnd.value = formatDateForInput(e.contractEnd || '');
     empInputBusinessUnit.value = e.businessUnit || '';
-    empInputResignationDate.value = e.resignationDate || '';
+    empInputResignationDate.value = formatDateForInput(e.resignationDate || '');
     empInputStatus.value = e.status || '在籍';
     empInputEmail.value = e.email || '';
     empInputPhone.value = e.phone || '';
@@ -4716,6 +4730,8 @@ async function importEmployeeCSV(file) {
         if (val) {
           if (key === 'empId') {
             emp[key] = formatEmpId(val.trim());
+          } else if (['birthday', 'hireDate', 'contractEnd', 'resignationDate'].includes(key)) {
+            emp[key] = formatDateForInput(val.trim());
           } else {
             emp[key] = val.trim();
           }
