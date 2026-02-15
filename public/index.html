@@ -490,29 +490,9 @@
   <div id="filter-modal-backdrop" class="hidden">
     <div id="filter-modal">
       <h2>フィルター設定</h2>
-      <div class="form-row">
-        <label for="filter-dept">部門 (Dept)</label>
-        <select id="filter-dept">
-          <option value="">すべて</option>
-          <!-- Dynamically populated -->
-        </select>
-      </div>
-      <div class="form-row">
-        <label for="filter-status">在籍状況</label>
-        <select id="filter-status">
-          <option value="">すべて</option>
-          <option value="在籍">在籍</option>
-          <option value="休職">休職</option>
-          <option value="退職">退職</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label for="filter-contract">契約形態</label>
-        <select id="filter-contract">
-          <option value="">すべて</option>
-          <option value="無期">無期</option>
-          <option value="有期">有期</option>
-        </select>
+      <div id="filter-inputs-container"
+        style="overflow-y: auto; max-height: 60vh; display: flex; flex-direction: column; gap: 10px;">
+        <!-- Dynamically populated -->
       </div>
       <div class="form-actions">
         <button type="button" id="filter-modal-reset" class="secondary">リセット</button>

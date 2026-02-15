@@ -4067,9 +4067,7 @@ const filterModalBackdrop = document.getElementById('filter-modal-backdrop');
 const filterModalReset = document.getElementById('filter-modal-reset');
 const filterModalCancel = document.getElementById('filter-modal-cancel');
 const filterModalApply = document.getElementById('filter-modal-apply');
-const filterSelectDept = document.getElementById('filter-dept');
-const filterSelectStatus = document.getElementById('filter-status');
-const filterSelectContract = document.getElementById('filter-contract');
+const filterInputsContainer = document.getElementById('filter-inputs-container');
 
 // Column Definitions
 const ALL_COLUMNS = [
@@ -4095,7 +4093,7 @@ const ALL_COLUMNS = [
 
 let visibleColumns = JSON.parse(localStorage.getItem('ivy_database_columns')) || ALL_COLUMNS.filter(c => c.default).map(c => c.id);
 let currentSort = { key: 'empId', order: 'asc' };
-let currentFilters = { dept: '', status: '', contract: '' };
+let currentFilters = {}; // Dynamically populated { key: value }
 
 async function enterDatabaseWorkspace() {
   workspaceSelection = 'database';
@@ -4185,10 +4183,29 @@ function renderEmployeeList() {
     );
     if (!matchesSearch) return false;
 
-    // Advanced Filters
-    if (currentFilters.dept && e.dept !== currentFilters.dept) return false;
-    if (currentFilters.status && e.status !== currentFilters.status) return false;
-    if (currentFilters.contract && e.contractType !== currentFilters.contract) return false;
+    // Advanced Filters (Dynamic)
+    for (const key in currentFilters) {
+      if (!currentFilters[key]) continue; // Skip empty filters
+
+      const filterVal = currentFilters[key];
+      const empVal = e[key];
+
+      // Determine type of match based on column definition or implicit rule
+      // For now:
+      // - Date/Selects: Exact string match
+      // - Text: Partial match (case insensitive)
+
+      const colDef = ALL_COLUMNS.find(c => c.id === key);
+      const isSelect = ['dept', 'department', 'title', 'grade', 'contractType', 'businessUnit', 'status'].includes(key);
+      const isDate = ['birthday', 'hireDate', 'contractEnd', 'resignationDate'].includes(key);
+
+      if (isSelect || isDate) {
+        if (empVal !== filterVal) return false;
+      } else {
+        // Text partial match
+        if (!(empVal || '').toLowerCase().includes(filterVal.toLowerCase())) return false;
+      }
+    }
 
     return true;
   });
@@ -4506,20 +4523,61 @@ function saveColumnSelection() {
 
 // Filter Logic
 function openFilterModal() {
-  // Populate Dept Dropdown with unique values
-  const depts = [...new Set(employees.map(e => e.dept).filter(d => d))].sort();
-  filterSelectDept.innerHTML = '<option value="">すべて</option>';
-  depts.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d;
-    filterSelectDept.appendChild(opt);
-  });
+  filterInputsContainer.innerHTML = '';
 
-  // Set current values
-  filterSelectDept.value = currentFilters.dept;
-  filterSelectStatus.value = currentFilters.status;
-  filterSelectContract.value = currentFilters.filters;
+  ALL_COLUMNS.forEach(col => {
+    const row = document.createElement('div');
+    row.className = 'form-row';
+
+    const label = document.createElement('label');
+    label.textContent = col.label;
+    label.htmlFor = `filter-input-${col.id}`;
+
+    let input;
+
+    const isSelect = ['dept', 'department', 'title', 'grade', 'contractType', 'businessUnit', 'status'].includes(col.id);
+    const isDate = ['birthday', 'hireDate', 'contractEnd', 'resignationDate'].includes(col.id);
+
+    if (isSelect) {
+      input = document.createElement('select');
+      input.id = `filter-input-${col.id}`;
+      input.dataset.key = col.id; // Store key for easy retrieval
+
+      // Get unique values
+      const uniqueVals = [...new Set(employees.map(e => e[col.id]).filter(v => v))].sort();
+
+      const optAll = document.createElement('option');
+      optAll.value = '';
+      optAll.textContent = 'すべて';
+      input.appendChild(optAll);
+
+      uniqueVals.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        input.appendChild(opt);
+      });
+
+    } else {
+      input = document.createElement('input');
+      input.id = `filter-input-${col.id}`;
+      input.dataset.key = col.id;
+      if (isDate) {
+        input.type = 'date';
+      } else {
+        input.type = 'text';
+      }
+    }
+
+    // Set current value
+    if (currentFilters[col.id]) {
+      input.value = currentFilters[col.id];
+    }
+
+    row.appendChild(label);
+    row.appendChild(input);
+    filterInputsContainer.appendChild(row);
+  });
 
   filterModalBackdrop.classList.remove('hidden');
 }
@@ -4529,17 +4587,23 @@ function closeFilterModal() {
 }
 
 function applyFilters() {
-  currentFilters.dept = filterSelectDept.value;
-  currentFilters.status = filterSelectStatus.value;
-  currentFilters.contract = filterSelectContract.value;
+  currentFilters = {}; // Reset and rebuild
+  const inputs = filterInputsContainer.querySelectorAll('select, input');
+  inputs.forEach(input => {
+    const key = input.dataset.key;
+    const val = input.value;
+    if (val) {
+      currentFilters[key] = val;
+    }
+  });
+
   renderEmployeeList();
   closeFilterModal();
 }
 
 function resetFilters() {
-  filterSelectDept.value = '';
-  filterSelectStatus.value = '';
-  filterSelectContract.value = '';
+  const inputs = filterInputsContainer.querySelectorAll('select, input');
+  inputs.forEach(input => input.value = '');
 }
 
 // CSV Export Logic
