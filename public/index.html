@@ -502,8 +502,18 @@
         </div>
         <div class="form-row two-col">
           <div>
-            <label for="emp-input-dept">部署</label>
+            <label for="emp-input-dept">部門</label>
             <input type="text" id="emp-input-dept" placeholder="開発部">
+          </div>
+          <div>
+            <label for="emp-input-department">部署</label>
+            <input type="text" id="emp-input-department" placeholder="フロントエンドチーム">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-title">役職</label>
+            <input type="text" id="emp-input-title" placeholder="マネージャー">
           </div>
           <div>
             <label for="emp-input-grade">グレード</label>
@@ -512,17 +522,59 @@
         </div>
         <div class="form-row two-col">
           <div>
+            <label for="emp-input-birthday">誕生日</label>
+            <input type="date" id="emp-input-birthday">
+          </div>
+          <div>
+            <label>年齢</label>
+            <input type="text" id="emp-input-age" class="readonly-field" readonly placeholder="自動計算">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
             <label for="emp-input-hire-date">入社日</label>
             <input type="date" id="emp-input-hire-date">
           </div>
           <div>
-            <label for="emp-input-status">在籍状況</label>
-            <select id="emp-input-status">
-              <option value="在籍">在籍</option>
-              <option value="休職">休職</option>
-              <option value="退職">退職</option>
+            <label>在籍期間</label>
+            <input type="text" id="emp-input-tenure" class="readonly-field" readonly placeholder="自動計算">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-contract-type">契約形態</label>
+            <select id="emp-input-contract-type">
+              <option value="無期">無期</option>
+              <option value="有期">有期</option>
             </select>
           </div>
+          <div>
+            <label for="emp-input-contract-end">契約満了日</label>
+            <input type="date" id="emp-input-contract-end">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-business-unit">事業部</label>
+            <select id="emp-input-business-unit">
+              <option value="">選択してください</option>
+              <option value="管理">管理</option>
+              <option value="営業">営業</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div>
+            <label for="emp-input-resignation-date">退職日</label>
+            <input type="date" id="emp-input-resignation-date">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="emp-input-status">在籍状況</label>
+          <select id="emp-input-status">
+            <option value="在籍">在籍</option>
+            <option value="休職">休職</option>
+            <option value="退職">退職</option>
+          </select>
         </div>
         <div class="form-row">
           <label for="emp-input-email">メールアドレス</label>

@@ -4032,9 +4032,18 @@ const employeeModalTitle = document.getElementById('employee-modal-title');
 const employeeForm = document.getElementById('employee-form');
 const empInputName = document.getElementById('emp-input-name');
 const empInputId = document.getElementById('emp-input-id');
-const empInputDept = document.getElementById('emp-input-dept');
+const empInputDept = document.getElementById('emp-input-dept'); // Division
+const empInputDepartment = document.getElementById('emp-input-department'); // Department
+const empInputTitle = document.getElementById('emp-input-title');
 const empInputGrade = document.getElementById('emp-input-grade');
+const empInputBirthday = document.getElementById('emp-input-birthday');
+const empInputAge = document.getElementById('emp-input-age');
 const empInputHireDate = document.getElementById('emp-input-hire-date');
+const empInputTenure = document.getElementById('emp-input-tenure');
+const empInputContractType = document.getElementById('emp-input-contract-type');
+const empInputContractEnd = document.getElementById('emp-input-contract-end');
+const empInputBusinessUnit = document.getElementById('emp-input-business-unit');
+const empInputResignationDate = document.getElementById('emp-input-resignation-date');
 const empInputStatus = document.getElementById('emp-input-status');
 const empInputEmail = document.getElementById('emp-input-email');
 const empInputPhone = document.getElementById('emp-input-phone');
@@ -4104,7 +4113,7 @@ function renderEmployeeList() {
     tr.innerHTML = `
       <td>${e.empId || '-'}</td>
       <td>${e.name || '-'}</td>
-      <td>${e.dept || '-'}</td>
+      <td>${e.dept || '-'} / ${e.department || '-'}</td>
       <td>${e.grade || '-'}</td>
       <td>${e.hireDate || '-'}</td>
       <td><span class="status-badge ${getStatusClass(e.status)}">${e.status || '-'}</span></td>
@@ -4148,18 +4157,31 @@ function openEmployeeModal(id = null) {
     empInputName.value = e.name || '';
     empInputId.value = e.empId || '';
     empInputDept.value = e.dept || '';
+    empInputDepartment.value = e.department || '';
+    empInputTitle.value = e.title || '';
     empInputGrade.value = e.grade || '';
+    empInputBirthday.value = e.birthday || '';
     empInputHireDate.value = e.hireDate || '';
+    empInputContractType.value = e.contractType || '無期';
+    empInputContractEnd.value = e.contractEnd || '';
+    empInputBusinessUnit.value = e.businessUnit || '';
+    empInputResignationDate.value = e.resignationDate || '';
     empInputStatus.value = e.status || '在籍';
     empInputEmail.value = e.email || '';
     empInputPhone.value = e.phone || '';
     empInputNote.value = e.note || '';
+
+    updateAge();
+    updateTenure();
   } else {
     // Add
     editingEmployeeId = null;
     employeeModalTitle.textContent = '職員を追加';
     employeeForm.reset();
     empInputStatus.value = '在籍';
+    empInputContractType.value = '無期';
+    updateAge(); // Clear
+    updateTenure(); // Clear
   }
   employeeModalBackdrop.classList.remove('hidden');
 }
@@ -4178,8 +4200,15 @@ async function saveEmployee() {
     name: empInputName.value.trim(),
     empId: empInputId.value.trim(),
     dept: empInputDept.value.trim(),
+    department: empInputDepartment.value.trim(),
+    title: empInputTitle.value.trim(),
     grade: empInputGrade.value.trim(),
+    birthday: empInputBirthday.value,
     hireDate: empInputHireDate.value,
+    contractType: empInputContractType.value,
+    contractEnd: empInputContractEnd.value,
+    businessUnit: empInputBusinessUnit.value,
+    resignationDate: empInputResignationDate.value,
     status: empInputStatus.value,
     email: empInputEmail.value.trim(),
     phone: empInputPhone.value.trim(),
@@ -4251,4 +4280,59 @@ if (databaseSearchInput) {
     employeeSearchQuery = databaseSearchInput.value.trim();
     renderEmployeeList();
   });
+}
+
+// Auto Calculate Age & Tenure
+if (empInputBirthday) {
+  empInputBirthday.addEventListener('change', updateAge);
+}
+if (empInputHireDate) {
+  empInputHireDate.addEventListener('change', updateTenure);
+}
+
+function updateAge() {
+  const diff = calculateAge(empInputBirthday.value);
+  empInputAge.value = diff !== null ? `${diff}歳` : '';
+}
+
+function updateTenure() {
+  const tenure = calculateTenure(empInputHireDate.value);
+  empInputTenure.value = tenure || '';
+}
+
+function calculateAge(dateString) {
+  if (!dateString) return null;
+  const today = new Date();
+  const birthDate = new Date(dateString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+function calculateTenure(dateString) {
+  if (!dateString) return null;
+  const start = new Date(dateString);
+  const now = new Date();
+
+  if (start > now) return '入社前';
+
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  let days = now.getDate() - start.getDate();
+
+  if (days < 0) {
+    months--;
+    // Get days in previous month
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  return `${years}年${months}ヶ月${days}日`;
 }
