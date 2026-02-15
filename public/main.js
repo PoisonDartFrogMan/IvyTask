@@ -4050,6 +4050,41 @@ const empInputPhone = document.getElementById('emp-input-phone');
 const empInputNote = document.getElementById('emp-input-note');
 const employeeModalCancel = document.getElementById('employee-modal-cancel');
 
+// Column Selection & CSV Elements
+const databaseColumnsButton = document.getElementById('database-columns-button');
+const databaseImportButton = document.getElementById('database-import-button');
+const databaseExportButton = document.getElementById('database-export-button');
+const databaseImportInput = document.getElementById('database-import-input');
+const columnModalBackdrop = document.getElementById('column-modal-backdrop');
+const columnCheckboxes = document.getElementById('column-checkboxes');
+const columnModalCancel = document.getElementById('column-modal-cancel');
+const columnModalSave = document.getElementById('column-modal-save');
+const databaseTableHeaderRow = document.getElementById('database-table-header-row');
+
+// Column Definitions
+const ALL_COLUMNS = [
+  { id: 'empId', label: '社員番号', default: true },
+  { id: 'name', label: '氏名', default: true },
+  { id: 'dept', label: '部門', default: true },
+  { id: 'department', label: '部署', default: true },
+  { id: 'title', label: '役職', default: false },
+  { id: 'grade', label: 'グレード', default: true },
+  { id: 'birthday', label: '誕生日', default: false },
+  { id: 'age', label: '年齢', default: false },
+  { id: 'hireDate', label: '入社日', default: true },
+  { id: 'tenure', label: '在籍期間', default: false },
+  { id: 'contractType', label: '契約形態', default: false },
+  { id: 'contractEnd', label: '契約満了日', default: false },
+  { id: 'businessUnit', label: '事業部', default: false },
+  { id: 'resignationDate', label: '退職日', default: false },
+  { id: 'status', label: '在籍状況', default: true },
+  { id: 'email', label: 'メール', default: false },
+  { id: 'phone', label: '電話番号', default: false },
+  { id: 'note', label: 'メモ', default: false }
+];
+
+let visibleColumns = JSON.parse(localStorage.getItem('ivy_database_columns')) || ALL_COLUMNS.filter(c => c.default).map(c => c.id);
+
 async function enterDatabaseWorkspace() {
   workspaceSelection = 'database';
   localStorage.setItem('ivy_workspace_selection', 'database');
@@ -4079,7 +4114,17 @@ function subscribeEmployees(userId) {
   unsubscribeEmployees = onSnapshot(q, (snapshot) => {
     employees = [];
     snapshot.forEach(docSnap => {
-      employees.push({ id: docSnap.id, ...docSnap.data() });
+      const d = docSnap.data();
+      // Calculate age/tenure on fly if needed for sort/display
+      const age = calculateAge(d.birthday);
+      const tenure = calculateTenure(d.hireDate);
+
+      employees.push({
+        id: docSnap.id,
+        ...d,
+        age: age ? `${age}歳` : '',
+        tenure: tenure || ''
+      });
     });
     // Sort logic in JS for now (by ID or Name)
     employees.sort((a, b) => (a.empId || '').localeCompare(b.empId || ''));
@@ -4108,20 +4153,37 @@ function renderEmployeeList() {
     return;
   }
 
+  // Render Headers
+  databaseTableHeaderRow.innerHTML = '';
+  const activeCols = ALL_COLUMNS.filter(c => visibleColumns.includes(c.id));
+
+  activeCols.forEach(c => {
+    const th = document.createElement('th');
+    th.textContent = c.label;
+    databaseTableHeaderRow.appendChild(th);
+  });
+  const thAction = document.createElement('th');
+  thAction.textContent = '操作';
+  databaseTableHeaderRow.appendChild(thAction);
+
   filtered.forEach(e => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${e.empId || '-'}</td>
-      <td>${e.name || '-'}</td>
-      <td>${e.dept || '-'} / ${e.department || '-'}</td>
-      <td>${e.grade || '-'}</td>
-      <td>${e.hireDate || '-'}</td>
-      <td><span class="status-badge ${getStatusClass(e.status)}">${e.status || '-'}</span></td>
-      <td></td>
-    `;
+
+    activeCols.forEach(c => {
+      const td = document.createElement('td');
+      if (c.id === 'status') {
+        const span = document.createElement('span');
+        span.className = `status-badge ${getStatusClass(e.status)}`;
+        span.textContent = e.status || '-';
+        td.appendChild(span);
+      } else {
+        td.textContent = e[c.id] || '-';
+      }
+      tr.appendChild(td);
+    });
 
     // Actions
-    const tdAction = tr.lastElementChild;
+    const tdAction = document.createElement('td');
     const editBtn = document.createElement('button');
     editBtn.textContent = '編集';
     editBtn.className = 'small';
@@ -4335,4 +4397,202 @@ function calculateTenure(dateString) {
   }
 
   return `${years}年${months}ヶ月${days}日`;
+}
+
+// Column Selection Logic
+function openColumnModal() {
+  columnCheckboxes.innerHTML = '';
+  ALL_COLUMNS.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'column-checkbox-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `col-check-${c.id}`;
+    checkbox.value = c.id;
+    checkbox.checked = visibleColumns.includes(c.id);
+
+    const label = document.createElement('label');
+    label.htmlFor = `col-check-${c.id}`;
+    label.textContent = c.label;
+
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    columnCheckboxes.appendChild(div);
+  });
+  columnModalBackdrop.classList.remove('hidden');
+}
+
+function closeColumnModal() {
+  columnModalBackdrop.classList.add('hidden');
+}
+
+function saveColumnSelection() {
+  const checked = Array.from(columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  if (checked.length === 0) {
+    alert('少なくとも1つの項目を選択してください。');
+    return;
+  }
+  visibleColumns = checked;
+  localStorage.setItem('ivy_database_columns', JSON.stringify(visibleColumns));
+  renderEmployeeList();
+  closeColumnModal();
+}
+
+// CSV Export Logic
+function exportEmployeeCSV() {
+  if (employees.length === 0) {
+    alert('エクスポートするデータがありません。');
+    return;
+  }
+
+  // Headers
+  const header = ALL_COLUMNS.map(c => c.label).join(',') + '\n';
+
+  // Rows
+  const rows = employees.map(e => {
+    return ALL_COLUMNS.map(c => {
+      let val = e[c.id] || '';
+      // Escape commas and quotes
+      if (val.toString().includes(',') || val.toString().includes('"') || val.toString().includes('\n')) {
+        val = `"${val.toString().replace(/"/g, '""')}"`;
+      }
+      return val;
+    }).join(',');
+  }).join('\n');
+
+  const csvContent = '\uFEFF' + header + rows; // Add BOM for Excel
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `employees_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// CSV Import Logic
+async function importEmployeeCSV(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const text = e.target.result;
+    const lines = text.split(/\r\n|\n/);
+    if (lines.length < 2) return;
+
+    // Parse CSV simple parser (handling quotes is tricky but assuming simple format for now or use regex)
+    // Actually, let's use a slightly robust regex splitter for CSV
+    const parseCSVLine = (line) => {
+      const arr = [];
+      let quote = false;
+      let start = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') quote = !quote;
+        else if (line[i] === ',' && !quote) {
+          let val = line.slice(start, i);
+          if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1).replace(/""/g, '"');
+          arr.push(val);
+          start = i + 1;
+        }
+      }
+      let lastVal = line.slice(start);
+      if (lastVal.startsWith('"') && lastVal.endsWith('"')) lastVal = lastVal.slice(1, -1).replace(/""/g, '"');
+      arr.push(lastVal);
+      return arr;
+    };
+
+    const headerLine = lines[0];
+    const headers = parseCSVLine(headerLine).map(h => h.trim());
+
+    // Map headers to IDs
+    const colMap = {};
+    ALL_COLUMNS.forEach(c => {
+      const idx = headers.indexOf(c.label);
+      if (idx !== -1) colMap[c.id] = idx;
+    });
+
+    if (Object.keys(colMap).length === 0) {
+      alert('CSVのヘッダーが認識できませんでした。正しいフォーマットか確認してください。');
+      return;
+    }
+
+    const newEmployees = [];
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const vals = parseCSVLine(lines[i]);
+      const emp = { userId: currentUserId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+
+      let hasData = false;
+      Object.keys(colMap).forEach(key => {
+        const val = vals[colMap[key]];
+        if (val) {
+          emp[key] = val.trim();
+          hasData = true;
+        }
+      });
+
+      if (hasData && emp.name && emp.empId) {
+        newEmployees.push(emp);
+      }
+    }
+
+    if (newEmployees.length === 0) {
+      alert('インポート可能なデータがありませんでした。必須項目（氏名、社員番号）を確認してください。');
+      return;
+    }
+
+    if (!confirm(`${newEmployees.length}件のデータをインポートしますか？`)) return;
+
+    try {
+      // Batch write (chunk by 400)
+      const chunkSize = 400;
+      for (let i = 0; i < newEmployees.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        const chunk = newEmployees.slice(i, i + chunkSize);
+        chunk.forEach(emp => {
+          const ref = doc(collection(db, 'employees'));
+          batch.set(ref, emp);
+        });
+        await batch.commit();
+      }
+      alert('インポートが完了しました。');
+    } catch (err) {
+      console.error('Import Error:', err);
+      alert('インポートに失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Event Listeners for New Features
+if (databaseColumnsButton) {
+  databaseColumnsButton.addEventListener('click', openColumnModal);
+}
+if (columnModalCancel) {
+  columnModalCancel.addEventListener('click', closeColumnModal);
+}
+if (columnModalSave) {
+  columnModalSave.addEventListener('click', saveColumnSelection);
+}
+if (columnModalBackdrop) {
+  columnModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === columnModalBackdrop) closeColumnModal();
+  });
+}
+if (databaseExportButton) {
+  databaseExportButton.addEventListener('click', exportEmployeeCSV);
+}
+if (databaseImportButton) {
+  databaseImportButton.addEventListener('click', () => databaseImportInput.click());
+}
+if (databaseImportInput) {
+  databaseImportInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      importEmployeeCSV(e.target.files[0]);
+      e.target.value = ''; // Reset
+    }
+  });
 }

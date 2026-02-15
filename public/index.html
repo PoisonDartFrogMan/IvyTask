@@ -459,29 +459,43 @@
       <h1 class="database-title">👥 DataBase</h1>
       <div class="database-header-actions">
         <button id="database-back-startup-button" class="secondary">スタートに戻る</button>
+        <button id="database-columns-button" class="secondary">表示項目</button>
+        <button id="database-export-button" class="secondary">CSVエクスポート</button>
+        <button id="database-import-button" class="secondary">CSVインポート</button>
+        <input type="file" id="database-import-input" accept=".csv" class="hidden">
         <button id="database-add-button">+ 職員を追加</button>
       </div>
     </div>
     <div class="database-search-container">
       <input type="text" id="database-search-input" placeholder="氏名、部署、グレード、在籍状況などで検索..." autocomplete="off">
     </div>
-    <div class="database-list-wrapper">
-      <table class="database-table">
-        <thead>
-          <tr>
-            <th>社員番号</th>
-            <th>氏名</th>
-            <th>部署</th>
-            <th>グレード</th>
-            <th>入社日</th>
-            <th>在籍状況</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="database-list">
-          <!-- Dynamically populated -->
-        </tbody>
-      </table>
+    <div class="database-list-container">
+      <div class="database-list-wrapper">
+        <table class="database-table">
+          <thead>
+            <tr id="database-table-header-row">
+              <!-- Dynamically populated headers -->
+            </tr>
+          </thead>
+          <tbody id="database-list">
+            <!-- Dynamically populated rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Column Selection Modal -->
+  <div id="column-modal-backdrop" class="hidden">
+    <div id="column-modal">
+      <h2 id="column-modal-title">表示項目の選択</h2>
+      <div id="column-checkboxes">
+        <!-- Dynamically populated checkboxes -->
+      </div>
+      <div class="form-actions">
+        <button type="button" id="column-modal-cancel">キャンセル</button>
+        <button type="button" id="column-modal-save">保存</button>
+      </div>
     </div>
   </div>
 
