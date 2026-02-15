@@ -259,6 +259,11 @@ const importCSVInput = document.getElementById('import-csv-input');
 let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
+// DataBase State (Employee)
+let employees = [];
+let unsubscribeEmployees = () => { };
+let editingEmployeeId = null;
+let employeeSearchQuery = '';
 const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
@@ -289,7 +294,9 @@ function showStartupScreen(showTodoMessage = false) {
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -307,6 +314,7 @@ async function enterTaskWorkspace() {
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
 }
 
 function enterTodoWorkspace() {
@@ -319,6 +327,7 @@ function enterTodoWorkspace() {
   if (archiveContainer) archiveContainer.style.display = 'none';
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     if (authContainer) authContainer.style.display = 'none';
@@ -342,6 +351,7 @@ async function enterMemoWorkspace() {
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.remove('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
 
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
@@ -368,6 +378,8 @@ onAuthStateChanged(auth, async (user) => {
     enterMemoWorkspace();
   } else if (workspaceSelection === 'vault') {
     enterVaultWorkspace();
+  } else if (workspaceSelection === 'database') {
+    enterDatabaseWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -3395,7 +3407,9 @@ async function enterVaultWorkspace() {
   if (archiveContainer) archiveContainer.style.display = 'none';
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.remove('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
 
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
@@ -4003,4 +4017,238 @@ async function processCSVData(csvText) {
     console.error('CSV Import Error:', e);
     alert('インポートに失敗しました: ' + e.message);
   }
+}
+// DataBase Logic
+// DOM Elements
+const startDatabaseButton = document.getElementById('start-database-button');
+const databaseContainer = document.getElementById('database-container');
+const databaseBackStartupButton = document.getElementById('database-back-startup-button');
+const databaseAddButton = document.getElementById('database-add-button');
+const databaseSearchInput = document.getElementById('database-search-input');
+const databaseList = document.getElementById('database-list');
+
+const employeeModalBackdrop = document.getElementById('employee-modal-backdrop');
+const employeeModalTitle = document.getElementById('employee-modal-title');
+const employeeForm = document.getElementById('employee-form');
+const empInputName = document.getElementById('emp-input-name');
+const empInputId = document.getElementById('emp-input-id');
+const empInputDept = document.getElementById('emp-input-dept');
+const empInputGrade = document.getElementById('emp-input-grade');
+const empInputHireDate = document.getElementById('emp-input-hire-date');
+const empInputStatus = document.getElementById('emp-input-status');
+const empInputEmail = document.getElementById('emp-input-email');
+const empInputPhone = document.getElementById('emp-input-phone');
+const empInputNote = document.getElementById('emp-input-note');
+const employeeModalCancel = document.getElementById('employee-modal-cancel');
+
+async function enterDatabaseWorkspace() {
+  workspaceSelection = 'database';
+  localStorage.setItem('ivy_workspace_selection', 'database');
+  document.body.dataset.workspace = 'database';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    await loadUserSettings(currentUserId);
+    subscribeEmployees(currentUserId);
+  } else {
+    handleSignedOut(true);
+  }
+}
+
+function subscribeEmployees(userId) {
+  if (unsubscribeEmployees) unsubscribeEmployees();
+  const q = query(collection(db, 'employees'), where('userId', '==', userId)); // orderBy if indices available
+  unsubscribeEmployees = onSnapshot(q, (snapshot) => {
+    employees = [];
+    snapshot.forEach(docSnap => {
+      employees.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    // Sort logic in JS for now (by ID or Name)
+    employees.sort((a, b) => (a.empId || '').localeCompare(b.empId || ''));
+    renderEmployeeList();
+  });
+}
+
+function renderEmployeeList() {
+  if (!databaseList) return;
+  databaseList.innerHTML = '';
+
+  const q = employeeSearchQuery.toLowerCase();
+  const filtered = employees.filter(e => {
+    if (!q) return true;
+    return (e.name || '').toLowerCase().includes(q) ||
+      (e.empId || '').toLowerCase().includes(q) ||
+      (e.dept || '').toLowerCase().includes(q) ||
+      (e.grade || '').toLowerCase().includes(q) ||
+      (e.status || '').toLowerCase().includes(q);
+  });
+
+  if (filtered.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="7" style="text-align:center; padding: 20px;">データが見つかりません</td>';
+    databaseList.appendChild(tr);
+    return;
+  }
+
+  filtered.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${e.empId || '-'}</td>
+      <td>${e.name || '-'}</td>
+      <td>${e.dept || '-'}</td>
+      <td>${e.grade || '-'}</td>
+      <td>${e.hireDate || '-'}</td>
+      <td><span class="status-badge ${getStatusClass(e.status)}">${e.status || '-'}</span></td>
+      <td></td>
+    `;
+
+    // Actions
+    const tdAction = tr.lastElementChild;
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '編集';
+    editBtn.className = 'small';
+    editBtn.style.marginRight = '5px';
+    editBtn.addEventListener('click', () => openEmployeeModal(e.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '削除';
+    delBtn.className = 'small danger';
+    delBtn.addEventListener('click', () => deleteEmployee(e.id, e.name));
+
+    tdAction.appendChild(editBtn);
+    tdAction.appendChild(delBtn);
+
+    databaseList.appendChild(tr);
+  });
+}
+
+function getStatusClass(status) {
+  if (status === '在籍') return 'status-active';
+  if (status === '休職') return 'status-warning';
+  if (status === '退職') return 'status-inactive';
+  return '';
+}
+
+function openEmployeeModal(id = null) {
+  if (id) {
+    // Edit
+    editingEmployeeId = id;
+    const e = employees.find(x => x.id === id);
+    if (!e) return;
+    employeeModalTitle.textContent = '職員を編集';
+    empInputName.value = e.name || '';
+    empInputId.value = e.empId || '';
+    empInputDept.value = e.dept || '';
+    empInputGrade.value = e.grade || '';
+    empInputHireDate.value = e.hireDate || '';
+    empInputStatus.value = e.status || '在籍';
+    empInputEmail.value = e.email || '';
+    empInputPhone.value = e.phone || '';
+    empInputNote.value = e.note || '';
+  } else {
+    // Add
+    editingEmployeeId = null;
+    employeeModalTitle.textContent = '職員を追加';
+    employeeForm.reset();
+    empInputStatus.value = '在籍';
+  }
+  employeeModalBackdrop.classList.remove('hidden');
+}
+
+function closeEmployeeModal() {
+  employeeModalBackdrop.classList.add('hidden');
+  editingEmployeeId = null;
+  employeeForm.reset();
+}
+
+async function saveEmployee() {
+  if (!currentUserId) return;
+
+  const data = {
+    userId: currentUserId,
+    name: empInputName.value.trim(),
+    empId: empInputId.value.trim(),
+    dept: empInputDept.value.trim(),
+    grade: empInputGrade.value.trim(),
+    hireDate: empInputHireDate.value,
+    status: empInputStatus.value,
+    email: empInputEmail.value.trim(),
+    phone: empInputPhone.value.trim(),
+    note: empInputNote.value.trim(),
+    updatedAt: serverTimestamp()
+  };
+
+  if (!data.name || !data.empId) {
+    alert('氏名と社員番号は必須です。');
+    return;
+  }
+
+  try {
+    if (editingEmployeeId) {
+      await updateDoc(doc(db, 'employees', editingEmployeeId), data);
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db, 'employees'), data);
+    }
+    closeEmployeeModal();
+  } catch (err) {
+    console.error('Error saving employee:', err);
+    alert('保存に失敗しました: ' + err.message);
+  }
+}
+
+async function deleteEmployee(id, name) {
+  if (!confirm(`${name} を削除しますか？`)) return;
+  try {
+    await deleteDoc(doc(db, 'employees', id));
+  } catch (err) {
+    console.error('Error deleting employee:', err);
+    alert('削除に失敗しました: ' + err.message);
+  }
+}
+
+// DataBase Listeners
+if (startDatabaseButton) {
+  startDatabaseButton.addEventListener('click', () => enterDatabaseWorkspace());
+}
+
+if (databaseBackStartupButton) {
+  databaseBackStartupButton.addEventListener('click', () => showStartupScreen());
+}
+
+if (databaseAddButton) {
+  databaseAddButton.addEventListener('click', () => openEmployeeModal());
+}
+
+if (employeeModalCancel) {
+  employeeModalCancel.addEventListener('click', () => closeEmployeeModal());
+}
+
+if (employeeForm) {
+  employeeForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveEmployee();
+  });
+}
+
+if (employeeModalBackdrop) {
+  employeeModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === employeeModalBackdrop) closeEmployeeModal();
+  });
+}
+
+if (databaseSearchInput) {
+  databaseSearchInput.addEventListener('input', () => {
+    employeeSearchQuery = databaseSearchInput.value.trim();
+    renderEmployeeList();
+  });
 }

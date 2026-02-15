@@ -48,5 +48,12 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow list: if request.auth != null;
     }
+
+    // employees
+    match /employees/{employeeId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
+    }
   }
 }
