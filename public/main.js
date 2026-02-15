@@ -4018,6 +4018,22 @@ async function processCSVData(csvText) {
     alert('インポートに失敗しました: ' + e.message);
   }
 }
+// Helper for Employee ID Formatting
+function formatEmpId(id) {
+  if (!id) return '';
+  // Remove non-numeric characters if needed, or just pad what we have? 
+  // User asked for "1 -> 0001", "20 -> 0020". Implies numeric handling.
+  // But some companies have alphanumeric. Let's try to parse int, if it's a number, pad it.
+  // If it's already a string like "A1", padding might be weird.
+  // Requirement says "1 is 0001". I'll assume they want numeric padding.
+
+  const num = parseInt(id, 10);
+  if (!isNaN(num)) {
+    return num.toString().padStart(4, '0');
+  }
+  return id;
+}
+
 // DataBase Logic
 // DOM Elements
 const startDatabaseButton = document.getElementById('start-database-button');
@@ -4256,6 +4272,8 @@ function renderEmployeeList() {
         span.className = `status-badge ${getStatusClass(e.status)}`;
         span.textContent = e.status || '-';
         td.appendChild(span);
+      } else if (c.id === 'empId') {
+        td.textContent = formatEmpId(e.empId) || '-';
       } else {
         td.textContent = e[c.id] || '-';
       }
@@ -4299,7 +4317,7 @@ function openEmployeeModal(id = null) {
     if (!e) return;
     employeeModalTitle.textContent = '職員を編集';
     empInputName.value = e.name || '';
-    empInputId.value = e.empId || '';
+    empInputId.value = formatEmpId(e.empId || '');
     empInputDept.value = e.dept || '';
     empInputDepartment.value = e.department || '';
     empInputTitle.value = e.title || '';
@@ -4342,7 +4360,7 @@ async function saveEmployee() {
   const data = {
     userId: currentUserId,
     name: empInputName.value.trim(),
-    empId: empInputId.value.trim(),
+    empId: formatEmpId(empInputId.value.trim()),
     dept: empInputDept.value.trim(),
     department: empInputDepartment.value.trim(),
     title: empInputTitle.value.trim(),
@@ -4696,7 +4714,11 @@ async function importEmployeeCSV(file) {
       Object.keys(colMap).forEach(key => {
         const val = vals[colMap[key]];
         if (val) {
-          emp[key] = val.trim();
+          if (key === 'empId') {
+            emp[key] = formatEmpId(val.trim());
+          } else {
+            emp[key] = val.trim();
+          }
           hasData = true;
         }
       });
