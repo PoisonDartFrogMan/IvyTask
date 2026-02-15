@@ -3171,3 +3171,27 @@ span.required {
   width: auto;
   margin: 0;
 }
+
+/* Sortable Headers */
+.database-table th {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px;
+  /* Space for indicator */
+}
+
+.database-table th:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sort-indicator {
+  margin-left: 5px;
+  font-size: 0.8em;
+  opacity: 0.5;
+}
+
+.sort-indicator.active {
+  opacity: 1;
+  color: var(--primary-color);
+}

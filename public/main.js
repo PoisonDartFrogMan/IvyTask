@@ -4084,6 +4084,7 @@ const ALL_COLUMNS = [
 ];
 
 let visibleColumns = JSON.parse(localStorage.getItem('ivy_database_columns')) || ALL_COLUMNS.filter(c => c.default).map(c => c.id);
+let currentSort = { key: 'empId', order: 'asc' };
 
 async function enterDatabaseWorkspace() {
   workspaceSelection = 'database';
@@ -4126,10 +4127,35 @@ function subscribeEmployees(userId) {
         tenure: tenure || ''
       });
     });
-    // Sort logic in JS for now (by ID or Name)
-    employees.sort((a, b) => (a.empId || '').localeCompare(b.empId || ''));
+    // Initial sort
+    sortEmployees();
     renderEmployeeList();
   });
+}
+
+function sortEmployees() {
+  employees.sort((a, b) => {
+    let valA = a[currentSort.key] || '';
+    let valB = b[currentSort.key] || '';
+
+    // Numeric sort for Grade/Age if needed, but strings work for now roughly
+    // Special handling for numeric-like strings could be added here
+
+    if (valA < valB) return currentSort.order === 'asc' ? -1 : 1;
+    if (valA > valB) return currentSort.order === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function handleSort(key) {
+  if (currentSort.key === key) {
+    currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.key = key;
+    currentSort.order = 'asc';
+  }
+  sortEmployees();
+  renderEmployeeList();
 }
 
 function renderEmployeeList() {
@@ -4160,6 +4186,22 @@ function renderEmployeeList() {
   activeCols.forEach(c => {
     const th = document.createElement('th');
     th.textContent = c.label;
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => handleSort(c.id));
+
+    // Sort Indicator
+    if (currentSort.key === c.id) {
+      const span = document.createElement('span');
+      span.className = 'sort-indicator active';
+      span.textContent = currentSort.order === 'asc' ? '▲' : '▼';
+      th.appendChild(span);
+    } else {
+      const span = document.createElement('span');
+      span.className = 'sort-indicator';
+      span.textContent = '▲'; // Default faint indicator
+      th.appendChild(span);
+    }
+
     databaseTableHeaderRow.appendChild(th);
   });
   const thAction = document.createElement('th');
