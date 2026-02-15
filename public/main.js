@@ -4061,6 +4061,16 @@ const columnModalCancel = document.getElementById('column-modal-cancel');
 const columnModalSave = document.getElementById('column-modal-save');
 const databaseTableHeaderRow = document.getElementById('database-table-header-row');
 
+// Filter Elements
+const databaseFilterButton = document.getElementById('database-filter-button');
+const filterModalBackdrop = document.getElementById('filter-modal-backdrop');
+const filterModalReset = document.getElementById('filter-modal-reset');
+const filterModalCancel = document.getElementById('filter-modal-cancel');
+const filterModalApply = document.getElementById('filter-modal-apply');
+const filterSelectDept = document.getElementById('filter-dept');
+const filterSelectStatus = document.getElementById('filter-status');
+const filterSelectContract = document.getElementById('filter-contract');
+
 // Column Definitions
 const ALL_COLUMNS = [
   { id: 'empId', label: '社員番号', default: true },
@@ -4085,6 +4095,7 @@ const ALL_COLUMNS = [
 
 let visibleColumns = JSON.parse(localStorage.getItem('ivy_database_columns')) || ALL_COLUMNS.filter(c => c.default).map(c => c.id);
 let currentSort = { key: 'empId', order: 'asc' };
+let currentFilters = { dept: '', status: '', contract: '' };
 
 async function enterDatabaseWorkspace() {
   workspaceSelection = 'database';
@@ -4164,12 +4175,22 @@ function renderEmployeeList() {
 
   const q = employeeSearchQuery.toLowerCase();
   const filtered = employees.filter(e => {
-    if (!q) return true;
-    return (e.name || '').toLowerCase().includes(q) ||
+    // Search Filter
+    const matchesSearch = !q || (
+      (e.name || '').toLowerCase().includes(q) ||
       (e.empId || '').toLowerCase().includes(q) ||
       (e.dept || '').toLowerCase().includes(q) ||
       (e.grade || '').toLowerCase().includes(q) ||
-      (e.status || '').toLowerCase().includes(q);
+      (e.status || '').toLowerCase().includes(q)
+    );
+    if (!matchesSearch) return false;
+
+    // Advanced Filters
+    if (currentFilters.dept && e.dept !== currentFilters.dept) return false;
+    if (currentFilters.status && e.status !== currentFilters.status) return false;
+    if (currentFilters.contract && e.contractType !== currentFilters.contract) return false;
+
+    return true;
   });
 
   if (filtered.length === 0) {
@@ -4239,6 +4260,8 @@ function renderEmployeeList() {
 
     tdAction.appendChild(editBtn);
     tdAction.appendChild(delBtn);
+
+    tr.appendChild(tdAction);
 
     databaseList.appendChild(tr);
   });
@@ -4481,6 +4504,44 @@ function saveColumnSelection() {
   closeColumnModal();
 }
 
+// Filter Logic
+function openFilterModal() {
+  // Populate Dept Dropdown with unique values
+  const depts = [...new Set(employees.map(e => e.dept).filter(d => d))].sort();
+  filterSelectDept.innerHTML = '<option value="">すべて</option>';
+  depts.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    filterSelectDept.appendChild(opt);
+  });
+
+  // Set current values
+  filterSelectDept.value = currentFilters.dept;
+  filterSelectStatus.value = currentFilters.status;
+  filterSelectContract.value = currentFilters.filters;
+
+  filterModalBackdrop.classList.remove('hidden');
+}
+
+function closeFilterModal() {
+  filterModalBackdrop.classList.add('hidden');
+}
+
+function applyFilters() {
+  currentFilters.dept = filterSelectDept.value;
+  currentFilters.status = filterSelectStatus.value;
+  currentFilters.contract = filterSelectContract.value;
+  renderEmployeeList();
+  closeFilterModal();
+}
+
+function resetFilters() {
+  filterSelectDept.value = '';
+  filterSelectStatus.value = '';
+  filterSelectContract.value = '';
+}
+
 // CSV Export Logic
 function exportEmployeeCSV() {
   if (employees.length === 0) {
@@ -4636,5 +4697,24 @@ if (databaseImportInput) {
       importEmployeeCSV(e.target.files[0]);
       e.target.value = ''; // Reset
     }
+  });
+}
+
+// Event Listeners for Filter
+if (databaseFilterButton) {
+  databaseFilterButton.addEventListener('click', openFilterModal);
+}
+if (filterModalCancel) {
+  filterModalCancel.addEventListener('click', closeFilterModal);
+}
+if (filterModalApply) {
+  filterModalApply.addEventListener('click', applyFilters);
+}
+if (filterModalReset) {
+  filterModalReset.addEventListener('click', resetFilters);
+}
+if (filterModalBackdrop) {
+  filterModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === filterModalBackdrop) closeFilterModal();
   });
 }

@@ -460,6 +460,7 @@
       <div class="database-header-actions">
         <button id="database-back-startup-button" class="secondary">スタートに戻る</button>
         <button id="database-columns-button" class="secondary">表示項目</button>
+        <button id="database-filter-button" class="secondary">フィルター</button>
         <button id="database-export-button" class="secondary">CSVエクスポート</button>
         <button id="database-import-button" class="secondary">CSVインポート</button>
         <input type="file" id="database-import-input" accept=".csv" class="hidden">
@@ -481,6 +482,42 @@
             <!-- Dynamically populated rows -->
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Modal -->
+  <div id="filter-modal-backdrop" class="hidden">
+    <div id="filter-modal">
+      <h2>フィルター設定</h2>
+      <div class="form-row">
+        <label for="filter-dept">部門 (Dept)</label>
+        <select id="filter-dept">
+          <option value="">すべて</option>
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="filter-status">在籍状況</label>
+        <select id="filter-status">
+          <option value="">すべて</option>
+          <option value="在籍">在籍</option>
+          <option value="休職">休職</option>
+          <option value="退職">退職</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="filter-contract">契約形態</label>
+        <select id="filter-contract">
+          <option value="">すべて</option>
+          <option value="無期">無期</option>
+          <option value="有期">有期</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="filter-modal-reset" class="secondary">リセット</button>
+        <button type="button" id="filter-modal-cancel">キャンセル</button>
+        <button type="button" id="filter-modal-apply">適用</button>
       </div>
     </div>
   </div>
