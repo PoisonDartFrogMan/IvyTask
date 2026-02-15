@@ -217,7 +217,7 @@ const vaultUnlockButton = document.getElementById('vault-unlock-button'); // New
 
 // ===== Global State & Constants =====
 let currentUserId = null;
-let workspaceSelection = null; // 'task' | 'todo' | 'memo' | null
+let workspaceSelection = localStorage.getItem('ivy_workspace_selection') || null; // 'task' | 'todo' | 'memo' | 'vault' | null
 let lastKnownAuthUser = null;
 let selectedLabelId = null;
 let labels = [];
@@ -254,6 +254,8 @@ let vaultSearchQuery = '';
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
+const importCSVButton = document.getElementById('import-csv-button');
+const importCSVInput = document.getElementById('import-csv-input');
 let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
@@ -276,7 +278,10 @@ const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 // ===== Startup View Helpers =====
 function showStartupScreen(showTodoMessage = false) {
   workspaceSelection = showTodoMessage ? 'todo' : null; // Keep this logic for 'todo' message, but general reset
-  if (!showTodoMessage) workspaceSelection = null;
+  if (!showTodoMessage) {
+    workspaceSelection = null;
+    localStorage.removeItem('ivy_workspace_selection');
+  }
 
   // Reset workspace
   document.body.removeAttribute('data-workspace');
@@ -290,6 +295,7 @@ function showStartupScreen(showTodoMessage = false) {
 
 async function enterTaskWorkspace() {
   workspaceSelection = 'task';
+  localStorage.setItem('ivy_workspace_selection', 'task');
   document.body.dataset.workspace = 'task';
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (startupScreen) startupScreen.classList.add('hidden');
@@ -305,6 +311,7 @@ async function enterTaskWorkspace() {
 
 function enterTodoWorkspace() {
   workspaceSelection = 'todo';
+  localStorage.setItem('ivy_workspace_selection', 'todo');
   document.body.dataset.workspace = 'todo';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
@@ -325,6 +332,7 @@ function enterTodoWorkspace() {
 
 async function enterMemoWorkspace() {
   workspaceSelection = 'memo';
+  localStorage.setItem('ivy_workspace_selection', 'memo');
   document.body.dataset.workspace = 'memo';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
@@ -3378,6 +3386,7 @@ const vaultCategorySuggestions = document.getElementById('vault-category-suggest
 
 async function enterVaultWorkspace() {
   workspaceSelection = 'vault';
+  localStorage.setItem('ivy_workspace_selection', 'vault');
   document.body.dataset.workspace = 'vault';
   if (startupScreen) startupScreen.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.add('hidden');
@@ -3887,4 +3896,111 @@ if (taskBackStartupButton) {
   taskBackStartupButton.addEventListener('click', () => {
     showStartupScreen();
   });
+}
+
+// CSV Import Logic
+if (importCSVButton && importCSVInput) {
+  importCSVButton.addEventListener('click', () => {
+    importCSVInput.click();
+  });
+
+  importCSVInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const csvData = event.target.result;
+      await processCSVData(csvData);
+      importCSVInput.value = ''; // Reset
+    };
+    reader.readAsText(file);
+  });
+}
+
+async function processCSVData(csvText) {
+  if (!currentUserId) {
+    alert('ユーザー認証エラー: 再ログインしてください。');
+    return;
+  }
+
+  const lines = csvText.split(/\r\n|\n/);
+  const dataLines = lines.filter(line => line.trim() !== '');
+
+  if (dataLines.length < 2) {
+    alert('CSVデータが空か、ヘッダーのみです。');
+    return;
+  }
+
+  // Header: 氏名,入社予定日,配属予定部署,グレード,メモ,区分
+  // Index: 0, 1, 2, 3, 4, 5
+  // We assume the first line is header. We won't strictly validate header names for flexibility, but assume order.
+
+  const newCandidates = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  // Start from index 1 (skip header)
+  for (let i = 1; i < dataLines.length; i++) {
+    const line = dataLines[i];
+    const columns = line.split(',').map(c => c.trim());
+
+    // Basic validation: Name is required
+    // name is index 0
+    const name = columns[0];
+    if (!name) {
+      failCount++;
+      continue;
+    }
+
+    const start = columns[1] || '';
+    const dept = columns[2] || '';
+    const grade = columns[3] || '';
+    const note = columns[4] || '';
+    const type = columns[5] || '';
+
+    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
+      id: `t-${Date.now()}-${i}-${idx}`, // Unique ID
+      text: t,
+      done: false,
+      stage: '',
+      schedule: '',
+      infoProvided: false,
+      onboardingSchedule: '',
+      onboardingItemsProvided: false
+    }));
+
+    newCandidates.push({
+      userId: currentUserId,
+      name, start, dept, grade, note, type,
+      tasks,
+      interviews: [],
+      createdAt: serverTimestamp() // We can't batch serverTimestamp easily in a loop if we want accurate order? Actually fine.
+    });
+  }
+
+  if (newCandidates.length === 0) {
+    alert('インポートできるデータがありませんでした。');
+    return;
+  }
+
+  if (!confirm(`${newCandidates.length}件のデータをインポートしますか？`)) return;
+
+  try {
+    const batch = writeBatch(db);
+    // Firestore batch limit is 500. If more, we need multiple batches.
+    // For simplicity, assuming < 500 for now.
+
+    newCandidates.forEach(c => {
+      const ref = doc(collection(db, 'candidates'));
+      batch.set(ref, c);
+      successCount++;
+    });
+
+    await batch.commit();
+    alert(`インポート完了: ${successCount}件成功`);
+  } catch (e) {
+    console.error('CSV Import Error:', e);
+    alert('インポートに失敗しました: ' + e.message);
+  }
 }

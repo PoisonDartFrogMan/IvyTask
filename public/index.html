@@ -41,6 +41,11 @@
           <span class="option-label">🔐 Vault</span>
           <span class="option-desc">パスワード管理</span>
         </button>
+        <!-- DataBase Button Added -->
+        <button id="start-database-button" class="startup-option">
+          <span class="option-label">👥 DataBase</span>
+          <span class="option-desc">職員データ管理</span>
+        </button>
       </div>
       <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
     </div>
@@ -158,7 +163,11 @@
             <option value="派遣">派遣</option>
           </select>
         </div>
-        <button type="submit">求職者を追加</button>
+        <div class="form-actions" style="display: flex; gap: 10px; align-items: center;">
+          <button type="submit">求職者を追加</button>
+          <button type="button" id="import-csv-button" class="" style="background-color: #28a745;">CSV読込</button>
+          <input type="file" id="import-csv-input" accept=".csv" class="hidden">
+        </div>
       </form>
       <div class="candidate-list-wrapper">
         <h3 class="candidate-heading">進行中の求職者</h3>
@@ -438,6 +447,97 @@
         </div>
         <div class="vault-form-actions">
           <button type="button" id="vault-modal-cancel">キャンセル</button>
+          <button type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== DataBase Container ===== -->
+  <div id="database-container" class="hidden">
+    <div class="database-header">
+      <h1 class="database-title">👥 DataBase</h1>
+      <div class="database-header-actions">
+        <button id="database-back-startup-button" class="secondary">スタートに戻る</button>
+        <button id="database-add-button">+ 職員を追加</button>
+      </div>
+    </div>
+    <div class="database-search-container">
+      <input type="text" id="database-search-input" placeholder="氏名、部署、グレード、在籍状況などで検索..." autocomplete="off">
+    </div>
+    <div class="database-list-wrapper">
+      <table class="database-table">
+        <thead>
+          <tr>
+            <th>社員番号</th>
+            <th>氏名</th>
+            <th>部署</th>
+            <th>グレード</th>
+            <th>入社日</th>
+            <th>在籍状況</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="database-list">
+          <!-- Dynamically populated -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Employee Modal -->
+  <div id="employee-modal-backdrop" class="hidden">
+    <div id="employee-modal">
+      <h2 id="employee-modal-title">職員を追加</h2>
+      <form id="employee-form" autocomplete="off">
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-name">氏名 <span class="required">*</span></label>
+            <input type="text" id="emp-input-name" placeholder="山田 太郎" required>
+          </div>
+          <div>
+            <label for="emp-input-id">社員番号 <span class="required">*</span></label>
+            <input type="text" id="emp-input-id" placeholder="1001" required>
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-dept">部署</label>
+            <input type="text" id="emp-input-dept" placeholder="開発部">
+          </div>
+          <div>
+            <label for="emp-input-grade">グレード</label>
+            <input type="text" id="emp-input-grade" placeholder="E3">
+          </div>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="emp-input-hire-date">入社日</label>
+            <input type="date" id="emp-input-hire-date">
+          </div>
+          <div>
+            <label for="emp-input-status">在籍状況</label>
+            <select id="emp-input-status">
+              <option value="在籍">在籍</option>
+              <option value="休職">休職</option>
+              <option value="退職">退職</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="emp-input-email">メールアドレス</label>
+          <input type="email" id="emp-input-email" placeholder="taro.yamada@example.com">
+        </div>
+        <div class="form-row">
+          <label for="emp-input-phone">電話番号</label>
+          <input type="tel" id="emp-input-phone" placeholder="090-1234-5678">
+        </div>
+        <div class="form-row">
+          <label for="emp-input-note">メモ</label>
+          <textarea id="emp-input-note" placeholder="備考..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="employee-modal-cancel">キャンセル</button>
           <button type="submit">保存</button>
         </div>
       </form>
