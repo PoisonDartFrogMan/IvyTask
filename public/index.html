@@ -276,7 +276,10 @@
     <div class="memo-layout">
       <aside class="memo-sidebar">
         <div class="memo-sidebar-header">
-          <h2>Memos</h2>
+          <div class="sidebar-title-group">
+            <h2>Memos</h2>
+            <button id="memo-back-startup-button" class="header-back-btn">スタートに戻る</button>
+          </div>
           <div class="header-buttons">
             <button id="bulk-delete-memo-button" class="icon-button danger hidden" title="選択したメモを削除">🗑️</button>
             <button id="add-memo-button" class="icon-button" title="新規メモ">+</button>
@@ -297,7 +300,7 @@
         <ul id="memo-list" class="memo-list">
           <!-- Memo items will be injected here -->
         </ul>
-        <button id="memo-back-startup-button" class="secondary">スタートに戻る</button>
+
       </aside>
       <main class="memo-editor-area">
         <div id="memo-editor-placeholder" class="memo-placeholder">

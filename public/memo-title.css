@@ -53,3 +53,35 @@
     display: none;
     /* Hide for now to save space, or show elsewhere? Let's hide it to clean up header for Title */
 }
+
+/* Sidebar Title Group */
+.sidebar-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-right: auto;
+}
+
+.sidebar-title-group h2 {
+    margin-right: 0 !important;
+    /* Override style.css margin-right: auto */
+}
+
+.header-back-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.header-back-btn:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background-color: rgba(0, 0, 0, 0.05);
+}
