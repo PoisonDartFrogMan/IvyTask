@@ -4830,3 +4830,61 @@ if (filterModalBackdrop) {
     if (e.target === filterModalBackdrop) closeFilterModal();
   });
 }
+
+// Migration Logic
+const migrateCandidateButton = document.getElementById('migrate-candidate-button');
+
+if (migrateCandidateButton) {
+  migrateCandidateButton.addEventListener('click', async () => {
+    if (!currentCandidateId) return;
+    const candidate = candidates.find(c => c.id === currentCandidateId);
+    if (!candidate) return;
+
+    if (!confirm(`求職者「${candidate.name}」をデータベース（職員名簿）に登録しますか？`)) return;
+
+    try {
+      // Prepare Employee Data
+      const hireDate = candidate.start ? formatDateForInput(candidate.start) : '';
+
+      const empData = {
+        userId: currentUserId,
+        name: candidate.name,
+        dept: candidate.dept || '', // Division (部門) map to dept? Or Department? Plan said "dept -> dept (mapped to 部門)"
+        department: candidate.dept || '', // Map to both for safety as input is ambiguous
+        grade: candidate.grade || '',
+        contractType: candidate.type || '',
+        hireDate: hireDate,
+        note: candidate.note || '',
+        status: '在籍', // Default to Active
+        // Legacy fields or empty
+        empId: '', // Needs manual entry later
+        title: '',
+        birthday: '',
+        age: '',
+        tenure: calculateTenure(hireDate),
+        email: '',
+        phone: '',
+        contractEnd: '',
+        businessUnit: '',
+        resignationDate: '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Add to employees
+      await addDoc(collection(db, 'employees'), empData);
+
+      alert('データベースへの登録が完了しました。');
+
+      // Ask to delete from Candidates
+      if (confirm(`登録が完了しました。Todoリストから「${candidate.name}」を削除しますか？`)) {
+        await deleteDoc(doc(db, 'candidates', currentCandidateId));
+        closeCandidateModal();
+      }
+
+    } catch (e) {
+      console.error('Migration failed:', e);
+      alert('移行に失敗しました: ' + e.message);
+    }
+  });
+}
