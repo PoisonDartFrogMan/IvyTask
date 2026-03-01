@@ -3623,30 +3623,31 @@ span.required {
 }
 
 .pdf-pin {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background-color: #ff4757;
-  border-radius: 50%;
-  border: 2px solid white;
-  transform: translate(-50%, -100%);
+  position: absolute !important;
+  z-index: 2147483647 !important;
+  /* ブラウザが許す最大値 */
+  width: 24px !important;
+  height: 24px !important;
+  background-color: #ff0000 !important;
+  /* 目立つ真っ赤 */
+  border: 3px solid white !important;
+  border-radius: 50% !important;
+  pointer-events: auto !important;
+  transform: translate(-50%, -50%);
+  /* クリックした中心に配置 */
   display: flex;
   justify-content: center;
   align-items: center;
   box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  z-index: 2147483647 !important;
-  /* Max value */
-  pointer-events: auto;
-  /* Pins themselves are always clickable */
   transition: transform 0.2s, background-color 0.2s;
 }
 
 /* Removed .pdf-pin::after */
 
 .pdf-pin.highlight {
-  background-color: var(--danger-color);
-  transform: translate(-50%, -100%) scale(1.3);
+  background-color: var(--danger-color) !important;
+  transform: translate(-50%, -50%) scale(1.3);
   z-index: 2147483647 !important;
 }
 
@@ -3657,15 +3658,15 @@ span.required {
 
 @keyframes pulse {
   0% {
-    transform: translate(-50%, -100%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 
   50% {
-    transform: translate(-50%, -100%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
   }
 
   100% {
-    transform: translate(-50%, -100%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
