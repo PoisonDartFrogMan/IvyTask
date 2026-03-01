@@ -3504,6 +3504,29 @@ span.required {
   border: 2px solid transparent;
 }
 
+.pdf-memo-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.pdf-memo-item:hover .pdf-memo-delete-btn {
+  opacity: 1;
+}
+
+.pdf-memo-delete-btn:hover {
+  color: var(--danger-color);
+}
+
 /* Optional "pin" or "tape" effect for sticky note */
 .pdf-memo-item::before {
   content: '';

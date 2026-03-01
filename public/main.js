@@ -5152,6 +5152,23 @@ function renderPdfNote(note) {
   memoDiv.className = 'pdf-memo-item';
   memoDiv.id = `pdf-memo-${note.id}`;
 
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'pdf-memo-delete-btn';
+  deleteBtn.innerHTML = '&times;';
+  deleteBtn.title = 'メモを削除';
+  deleteBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (confirm('このメモを削除しますか？')) {
+      try {
+        await deleteDoc(doc(db, `pdfs/${currentPreviewPdfId}/notes`, note.id));
+      } catch (error) {
+        console.error("Error deleting PDF note:", error);
+        alert("メモの削除に失敗しました。");
+      }
+    }
+  });
+  memoDiv.appendChild(deleteBtn);
+
   const textDiv = document.createElement('div');
   textDiv.textContent = note.text;
   memoDiv.appendChild(textDiv);
