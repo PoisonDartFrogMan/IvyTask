@@ -227,6 +227,8 @@ const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
 const pdfMemosList = document.getElementById('pdf-memos-list');
 const pdfMemoInput = document.getElementById('pdf-memo-input');
 const addPdfMemoButton = document.getElementById('add-pdf-memo-button');
+const pdfAnnotationLayer = document.getElementById('pdf-annotation-layer');
+const togglePinModeButton = document.getElementById('toggle-pin-mode-button');
 
 
 // ===== Global State & Constants =====
@@ -273,6 +275,10 @@ let currentArchiveGenres = new Set();
 const archiveFilterContainer = document.getElementById('archive-filter-container');
 let currentPreviewPdfId = null;
 let unsubscribePdfNotes = () => { };
+let currentPdfNotes = [];
+let isPdfPinMode = false;
+let tempPdfPinCoords = null;
+let tempPdfPinElement = null;
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
@@ -2413,12 +2419,28 @@ if (startArchiveButton) {
 if (archiveBackStartupButton) {
   archiveBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
 }
+function resetPdfPinMode() {
+  isPdfPinMode = false;
+  if (togglePinModeButton) togglePinModeButton.classList.remove('active');
+  if (pdfAnnotationLayer) pdfAnnotationLayer.classList.remove('pin-mode');
+  clearTempPdfPin();
+}
+
+function clearTempPdfPin() {
+  if (tempPdfPinElement && tempPdfPinElement.parentNode) {
+    tempPdfPinElement.parentNode.removeChild(tempPdfPinElement);
+  }
+  tempPdfPinElement = null;
+  tempPdfPinCoords = null;
+}
+
 if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
     if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
     if (pdfPreviewFrame) pdfPreviewFrame.src = '';
     unsubscribePdfNotes();
     currentPreviewPdfId = null;
+    resetPdfPinMode();
   });
 }
 if (pdfPreviewModalBackdrop) {
@@ -2428,19 +2450,63 @@ if (pdfPreviewModalBackdrop) {
       if (pdfPreviewFrame) pdfPreviewFrame.src = '';
       unsubscribePdfNotes();
       currentPreviewPdfId = null;
+      resetPdfPinMode();
     }
   });
 }
+
+if (togglePinModeButton && pdfAnnotationLayer) {
+  togglePinModeButton.addEventListener('click', () => {
+    isPdfPinMode = !isPdfPinMode;
+    togglePinModeButton.classList.toggle('active', isPdfPinMode);
+
+    if (isPdfPinMode) {
+      pdfAnnotationLayer.classList.add('pin-mode');
+    } else {
+      pdfAnnotationLayer.classList.remove('pin-mode');
+      clearTempPdfPin();
+    }
+  });
+
+  pdfAnnotationLayer.addEventListener('click', (e) => {
+    if (!isPdfPinMode) return;
+
+    const rect = pdfAnnotationLayer.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+    tempPdfPinCoords = { x: xPercent, y: yPercent };
+    clearTempPdfPin();
+
+    tempPdfPinElement = document.createElement('div');
+    tempPdfPinElement.className = 'pdf-pin temp-pin';
+    tempPdfPinElement.title = '新しいメモの位置';
+    tempPdfPinElement.style.left = `${xPercent}%`;
+    tempPdfPinElement.style.top = `${yPercent}%`;
+    pdfAnnotationLayer.appendChild(tempPdfPinElement);
+
+    if (pdfMemoInput) pdfMemoInput.focus();
+  });
+}
+
 if (addPdfMemoButton) {
   addPdfMemoButton.addEventListener('click', async () => {
     const text = pdfMemoInput.value.trim();
     if (!text || !currentPreviewPdfId || !currentUserId) return;
     try {
-      await addDoc(collection(db, `pdfs/${currentPreviewPdfId}/notes`), {
+      const noteData = {
         text: text,
         createdAt: serverTimestamp()
-      });
+      };
+
+      if (tempPdfPinCoords) {
+        noteData.posX = tempPdfPinCoords.x;
+        noteData.posY = tempPdfPinCoords.y;
+      }
+
+      await addDoc(collection(db, `pdfs/${currentPreviewPdfId}/notes`), noteData);
       pdfMemoInput.value = '';
+      resetPdfPinMode();
     } catch (error) {
       console.error("Error adding PDF note:", error);
       alert('メモの保存に失敗しました。');
@@ -5028,11 +5094,55 @@ function subscribePdfNotes(pdfId) {
 
   unsubscribePdfNotes = onSnapshot(q, (snapshot) => {
     if (pdfMemosList) pdfMemosList.innerHTML = '';
+
+    // Clear existing saved pins from the annotation layer
+    if (pdfAnnotationLayer) {
+      const existingPins = pdfAnnotationLayer.querySelectorAll('.pdf-pin:not(.temp-pin)');
+      existingPins.forEach(pin => pin.remove());
+    }
+
+    currentPdfNotes = [];
+
     snapshot.forEach(docSnap => {
       const note = { id: docSnap.id, ...docSnap.data() };
+      currentPdfNotes.push(note);
       renderPdfNote(note);
+
+      if (note.posX !== undefined && note.posY !== undefined) {
+        renderPdfPin(note);
+      }
     });
   });
+}
+
+function renderPdfPin(note) {
+  if (!pdfAnnotationLayer) return;
+
+  const pin = document.createElement('div');
+  pin.className = 'pdf-pin';
+  pin.style.left = `${note.posX}%`;
+  pin.style.top = `${note.posY}%`;
+  pin.dataset.noteId = note.id;
+  pin.title = note.text;
+
+  pin.addEventListener('mouseenter', () => {
+    pin.classList.add('highlight');
+    const memoItem = document.getElementById(`pdf-memo-${note.id}`);
+    if (memoItem) {
+      memoItem.classList.add('highlight');
+      memoItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+
+  pin.addEventListener('mouseleave', () => {
+    pin.classList.remove('highlight');
+    const memoItem = document.getElementById(`pdf-memo-${note.id}`);
+    if (memoItem) {
+      memoItem.classList.remove('highlight');
+    }
+  });
+
+  pdfAnnotationLayer.appendChild(pin);
 }
 
 function renderPdfNote(note) {
@@ -5040,6 +5150,7 @@ function renderPdfNote(note) {
 
   const memoDiv = document.createElement('div');
   memoDiv.className = 'pdf-memo-item';
+  memoDiv.id = `pdf-memo-${note.id}`;
 
   const textDiv = document.createElement('div');
   textDiv.textContent = note.text;
@@ -5051,6 +5162,20 @@ function renderPdfNote(note) {
     dateDiv.textContent = new Date(note.createdAt.toMillis()).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
     memoDiv.appendChild(dateDiv);
   }
+
+  memoDiv.addEventListener('mouseenter', () => {
+    if (note.posX !== undefined) {
+      memoDiv.classList.add('highlight');
+      const pin = document.querySelector(`.pdf-pin[data-note-id="${note.id}"]`);
+      if (pin) pin.classList.add('highlight');
+    }
+  });
+
+  memoDiv.addEventListener('mouseleave', () => {
+    memoDiv.classList.remove('highlight');
+    const pin = document.querySelector(`.pdf-pin[data-note-id="${note.id}"]`);
+    if (pin) pin.classList.remove('highlight');
+  });
 
   pdfMemosList.appendChild(memoDiv);
 }
