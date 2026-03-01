@@ -502,7 +502,9 @@
     </div>
 
     <div class="archive-upload-section" style="margin-bottom: 30px;">
-      <input type="text" id="archive-genre-input" placeholder="ジャンル・カテゴリを入力..." style="margin-bottom: 15px;">
+      <input type="text" id="archive-genre-input" list="archive-genre-list" placeholder="ジャンル・カテゴリを入力..."
+        style="margin-bottom: 15px;">
+      <datalist id="archive-genre-list"></datalist>
       <div id="pdf-drop-zone" class="pdf-drop-zone">
         <p>ここにPDFをドラッグ＆ドロップしてアップロード</p>
       </div>
@@ -511,6 +513,9 @@
     <div class="archive-list-section">
       <h2 style="margin-top: 0; border: none; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">書庫リスト
       </h2>
+      <div id="archive-filter-container" class="archive-filter-container">
+        <!-- フィルターボタンがここに動的に追加されます -->
+      </div>
       <ul id="archive-list-container" class="archive-list-container">
         <!-- PDF items injected here -->
       </ul>

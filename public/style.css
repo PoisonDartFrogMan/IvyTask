@@ -3304,6 +3304,35 @@ span.required {
   gap: 10px;
 }
 
+.archive-filter-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+  margin-top: 10px;
+}
+
+.archive-filter-btn {
+  background-color: transparent;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archive-filter-btn:hover {
+  background-color: rgba(0, 150, 136, 0.1);
+}
+
+.archive-filter-btn.active {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
 .archive-list-container li {
   display: flex;
   justify-content: space-between;

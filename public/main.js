@@ -262,6 +262,9 @@ let vaultSearchQuery = '';
 // Archive State
 let archivePdfs = [];
 let unsubscribeArchive = () => { };
+let currentArchiveFilter = 'all';
+let currentArchiveGenres = new Set();
+const archiveFilterContainer = document.getElementById('archive-filter-container');
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
@@ -401,6 +404,7 @@ async function enterArchiveWorkspace() {
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
+    currentArchiveFilter = 'all'; // Reset filter when entering workspace
     subscribeArchive(currentUserId);
   } else {
     handleSignedOut(true);
@@ -4943,16 +4947,75 @@ if (migrateCandidateButton) {
 
 // ===== Archive Logic =====
 function subscribeArchive(userId) {
-  const q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+  if (unsubscribeArchive) unsubscribeArchive();
+
+  let q;
+  if (currentArchiveFilter === 'all') {
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+  } else {
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), orderBy("createdAt", "desc"));
+  }
+
   unsubscribeArchive = onSnapshot(q, (snapshot) => {
     archivePdfs = [];
-    archiveListContainer.innerHTML = '';
+    if (archiveListContainer) archiveListContainer.innerHTML = '';
+
+    if (currentArchiveFilter === 'all') {
+      currentArchiveGenres.clear();
+    }
+
     snapshot.forEach(docSnap => {
       const pdf = { id: docSnap.id, ...docSnap.data() };
       archivePdfs.push(pdf);
+
+      if (currentArchiveFilter === 'all' && pdf.genre) {
+        currentArchiveGenres.add(pdf.genre);
+      }
+
       renderArchivePdf(pdf);
     });
+
+    renderArchiveFilters();
   });
+}
+
+function renderArchiveFilters() {
+  if (!archiveFilterContainer) return;
+  archiveFilterContainer.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = `archive-filter-btn ${currentArchiveFilter === 'all' ? 'active' : ''}`;
+  allBtn.textContent = 'すべて';
+  allBtn.onclick = () => {
+    if (currentArchiveFilter === 'all') return;
+    currentArchiveFilter = 'all';
+    subscribeArchive(currentUserId);
+  };
+  archiveFilterContainer.appendChild(allBtn);
+
+  const sortedGenres = Array.from(currentArchiveGenres).sort();
+
+  sortedGenres.forEach(genre => {
+    const btn = document.createElement('button');
+    btn.className = `archive-filter-btn ${currentArchiveFilter === genre ? 'active' : ''}`;
+    btn.textContent = genre;
+    btn.onclick = () => {
+      if (currentArchiveFilter === genre) return;
+      currentArchiveFilter = genre;
+      subscribeArchive(currentUserId);
+    };
+    archiveFilterContainer.appendChild(btn);
+  });
+
+  const datalist = document.getElementById('archive-genre-list');
+  if (datalist) {
+    datalist.innerHTML = '';
+    sortedGenres.forEach(genre => {
+      const option = document.createElement('option');
+      option.value = genre;
+      datalist.appendChild(option);
+    });
+  }
 }
 
 function renderArchivePdf(pdf) {
@@ -4970,12 +5033,24 @@ function renderArchivePdf(pdf) {
   const metaDiv = document.createElement('div');
   metaDiv.className = 'archive-item-meta';
 
-  if (pdf.genre) {
-    const genreSpan = document.createElement('span');
-    genreSpan.className = 'archive-item-genre';
-    genreSpan.textContent = pdf.genre;
-    metaDiv.appendChild(genreSpan);
-  }
+  const genreSpan = document.createElement('span');
+  genreSpan.className = 'archive-item-genre';
+  genreSpan.style.cursor = 'pointer';
+  genreSpan.title = 'クリックしてジャンルを編集';
+  genreSpan.textContent = pdf.genre || '未分類';
+
+  genreSpan.onclick = async () => {
+    const newGenre = prompt('新しいジャンルを入力してください:', pdf.genre || '');
+    if (newGenre !== null && newGenre.trim() !== pdf.genre) {
+      try {
+        await updateDoc(doc(db, "pdfs", pdf.id), { genre: newGenre.trim() });
+      } catch (error) {
+        console.error("Error updating genre:", error);
+        alert('ジャンルの更新に失敗しました。');
+      }
+    }
+  };
+  metaDiv.appendChild(genreSpan);
 
   if (pdf.createdAt) {
     const dateSpan = document.createElement('span');
