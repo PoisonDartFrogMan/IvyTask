@@ -520,6 +520,30 @@
         <!-- PDF items injected here -->
       </ul>
     </div>
+
+    <!-- PDF Preview Modal -->
+    <div id="pdf-preview-modal-backdrop" class="hidden">
+      <div id="pdf-preview-modal">
+        <div class="pdf-modal-header" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+          <button id="close-preview-button">閉じる</button>
+        </div>
+        <div class="pdf-modal-content">
+          <div class="pdf-frame-container">
+            <iframe id="pdf-preview-frame" frameborder="0"></iframe>
+          </div>
+          <div id="memo-panel" class="memo-panel">
+            <h3>📝 付箋メモ</h3>
+            <div id="pdf-memos-list" class="pdf-memos-list">
+              <!-- Memos will be injected here -->
+            </div>
+            <div class="pdf-memo-input-container">
+              <textarea id="pdf-memo-input" placeholder="ここに入力..."></textarea>
+              <button id="add-pdf-memo-button">付箋を貼る</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Filter Modal -->

@@ -221,6 +221,12 @@ const archiveBackStartupButton = document.getElementById('archive-back-startup-b
 const archiveGenreInput = document.getElementById('archive-genre-input');
 const pdfDropZone = document.getElementById('pdf-drop-zone');
 const archiveListContainer = document.getElementById('archive-list-container');
+const pdfPreviewModalBackdrop = document.getElementById('pdf-preview-modal-backdrop');
+const closePreviewButton = document.getElementById('close-preview-button');
+const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
+const pdfMemosList = document.getElementById('pdf-memos-list');
+const pdfMemoInput = document.getElementById('pdf-memo-input');
+const addPdfMemoButton = document.getElementById('add-pdf-memo-button');
 
 
 // ===== Global State & Constants =====
@@ -265,6 +271,8 @@ let unsubscribeArchive = () => { };
 let currentArchiveFilter = 'all';
 let currentArchiveGenres = new Set();
 const archiveFilterContainer = document.getElementById('archive-filter-container');
+let currentPreviewPdfId = null;
+let unsubscribePdfNotes = () => { };
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
@@ -2404,6 +2412,40 @@ if (startArchiveButton) {
 }
 if (archiveBackStartupButton) {
   archiveBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
+}
+if (closePreviewButton) {
+  closePreviewButton.addEventListener('click', () => {
+    if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
+    if (pdfPreviewFrame) pdfPreviewFrame.src = '';
+    unsubscribePdfNotes();
+    currentPreviewPdfId = null;
+  });
+}
+if (pdfPreviewModalBackdrop) {
+  pdfPreviewModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === pdfPreviewModalBackdrop) {
+      pdfPreviewModalBackdrop.classList.add('hidden');
+      if (pdfPreviewFrame) pdfPreviewFrame.src = '';
+      unsubscribePdfNotes();
+      currentPreviewPdfId = null;
+    }
+  });
+}
+if (addPdfMemoButton) {
+  addPdfMemoButton.addEventListener('click', async () => {
+    const text = pdfMemoInput.value.trim();
+    if (!text || !currentPreviewPdfId || !currentUserId) return;
+    try {
+      await addDoc(collection(db, `pdfs/${currentPreviewPdfId}/notes`), {
+        text: text,
+        createdAt: serverTimestamp()
+      });
+      pdfMemoInput.value = '';
+    } catch (error) {
+      console.error("Error adding PDF note:", error);
+      alert('メモの保存に失敗しました。');
+    }
+  });
 }
 
 if (openCandidatePanelButton) {
@@ -4979,6 +5021,40 @@ function subscribeArchive(userId) {
   });
 }
 
+function subscribePdfNotes(pdfId) {
+  if (unsubscribePdfNotes) unsubscribePdfNotes();
+  const notesRef = collection(db, `pdfs/${pdfId}/notes`);
+  const q = query(notesRef, orderBy("createdAt", "asc"));
+
+  unsubscribePdfNotes = onSnapshot(q, (snapshot) => {
+    if (pdfMemosList) pdfMemosList.innerHTML = '';
+    snapshot.forEach(docSnap => {
+      const note = { id: docSnap.id, ...docSnap.data() };
+      renderPdfNote(note);
+    });
+  });
+}
+
+function renderPdfNote(note) {
+  if (!pdfMemosList) return;
+
+  const memoDiv = document.createElement('div');
+  memoDiv.className = 'pdf-memo-item';
+
+  const textDiv = document.createElement('div');
+  textDiv.textContent = note.text;
+  memoDiv.appendChild(textDiv);
+
+  if (note.createdAt) {
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'pdf-memo-date';
+    dateDiv.textContent = new Date(note.createdAt.toMillis()).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+    memoDiv.appendChild(dateDiv);
+  }
+
+  pdfMemosList.appendChild(memoDiv);
+}
+
 function renderArchiveFilters() {
   if (!archiveFilterContainer) return;
   archiveFilterContainer.innerHTML = '';
@@ -5066,9 +5142,17 @@ function renderArchivePdf(pdf) {
   actionsDiv.className = 'archive-item-actions';
 
   const viewLink = document.createElement('a');
-  viewLink.href = pdf.fileUrl;
-  viewLink.target = '_blank';
+  viewLink.href = '#';
   viewLink.textContent = '閲覧する';
+  viewLink.onclick = (e) => {
+    e.preventDefault();
+    if (pdfPreviewFrame && pdfPreviewModalBackdrop) {
+      pdfPreviewFrame.src = pdf.fileUrl;
+      currentPreviewPdfId = pdf.id;
+      pdfPreviewModalBackdrop.classList.remove('hidden');
+      subscribePdfNotes(pdf.id);
+    }
+  };
   actionsDiv.appendChild(viewLink);
 
   const deleteBtn = document.createElement('a');

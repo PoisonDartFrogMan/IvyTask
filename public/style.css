@@ -3395,3 +3395,178 @@ span.required {
 .archive-item-actions a:hover {
   opacity: 0.9;
 }
+
+/* ===== PDF Preview Modal ===== */
+#pdf-preview-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+#pdf-preview-modal-backdrop.hidden {
+  display: none !important;
+}
+
+#pdf-preview-modal {
+  background-color: var(--surface-color);
+  width: 90%;
+  height: 90%;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+#close-preview-button {
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+#close-preview-button:hover {
+  opacity: 0.9;
+}
+
+#pdf-preview-frame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.pdf-modal-content {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  gap: 15px;
+  overflow: hidden;
+}
+
+.pdf-frame-container {
+  flex: 7;
+  /* Takes up more space */
+  display: flex;
+}
+
+.memo-panel {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fdfa;
+  /* Light minty/greenish background for notes */
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  padding: 15px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.02);
+}
+
+.memo-panel h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+  border-bottom: 2px dashed var(--primary-color);
+  padding-bottom: 5px;
+}
+
+.pdf-memos-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdf-memo-item {
+  background-color: #fff9c4;
+  /* Sticky note yellow */
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  position: relative;
+}
+
+/* Optional "pin" or "tape" effect for sticky note */
+.pdf-memo-item::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 12px;
+  background-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+}
+
+.pdf-memo-date {
+  font-size: 0.75rem;
+  color: #666;
+  text-align: right;
+  margin-top: 5px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 2px;
+}
+
+.pdf-memo-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdf-memo-input-container textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+#add-pdf-memo-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: opacity 0.2s;
+}
+
+#add-pdf-memo-button:hover {
+  opacity: 0.9;
+}
+
+/* Responsive adjustment for small screens */
+@media (max-width: 768px) {
+  .pdf-modal-content {
+    flex-direction: column;
+  }
+
+  .pdf-frame-container {
+    flex: 1 1 50%;
+  }
+
+  .memo-panel {
+    flex: 1 1 50%;
+  }
+}
