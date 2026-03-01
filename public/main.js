@@ -2485,7 +2485,7 @@ if (togglePinModeButton && pdfAnnotationLayer) {
     tempPdfPinElement.style.top = `${yPercent}%`;
     pdfAnnotationLayer.appendChild(tempPdfPinElement);
 
-    console.log(`[DEBUG] Pin created at x: ${xPercent}%, y: ${yPercent}%`);
+    console.log('クリックされた座標(x, y):', xPercent, yPercent, '生成されたピン要素:', tempPdfPinElement);
 
     if (pdfMemoInput) pdfMemoInput.focus();
   });
@@ -5291,7 +5291,7 @@ function renderArchivePdf(pdf) {
   viewLink.onclick = (e) => {
     e.preventDefault();
     if (pdfPreviewFrame && pdfPreviewModalBackdrop) {
-      pdfPreviewFrame.src = pdf.fileUrl;
+      pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
       currentPreviewPdfId = pdf.id;
       pdfPreviewModalBackdrop.classList.remove('hidden');
       subscribePdfNotes(pdf.id);
