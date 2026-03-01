@@ -5010,7 +5010,7 @@ function initArchiveDropZone() {
     pdfDropZone.classList.add('dragover');
   });
 
-  pdfDropZone.addEventListener('dragleave', () => {
+  pdfDropZone.addEventListener('dragleave', (e) => {
     e.preventDefault();
     pdfDropZone.classList.remove('dragover');
   });
