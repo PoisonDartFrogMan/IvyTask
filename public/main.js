@@ -2485,6 +2485,8 @@ if (togglePinModeButton && pdfAnnotationLayer) {
     tempPdfPinElement.style.top = `${yPercent}%`;
     pdfAnnotationLayer.appendChild(tempPdfPinElement);
 
+    console.log(`[DEBUG] Pin created at x: ${xPercent}%, y: ${yPercent}%`);
+
     if (pdfMemoInput) pdfMemoInput.focus();
   });
 }
