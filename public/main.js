@@ -9,7 +9,7 @@ import {
   Timestamp, onSnapshot, serverTimestamp, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import {
   initializeRecurringTasks,
@@ -4995,6 +4995,26 @@ function renderArchivePdf(pdf) {
   viewLink.target = '_blank';
   viewLink.textContent = '閲覧する';
   actionsDiv.appendChild(viewLink);
+
+  const deleteBtn = document.createElement('a');
+  deleteBtn.href = '#';
+  deleteBtn.style.marginLeft = '8px';
+  deleteBtn.style.backgroundColor = 'var(--danger-color)';
+  deleteBtn.textContent = '削除';
+  deleteBtn.onclick = async (e) => {
+    e.preventDefault();
+    if (confirm(`本当に「${pdf.fileName}」を削除しますか？`)) {
+      try {
+        const fileRef = storageRef(storage, pdf.fileUrl);
+        await deleteObject(fileRef);
+        await deleteDoc(doc(db, "pdfs", pdf.id));
+      } catch (error) {
+        console.error("Error deleting PDF: ", error);
+        alert('削除に失敗しました。詳細: ' + error.message);
+      }
+    }
+  };
+  actionsDiv.appendChild(deleteBtn);
 
   li.appendChild(infoDiv);
   li.appendChild(actionsDiv);

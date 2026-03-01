@@ -43,6 +43,8 @@ body[data-workspace="archive"] {
   --primary-color: #009688;
   /* Teal */
   --bg-color: #e0f2f1;
+  background-image: none !important;
+  background-color: var(--bg-color) !important;
 }
 
 body {
