@@ -214,6 +214,14 @@ const vaultLockScreen = document.getElementById('vault-lock-screen'); // New
 const vaultMasterPasswordInput = document.getElementById('vault-master-password-input'); // New
 const vaultUnlockButton = document.getElementById('vault-unlock-button'); // New
 
+// Archive Workspace Elements
+const archiveWorkspace = document.getElementById('archive-workspace');
+const startArchiveButton = document.getElementById('start-archive-button');
+const archiveBackStartupButton = document.getElementById('archive-back-startup-button');
+const archiveGenreInput = document.getElementById('archive-genre-input');
+const pdfDropZone = document.getElementById('pdf-drop-zone');
+const archiveListContainer = document.getElementById('archive-list-container');
+
 
 // ===== Global State & Constants =====
 let currentUserId = null;
@@ -251,6 +259,9 @@ let memoSearchQuery = ''; // Search query state
 let vaults = [];
 let unsubscribeVaults = () => { };
 let vaultSearchQuery = '';
+// Archive State
+let archivePdfs = [];
+let unsubscribeArchive = () => { };
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
@@ -297,6 +308,7 @@ function showStartupScreen(showTodoMessage = false) {
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -315,6 +327,7 @@ async function enterTaskWorkspace() {
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
 }
 
 function enterTodoWorkspace() {
@@ -328,6 +341,7 @@ function enterTodoWorkspace() {
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     if (authContainer) authContainer.style.display = 'none';
@@ -352,6 +366,7 @@ async function enterMemoWorkspace() {
   if (memoContainer) memoContainer.classList.remove('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
 
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
@@ -363,6 +378,31 @@ async function enterMemoWorkspace() {
     subscribeMemos(currentUserId);
   } else {
     // If somehow entered without user, show auth
+    handleSignedOut(true);
+  }
+}
+
+async function enterArchiveWorkspace() {
+  workspaceSelection = 'archive';
+  localStorage.setItem('ivy_workspace_selection', 'archive');
+  document.body.dataset.workspace = 'archive';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    await loadUserSettings(currentUserId);
+    subscribeArchive(currentUserId);
+  } else {
     handleSignedOut(true);
   }
 }
@@ -380,6 +420,8 @@ onAuthStateChanged(auth, async (user) => {
     enterVaultWorkspace();
   } else if (workspaceSelection === 'database') {
     enterDatabaseWorkspace();
+  } else if (workspaceSelection === 'archive') {
+    enterArchiveWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -390,6 +432,7 @@ async function handleSignedIn(user) {
   authContainer.style.display = 'none';
   mainContainer.style.display = 'block';
   archiveContainer.style.display = 'none';
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
@@ -441,6 +484,7 @@ function handleSignedOut(showAuthScreen = true) {
   authContainer.style.display = showAuthScreen ? 'block' : 'none';
   mainContainer.style.display = 'none';
   archiveContainer.style.display = 'none';
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   teardownRecurringTasks();
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
@@ -448,6 +492,7 @@ function handleSignedOut(showAuthScreen = true) {
   if (unsubscribeMemos) unsubscribeMemos();
   if (unsubscribeMemoFolders) unsubscribeMemoFolders();
   if (unsubscribeVaults) unsubscribeVaults();
+  if (unsubscribeArchive) unsubscribeArchive();
   if (unsubscribeCandidates) unsubscribeCandidates();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
@@ -2348,6 +2393,13 @@ if (startTodoButton) {
 }
 if (todoBackStartupButton) {
   todoBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
+}
+
+if (startArchiveButton) {
+  startArchiveButton.addEventListener('click', () => { enterArchiveWorkspace(); });
+}
+if (archiveBackStartupButton) {
+  archiveBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
 }
 
 if (openCandidatePanelButton) {
@@ -4888,3 +4940,121 @@ if (migrateCandidateButton) {
     }
   });
 }
+
+// ===== Archive Logic =====
+function subscribeArchive(userId) {
+  const q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+  unsubscribeArchive = onSnapshot(q, (snapshot) => {
+    archivePdfs = [];
+    archiveListContainer.innerHTML = '';
+    snapshot.forEach(docSnap => {
+      const pdf = { id: docSnap.id, ...docSnap.data() };
+      archivePdfs.push(pdf);
+      renderArchivePdf(pdf);
+    });
+  });
+}
+
+function renderArchivePdf(pdf) {
+  if (!archiveListContainer) return;
+
+  const li = document.createElement('li');
+
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'archive-item-info';
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'archive-item-title';
+  titleDiv.textContent = pdf.fileName;
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'archive-item-meta';
+
+  if (pdf.genre) {
+    const genreSpan = document.createElement('span');
+    genreSpan.className = 'archive-item-genre';
+    genreSpan.textContent = pdf.genre;
+    metaDiv.appendChild(genreSpan);
+  }
+
+  if (pdf.createdAt) {
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'archive-item-date';
+    dateSpan.textContent = new Date(pdf.createdAt.toMillis()).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+    metaDiv.appendChild(dateSpan);
+  }
+
+  infoDiv.appendChild(titleDiv);
+  infoDiv.appendChild(metaDiv);
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'archive-item-actions';
+
+  const viewLink = document.createElement('a');
+  viewLink.href = pdf.fileUrl;
+  viewLink.target = '_blank';
+  viewLink.textContent = '閲覧する';
+  actionsDiv.appendChild(viewLink);
+
+  li.appendChild(infoDiv);
+  li.appendChild(actionsDiv);
+
+  archiveListContainer.appendChild(li);
+}
+
+function initArchiveDropZone() {
+  if (!pdfDropZone) return;
+
+  pdfDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    pdfDropZone.classList.add('dragover');
+  });
+
+  pdfDropZone.addEventListener('dragleave', () => {
+    e.preventDefault();
+    pdfDropZone.classList.remove('dragover');
+  });
+
+  pdfDropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    pdfDropZone.classList.remove('dragover');
+
+    if (!currentUserId) return;
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+
+    const file = files[0];
+    if (file.type !== 'application/pdf') {
+      alert('PDFファイルのみアップロード可能です。');
+      return;
+    }
+
+    const genre = (archiveGenreInput?.value || '').trim();
+    pdfDropZone.innerHTML = '<p>アップロード中...</p>';
+
+    try {
+      const fileRef = storageRef(storage, `pdfs/${currentUserId}/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const fileUrl = await getDownloadURL(fileRef);
+
+      await addDoc(collection(db, "pdfs"), {
+        userId: currentUserId,
+        fileName: file.name,
+        fileUrl: fileUrl,
+        genre: genre,
+        createdAt: serverTimestamp()
+      });
+
+      if (archiveGenreInput) archiveGenreInput.value = '';
+    } catch (error) {
+      console.error("Error uploading PDF: ", error);
+      alert('アップロードに失敗しました。');
+    } finally {
+      pdfDropZone.innerHTML = '<p>ここにPDFをドラッグ＆ドロップしてアップロード</p>';
+    }
+  });
+}
+
+initArchiveDropZone();
+
