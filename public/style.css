@@ -3612,6 +3612,8 @@ span.required {
   /* Ensure it is above the iframe */
   pointer-events: none;
   /* Let clicks pass through usually */
+  background: rgba(255, 0, 0, 0.1);
+  /* 動作確認用: うっすら赤い背景 */
 }
 
 .pdf-annotation-layer.pin-mode {
@@ -3624,23 +3626,20 @@ span.required {
 
 .pdf-pin {
   position: absolute !important;
-  z-index: 2147483647 !important;
-  /* ブラウザが許す最大値 */
-  width: 24px !important;
-  height: 24px !important;
-  background-color: #ff0000 !important;
-  /* 目立つ真っ赤 */
+  display: block !important;
+  z-index: 999999 !important;
+  /* 絶対に最前面 */
+  width: 30px !important;
+  height: 30px !important;
+  background-color: #ff4757 !important;
+  /* 目立つ赤 */
   border: 3px solid white !important;
   border-radius: 50% !important;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) !important;
+  /* 影をつけて浮かせる */
+  transform: translate(-50%, -50%) !important;
   pointer-events: auto !important;
-  transform: translate(-50%, -50%);
-  /* クリックした中心に配置 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
 }
 
 /* Removed .pdf-pin::after */
