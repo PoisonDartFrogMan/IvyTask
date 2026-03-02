@@ -528,26 +528,7 @@
           <button id="close-preview-button">閉じる</button>
         </div>
         <div class="pdf-modal-content">
-          <div class="pdf-frame-container" style="position: relative;">
-            <iframe id="pdf-preview-frame" frameborder="0"></iframe>
-            <div id="pdf-annotation-layer" class="pdf-annotation-layer"></div>
-          </div>
-          <div id="memo-panel" class="memo-panel">
-            <h3>📝 付箋メモ</h3>
-            <div id="pdf-memos-list" class="pdf-memos-list">
-              <!-- Memos will be injected here -->
-            </div>
-            <div class="pdf-memo-actions"
-              style="display: flex; gap: 8px; justify-content: flex-start; margin-bottom: 8px;">
-              <button id="toggle-pin-mode-button"
-                style="background-color: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); font-size: 0.8rem; padding: 4px 8px; border-radius: 4px; cursor: pointer;"
-                title="PDF上の位置を指定してメモを追加">📍 位置を指定</button>
-            </div>
-            <div class="pdf-memo-input-container">
-              <textarea id="pdf-memo-input" placeholder="ここに入力..."></textarea>
-              <button id="add-pdf-memo-button">付箋を貼る</button>
-            </div>
-          </div>
+          <iframe id="pdf-preview-frame" frameborder="0"></iframe>
         </div>
       </div>
     </div>
