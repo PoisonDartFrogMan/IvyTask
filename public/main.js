@@ -2544,6 +2544,73 @@ if (memoContentEditor) {
   memoContentEditor.addEventListener('touchend', updateToolbarState);
 }
 
+// ===== Memos Markdown Link Feature =====
+function convertMarkdownLink() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+  const range = selection.getRangeAt(0);
+  const node = range.startContainer;
+
+  // カーソルがテキストノード内にある場合のみ処理
+  if (node.nodeType !== Node.TEXT_NODE) return;
+
+  const textContent = node.textContent;
+  const cursorOffset = range.startOffset;
+
+  // カーソル直前の文字（スペースまたは改行）を除いた部分を取得
+  if (cursorOffset < 1) return;
+  const textBeforeTrigger = textContent.slice(0, cursorOffset - 1);
+
+  // Markdown リンク書式 [表示テキスト](URL) を末尾で検知
+  const markdownRegex = /\[([^\]]+)\]\(([^)]+)\)$/;
+  const match = textBeforeTrigger.match(markdownRegex);
+  if (!match) return;
+
+  const fullMatch = match[0];
+  const linkText = match[1];
+  const linkUrl = match[2];
+  const matchIndex = match.index;
+
+  // マッチした部分（Markdown記法 + トリガー文字）をテキストノードから削除
+  node.textContent =
+    textContent.slice(0, matchIndex) +
+    textContent.slice(cursorOffset); // トリガー文字も含めて除去
+
+  // <a> タグ生成
+  const aElem = document.createElement('a');
+  aElem.href = linkUrl;
+  aElem.textContent = linkText;
+  aElem.target = '_blank';
+  aElem.rel = 'noopener noreferrer';
+  aElem.contentEditable = 'false'; // エディタ内で意図せず編集されないよう固定
+  aElem.className = 'memo-link';
+
+  // テキストノード上のmatchIndex位置にリンクを挿入
+  const insertRange = document.createRange();
+  insertRange.setStart(node, matchIndex);
+  insertRange.collapse(true);
+  insertRange.insertNode(aElem);
+
+  // リンクの直後にスペースを置き、カーソルをそこへ移動（入力継続のため）
+  const spaceNode = document.createTextNode('\u00A0');
+  aElem.parentNode.insertBefore(spaceNode, aElem.nextSibling);
+
+  selection.removeAllRanges();
+  const afterLinkRange = document.createRange();
+  afterLinkRange.setStart(spaceNode, 1);
+  afterLinkRange.collapse(true);
+  selection.addRange(afterLinkRange);
+}
+
+if (memoContentEditor) {
+  memoContentEditor.addEventListener('keyup', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      convertMarkdownLink();
+    }
+  });
+}
+
 if (insertImageButton && memoImageInput) {
   insertImageButton.addEventListener('click', () => {
     memoImageInput.click();

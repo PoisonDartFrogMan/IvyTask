@@ -3625,3 +3625,23 @@ body.diary-mode .secondary:hover {
   min-height: 60px;
   text-align: center;
 }
+
+/* ===== Memo: Markdown Link Styles ===== */
+.memo-link {
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  transition: background-color 0.15s ease;
+}
+
+.memo-link:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+  text-decoration: none;
+}
+
+/* 日記モード時のリンク色（レトロ調） */
+body.diary-mode .memo-link {
+  color: #8D6E63;
+}
