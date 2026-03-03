@@ -505,9 +505,9 @@
       <input type="text" id="archive-genre-input" list="archive-genre-list" placeholder="ジャンル・カテゴリを入力..."
         style="margin-bottom: 15px;">
       <datalist id="archive-genre-list"></datalist>
-      <input type="file" id="archive-file-input" accept="application/pdf" style="display:none;">
+      <input type="file" id="archive-file-input" accept="application/pdf,image/*" style="display:none;">
       <div id="pdf-drop-zone" class="pdf-drop-zone">
-        <p>ここにPDFをドラッグ＆ドロップ、またはここをクリックしてファイルを選択</p>
+        <p>ここにPDFや画像をドラッグ＆ドロップ、またはここをクリックしてファイルを選択</p>
       </div>
     </div>
 
@@ -529,7 +529,10 @@
           <button id="close-preview-button">閉じる</button>
         </div>
         <div class="pdf-modal-content">
-          <iframe id="pdf-preview-frame" frameborder="0"></iframe>
+          <iframe id="pdf-preview-frame" frameborder="0" style="display: none;"></iframe>
+          <img id="image-preview-element"
+            style="display: none; max-width: 100%; max-height: 100%; object-fit: contain; margin: auto;"
+            alt="Preview" />
         </div>
       </div>
     </div>

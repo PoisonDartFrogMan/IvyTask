@@ -2415,7 +2415,15 @@ if (archiveBackStartupButton) {
 if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
     if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
-    if (pdfPreviewFrame) pdfPreviewFrame.src = '';
+    if (pdfPreviewFrame) {
+      pdfPreviewFrame.src = '';
+      pdfPreviewFrame.style.display = 'none';
+    }
+    const imgElem = document.getElementById('image-preview-element');
+    if (imgElem) {
+      imgElem.src = '';
+      imgElem.style.display = 'none';
+    }
     currentPreviewPdfId = null;
   });
 }
@@ -2423,7 +2431,15 @@ if (pdfPreviewModalBackdrop) {
   pdfPreviewModalBackdrop.addEventListener('click', (e) => {
     if (e.target === pdfPreviewModalBackdrop) {
       pdfPreviewModalBackdrop.classList.add('hidden');
-      if (pdfPreviewFrame) pdfPreviewFrame.src = '';
+      if (pdfPreviewFrame) {
+        pdfPreviewFrame.src = '';
+        pdfPreviewFrame.style.display = 'none';
+      }
+      const imgElem = document.getElementById('image-preview-element');
+      if (imgElem) {
+        imgElem.src = '';
+        imgElem.style.display = 'none';
+      }
       currentPreviewPdfId = null;
     }
   });
@@ -5046,6 +5062,32 @@ function renderArchivePdf(pdf) {
 
   const li = document.createElement('li');
 
+  const infoContainer = document.createElement('div');
+  infoContainer.style.display = 'flex';
+  infoContainer.style.alignItems = 'center';
+  infoContainer.style.flexGrow = '1';
+  infoContainer.style.minWidth = '0';
+
+  if (pdf.fileType === 'image') {
+    const thumbImg = document.createElement('img');
+    thumbImg.src = pdf.fileUrl;
+    thumbImg.style.width = '48px';
+    thumbImg.style.height = '48px';
+    thumbImg.style.objectFit = 'cover';
+    thumbImg.style.marginRight = '12px';
+    thumbImg.style.borderRadius = '6px';
+    thumbImg.style.flexShrink = '0';
+    infoContainer.appendChild(thumbImg);
+  } else {
+    // PDF or unknown defaults to a simple document icon
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = '📄';
+    iconSpan.style.fontSize = '24px';
+    iconSpan.style.marginRight = '12px';
+    iconSpan.style.flexShrink = '0';
+    infoContainer.appendChild(iconSpan);
+  }
+
   const infoDiv = document.createElement('div');
   infoDiv.className = 'archive-item-info';
 
@@ -5085,6 +5127,8 @@ function renderArchivePdf(pdf) {
   infoDiv.appendChild(titleDiv);
   infoDiv.appendChild(metaDiv);
 
+  infoContainer.appendChild(infoDiv);
+
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'archive-item-actions';
 
@@ -5093,8 +5137,24 @@ function renderArchivePdf(pdf) {
   viewLink.textContent = '閲覧する';
   viewLink.onclick = (e) => {
     e.preventDefault();
-    if (pdfPreviewFrame && pdfPreviewModalBackdrop) {
-      pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
+    const imgElem = document.getElementById('image-preview-element');
+    if (pdfPreviewModalBackdrop) {
+      if (pdf.fileType === 'image') {
+        if (pdfPreviewFrame) pdfPreviewFrame.style.display = 'none';
+        if (imgElem) {
+          imgElem.src = pdf.fileUrl;
+          imgElem.style.display = 'block';
+        }
+      } else {
+        if (imgElem) {
+          imgElem.src = '';
+          imgElem.style.display = 'none';
+        }
+        if (pdfPreviewFrame) {
+          pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
+          pdfPreviewFrame.style.display = 'block';
+        }
+      }
       currentPreviewPdfId = pdf.id;
       pdfPreviewModalBackdrop.classList.remove('hidden');
     }
@@ -5121,7 +5181,7 @@ function renderArchivePdf(pdf) {
   };
   actionsDiv.appendChild(deleteBtn);
 
-  li.appendChild(infoDiv);
+  li.appendChild(infoContainer);
   li.appendChild(actionsDiv);
 
   archiveListContainer.appendChild(li);
@@ -5169,10 +5229,15 @@ function initArchiveDropZone() {
   async function handlePdfUpload(file) {
     if (!currentUserId) return;
 
-    if (file.type !== 'application/pdf') {
-      alert('PDFファイルのみアップロード可能です。');
+    const isImage = file.type.startsWith('image/');
+    const isDoc = file.type === 'application/pdf';
+
+    if (!isImage && !isDoc) {
+      alert('PDFまたは画像ファイルのみアップロード可能です。');
       return;
     }
+
+    const fileTypeStr = isImage ? 'image' : 'pdf';
 
     const genre = (archiveGenreInput?.value || '').trim();
     pdfDropZone.innerHTML = '<p>アップロード中...</p>';
@@ -5187,6 +5252,7 @@ function initArchiveDropZone() {
         fileName: file.name,
         fileUrl: fileUrl,
         genre: genre,
+        fileType: fileTypeStr,
         createdAt: serverTimestamp()
       });
 
