@@ -3532,3 +3532,96 @@ body.diary-mode .secondary:hover {
   flex-grow: 1;
   overflow: hidden;
 }
+
+/* ===== Secret Diary Slideshow Modal ===== */
+#diary-slideshow-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  z-index: 2000;
+}
+
+#diary-slideshow-modal.hidden {
+  display: none !important;
+}
+
+#close-slideshow-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 2010;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+#close-slideshow-button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+#slideshow-prev-button,
+#slideshow-next-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 2010;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+#slideshow-prev-button:hover,
+#slideshow-next-button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+#slideshow-prev-button {
+  left: 30px;
+}
+
+#slideshow-next-button {
+  right: 30px;
+}
+
+#slideshow-image {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  user-select: none;
+}
+
+#slideshow-caption {
+  color: white;
+  font-size: 1.2rem;
+  padding: 20px;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  min-height: 60px;
+  text-align: center;
+}
