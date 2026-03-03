@@ -223,8 +223,64 @@ const pdfDropZone = document.getElementById('pdf-drop-zone');
 const archiveListContainer = document.getElementById('archive-list-container');
 const pdfPreviewModalBackdrop = document.getElementById('pdf-preview-modal-backdrop');
 const closePreviewButton = document.getElementById('close-preview-button');
+// ====== DOM Elements ======
 const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
 
+const archiveIcon = document.getElementById('archive-icon');
+const archiveSecretCaption = document.getElementById('archive-secret-caption');
+const startDiarySlideshowButton = document.getElementById('start-diary-slideshow-button');
+const diarySlideshowModal = document.getElementById('diary-slideshow-modal');
+const closeSlideshowButton = document.getElementById('close-slideshow-button');
+const slideshowImage = document.getElementById('slideshow-image');
+const slideshowCaption = document.getElementById('slideshow-caption');
+const slideshowPrevButton = document.getElementById('slideshow-prev-button');
+const slideshowNextButton = document.getElementById('slideshow-next-button');
+
+// ===== Global State & Constants =====
+let currentUserId = null;
+let workspaceSelection = localStorage.getItem('ivy_workspace_selection') || null; // 'task' | 'todo' | 'memo' | 'vault' | null
+let lastKnownAuthUser = null;
+let selectedLabelId = null;
+let labels = [];
+let unsubscribeLabels = () => { };
+let unsubscribeTasks = () => { };
+let currentlyEditingTaskId = null;
+let currentlyEditingTaskDueDate = null; // Date or null
+let selectedLabelColor = null;
+const selectedArchivedTaskIds = new Set();
+// Sleep mode state
+let sleepEnabled = false;
+let sleepSeconds = 60; // default
+let sleepTimerId = null;
+const THEME_KEYS = ['pastel', 'okinawa', 'jungle', 'dolphins', 'sunny', 'happyhacking', 'skycastle', 'lunar', 'custom'];
+let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
+let currentCandidateId = null;
+let currentDetailTasks = [];
+let currentInterviewTaskId = null;
+let currentInterviews = [];
+let currentOnboardingTaskId = null;
+// Memo State
+let memos = [];
+let currentMemoId = null;
+let unsubscribeMemos = () => { };
+let memoFolders = []; // { id, name, userId, order }
+let unsubscribeMemoFolders = () => { };
+let currentViewFolderId = 'all'; // 'all', 'uncategorized', or folderId
+let memoSaveTimeout = null;
+let memoSearchQuery = ''; // Search query state
+// Vault State
+let vaults = [];
+let unsubscribeVaults = () => { };
+let vaultSearchQuery = '';
+// Archive State
+let archivePdfs = [];
+let unsubscribeArchive = () => { };
+let currentArchiveFilter = 'all';
+let currentArchiveSort = 'dateDesc'; // 'dateDesc', 'dateAsc', 'nameAsc', 'nameDesc'
+let currentArchiveGenres = new Set();
+const archiveFilterContainer = document.getElementById('archive-filter-container');
+const archiveSortSelect = document.getElementById('archive-sort-select');
+let currentPreviewPdfId = null;
 
 // Candidate (Todo) State
 let candidates = [];
@@ -254,6 +310,11 @@ const DEFAULT_CANDIDATE_TASKS = [
 ];
 
 // ===== Secret Diary Feature =====
+let isSecretDiaryMode = false;
+let secretIconClickCount = 0;
+let secretIconClickTimer = null;
+let slideshowImages = [];
+let currentSlideshowIndex = 0;
 if (archiveIcon) {
   archiveIcon.addEventListener('click', () => {
     if (isSecretDiaryMode) {
