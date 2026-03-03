@@ -228,6 +228,148 @@ const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
 
 const databaseContainer = document.getElementById('database-container');
 
+// ===== Secret Diary Feature =====
+if (archiveIcon) {
+  archiveIcon.addEventListener('click', () => {
+    if (isSecretDiaryMode) {
+      // If already in secret mode, clicking the icon again exits it
+      Swal.fire({
+        title: '秘密の日記を閉じますか？',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#8D6E63',
+        cancelButtonColor: '#ccc',
+        confirmButtonText: 'はい',
+        cancelButtonText: 'いいえ'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          isSecretDiaryMode = false;
+          document.body.classList.remove('diary-mode');
+          if (archiveSecretCaption) archiveSecretCaption.style.display = 'none';
+          if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'none';
+          subscribeArchive(currentUserId);
+          Swal.fire({
+            title: '通常モードに戻りました',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      });
+      return;
+    }
+
+    secretIconClickCount++;
+    if (secretIconClickTimer) clearTimeout(secretIconClickTimer);
+
+    // Reset the count after 1.5 seconds if 5 clicks are not reached
+    secretIconClickTimer = setTimeout(() => {
+      secretIconClickCount = 0;
+    }, 1500);
+
+    if (secretIconClickCount >= 5) {
+      secretIconClickCount = 0;
+      clearTimeout(secretIconClickTimer);
+
+      Swal.fire({
+        title: '合言葉は？',
+        input: 'password',
+        inputPlaceholder: 'パスワードを入力...',
+        inputAttributes: {
+          autocapitalize: 'off',
+          autocorrect: 'off'
+        },
+        showCancelButton: true,
+        confirmButtonText: '開く',
+        cancelButtonText: 'キャンセル',
+        confirmButtonColor: '#8D6E63', // Retro brown
+        showLoaderOnConfirm: true,
+        preConfirm: (password) => {
+          if (password === 'kyoko' || password === 'admin') {
+            return true;
+          } else {
+            Swal.showValidationMessage('合言葉が違います...');
+            return false;
+          }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+      }).then((result) => {
+        if (result.isConfirmed) {
+          isSecretDiaryMode = true;
+          document.body.classList.add('diary-mode');
+          if (archiveSecretCaption) archiveSecretCaption.style.display = 'block';
+          if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'block';
+          subscribeArchive(currentUserId);
+          Swal.fire({
+            title: '秘密の日記が開きました',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      });
+    }
+  });
+}
+
+// Slideshow implementation
+function renderDiarySlideshow() {
+  if (!isSecretDiaryMode || slideshowImages.length === 0) return;
+  const currentImg = slideshowImages[currentSlideshowIndex];
+  if (slideshowImage) slideshowImage.src = currentImg.fileUrl || '';
+  if (slideshowCaption) slideshowCaption.textContent = currentImg.caption || '（ひとことメモはありません）';
+}
+
+if (startDiarySlideshowButton) {
+  startDiarySlideshowButton.addEventListener('click', () => {
+    // Filter only images that are secret for the slideshow
+    slideshowImages = archivePdfs.filter(pdf => pdf.fileType === 'image' && pdf.isSecret);
+    if (slideshowImages.length === 0) {
+      Swal.fire('画像がありません', 'スライドショーを再生する画像が見つかりません。', 'info');
+      return;
+    }
+    currentSlideshowIndex = 0;
+    renderDiarySlideshow();
+    if (diarySlideshowModal) diarySlideshowModal.classList.remove('hidden');
+  });
+}
+
+if (closeSlideshowButton) {
+  closeSlideshowButton.addEventListener('click', () => {
+    if (diarySlideshowModal) diarySlideshowModal.classList.add('hidden');
+  });
+}
+
+if (slideshowPrevButton) {
+  slideshowPrevButton.addEventListener('click', () => {
+    if (slideshowImages.length > 0) {
+      currentSlideshowIndex = (currentSlideshowIndex - 1 + slideshowImages.length) % slideshowImages.length;
+      renderDiarySlideshow();
+    }
+  });
+}
+
+if (slideshowNextButton) {
+  slideshowNextButton.addEventListener('click', () => {
+    if (slideshowImages.length > 0) {
+      currentSlideshowIndex = (currentSlideshowIndex + 1) % slideshowImages.length;
+      renderDiarySlideshow();
+    }
+  });
+}
+// Keyboard navigation for slideshow
+window.addEventListener('keydown', (e) => {
+  if (diarySlideshowModal && !diarySlideshowModal.classList.contains('hidden')) {
+    if (e.key === 'ArrowRight') {
+      if (slideshowNextButton) slideshowNextButton.click();
+    } else if (e.key === 'ArrowLeft') {
+      if (slideshowPrevButton) slideshowPrevButton.click();
+    } else if (e.key === 'Escape') {
+      if (closeSlideshowButton) closeSlideshowButton.click();
+    }
+  }
+});
+
 // ===== Global State & Constants =====
 let currentUserId = null;
 let workspaceSelection = localStorage.getItem('ivy_workspace_selection') || null; // 'task' | 'todo' | 'memo' | 'vault' | null
@@ -273,6 +415,21 @@ let currentArchiveGenres = new Set();
 const archiveFilterContainer = document.getElementById('archive-filter-container');
 const archiveSortSelect = document.getElementById('archive-sort-select');
 let currentPreviewPdfId = null;
+// Secret Diary State
+let isSecretDiaryMode = false;
+let secretIconClickCount = 0;
+let secretIconClickTimer = null;
+const archiveIcon = document.getElementById('archive-icon');
+const archiveSecretCaption = document.getElementById('archive-secret-caption');
+const startDiarySlideshowButton = document.getElementById('start-diary-slideshow-button');
+const diarySlideshowModal = document.getElementById('diary-slideshow-modal');
+const closeSlideshowButton = document.getElementById('close-slideshow-button');
+const slideshowImage = document.getElementById('slideshow-image');
+const slideshowCaption = document.getElementById('slideshow-caption');
+const slideshowPrevButton = document.getElementById('slideshow-prev-button');
+const slideshowNextButton = document.getElementById('slideshow-next-button');
+let slideshowImages = [];
+let currentSlideshowIndex = 0;
 // Candidate (Todo) State
 let candidates = [];
 let unsubscribeCandidates = () => { };
@@ -415,6 +572,10 @@ async function enterArchiveWorkspace() {
     currentArchiveFilter = 'all'; // Reset filter when entering workspace
     if (archiveSortSelect) archiveSortSelect.value = 'dateDesc';
     currentArchiveSort = 'dateDesc';
+    isSecretDiaryMode = false;
+    document.body.classList.remove('diary-mode');
+    if (archiveSecretCaption) archiveSecretCaption.style.display = 'none';
+    if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'none';
     subscribeArchive(currentUserId);
   } else {
     handleSignedOut(true);
@@ -5017,9 +5178,17 @@ function subscribeArchive(userId) {
 
   let q;
   if (currentArchiveFilter === 'all') {
-    q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy(sortField, sortDirection));
+    if (isSecretDiaryMode) {
+      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("isSecret", "==", true), orderBy(sortField, sortDirection));
+    } else {
+      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("isSecret", "in", [false, null]), orderBy(sortField, sortDirection));
+    }
   } else {
-    q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), orderBy(sortField, sortDirection));
+    if (isSecretDiaryMode) {
+      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), where("isSecret", "==", true), orderBy(sortField, sortDirection));
+    } else {
+      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), where("isSecret", "in", [false, null]), orderBy(sortField, sortDirection));
+    }
   }
 
   unsubscribeArchive = onSnapshot(q, (snapshot) => {
@@ -5275,16 +5444,26 @@ function initArchiveDropZone() {
       await uploadBytes(fileRef, file);
       const fileUrl = await getDownloadURL(fileRef);
 
-      await addDoc(collection(db, "pdfs"), {
+      const docData = {
         userId: currentUserId,
         fileName: file.name,
         fileUrl: fileUrl,
         genre: genre,
         fileType: fileTypeStr,
         createdAt: serverTimestamp()
-      });
+      };
+
+      if (isSecretDiaryMode) {
+        docData.isSecret = true;
+        docData.caption = (archiveSecretCaption?.value || '').trim();
+      } else {
+        docData.isSecret = false;
+      }
+
+      await addDoc(collection(db, "pdfs"), docData);
 
       if (archiveGenreInput) archiveGenreInput.value = '';
+      if (archiveSecretCaption) archiveSecretCaption.value = '';
     } catch (error) {
       console.error("Error uploading PDF: ", error);
       alert('アップロードに失敗しました。');

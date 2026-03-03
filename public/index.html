@@ -13,6 +13,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#AEC6CF">
   <link rel="apple-touch-icon" href="/icon-192.png">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -497,13 +498,16 @@
   <div id="archive-workspace" class="hidden">
     <div class="archive-header"
       style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 20px;">
-      <h1 style="margin: 0; border: none; padding: 0;">📚 Archive</h1>
+      <h1 style="margin: 0; border: none; padding: 0;"><span id="archive-icon"
+          style="cursor: pointer; user-select: none;">📚</span> Archive</h1>
       <button id="archive-back-startup-button" class="secondary">スタートに戻る</button>
     </div>
 
     <div class="archive-upload-section" style="margin-bottom: 30px;">
       <input type="text" id="archive-genre-input" list="archive-genre-list" placeholder="ジャンル・カテゴリを入力..."
         style="margin-bottom: 15px;">
+      <input type="text" id="archive-secret-caption" placeholder="ひとことメモ（秘密の日記用）..."
+        style="margin-bottom: 15px; display: none;">
       <datalist id="archive-genre-list"></datalist>
       <input type="file" id="archive-file-input" accept="application/pdf,image/*" style="display:none;">
       <div id="pdf-drop-zone" class="pdf-drop-zone">
@@ -514,7 +518,11 @@
     <div class="archive-list-section">
       <div
         style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-        <h2 style="margin: 0; border: none; padding: 0;">書庫リスト</h2>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <h2 style="margin: 0; border: none; padding: 0;">書庫リスト</h2>
+          <button id="start-diary-slideshow-button" class="secondary"
+            style="display: none; padding: 4px 10px; font-size: 0.8em;">スライドショーを開始</button>
+        </div>
         <select id="archive-sort-select"
           style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em; cursor: pointer;">
           <option value="dateDesc">日付順 (新しい順)</option>
@@ -542,6 +550,31 @@
           <img id="image-preview-element"
             style="display: none; max-width: 100%; max-height: 100%; object-fit: contain; margin: auto;"
             alt="Preview" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Secret Diary Slideshow Modal -->
+    <div id="diary-slideshow-modal" class="modal-backdrop hidden">
+      <div class="modal-content"
+        style="max-width: 90vw; height: 90vh; display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; padding: 0;">
+        <div
+          style="display: flex; justify-content: flex-end; padding: 10px 20px; background: rgba(0,0,0,0.05); position: absolute; width: 100%; box-sizing: border-box; z-index: 10;">
+          <button id="close-slideshow-button"
+            style="background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;">×</button>
+        </div>
+        <div
+          style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #222;">
+          <button id="slideshow-prev-button"
+            style="position: absolute; left: 20px; z-index: 5; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 30px; cursor: pointer; width: 50px; height: 50px; border-radius: 50%;">&lt;</button>
+          <img id="slideshow-image" style="max-width: 100%; max-height: 100%; object-fit: contain; user-select: none;"
+            src="" />
+          <button id="slideshow-next-button"
+            style="position: absolute; right: 20px; z-index: 5; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 30px; cursor: pointer; width: 50px; height: 50px; border-radius: 50%;">&gt;</button>
+        </div>
+        <div id="slideshow-caption"
+          style="padding: 20px; text-align: center; font-size: 1.2em; min-height: 80px; background: white; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: center;">
+          <!-- ひとことメモがここに表示されます -->
         </div>
       </div>
     </div>

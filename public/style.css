@@ -3279,10 +3279,80 @@ span.required {
 #archive-workspace {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  min-height: calc(100vh - 40px);
+}
+
+/* Secret Diary Mode */
+body.diary-mode {
+  background-color: #f4ecd8;
+  /* Warm sepia/cream background */
+}
+
+body.diary-mode #archive-workspace {
+  background-color: #fdfaf6;
+  border: 1px solid #dcd3c6;
+  box-shadow: inset 0 0 40px rgba(139, 69, 19, 0.05), 0 5px 20px rgba(139, 69, 19, 0.1);
+  font-family: 'Hiragino Mincho Pro', 'MS PMincho', serif;
+  /* Retro Japanese Mincho */
+  color: #5c4a3d;
+}
+
+body.diary-mode h1,
+body.diary-mode h2 {
+  font-weight: normal;
+  color: #8D6E63;
+  border-bottom-color: #e8dbc9 !important;
+}
+
+body.diary-mode .pdf-drop-zone {
+  background-color: #faf5eb;
+  border: 2px dashed #dcbca2;
+  color: #8D6E63;
+}
+
+body.diary-mode .pdf-drop-zone.dragover {
+  background-color: #f0e6d2;
+  border-color: #8D6E63;
+}
+
+body.diary-mode .archive-filter-btn {
+  background-color: #f4ecd8;
+  color: #8b7355;
+  border: 1px solid #e8dbc9;
+  border-radius: 20px;
+}
+
+body.diary-mode .archive-filter-btn:hover {
+  background-color: #e8dbc9;
+}
+
+body.diary-mode .archive-filter-btn.active {
+  background-color: #8D6E63;
+  color: #fff;
+  border-color: #8D6E63;
+}
+
+body.diary-mode .archive-list-item {
+  border-bottom-color: #e8dbc9;
+}
+
+body.diary-mode .archive-list-item:hover {
+  background-color: #fcf9f2;
+}
+
+body.diary-mode .archive-back-startup-button,
+body.diary-mode .secondary {
+  background-color: #f4ecd8;
+  color: #8b7355;
+  border-color: #dcd3c6;
+}
+
+body.diary-mode .secondary:hover {
+  background-color: #e8dbc9;
 }
 
 .pdf-drop-zone {
