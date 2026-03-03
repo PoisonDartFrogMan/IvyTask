@@ -5140,16 +5140,35 @@ function initArchiveDropZone() {
     pdfDropZone.classList.remove('dragover');
   });
 
+  const archiveFileInput = document.getElementById('archive-file-input');
+
+  pdfDropZone.addEventListener('click', () => {
+    if (archiveFileInput) archiveFileInput.click();
+  });
+
+  if (archiveFileInput) {
+    archiveFileInput.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      if (files.length > 0) {
+        await handlePdfUpload(files[0]);
+        archiveFileInput.value = ''; // Reset input to allow selecting the same file again
+      }
+    });
+  }
+
   pdfDropZone.addEventListener('drop', async (e) => {
     e.preventDefault();
     pdfDropZone.classList.remove('dragover');
 
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await handlePdfUpload(files[0]);
+    }
+  });
+
+  async function handlePdfUpload(file) {
     if (!currentUserId) return;
 
-    const files = e.dataTransfer.files;
-    if (files.length === 0) return;
-
-    const file = files[0];
     if (file.type !== 'application/pdf') {
       alert('PDFファイルのみアップロード可能です。');
       return;
@@ -5176,9 +5195,9 @@ function initArchiveDropZone() {
       console.error("Error uploading PDF: ", error);
       alert('アップロードに失敗しました。');
     } finally {
-      pdfDropZone.innerHTML = '<p>ここにPDFをドラッグ＆ドロップしてアップロード</p>';
+      pdfDropZone.innerHTML = '<p>ここにPDFをドラッグ＆ドロップ、またはここをクリックしてファイルを選択</p>';
     }
-  });
+  }
 }
 
 initArchiveDropZone();
