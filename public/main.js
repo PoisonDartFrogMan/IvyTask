@@ -2545,6 +2545,41 @@ if (memoContentEditor) {
 }
 
 // ===== Memos Markdown Link Feature =====
+
+/**
+ * リンク挿入の共通ヘルパー: テキストノードのmatchIndex位置に<a>タグを挿入する
+ */
+function insertLinkNode(node, matchIndex, cursorOffset, linkText, linkUrl, textContent) {
+  // マッチ部分 + トリガー文字をテキストノードから削除
+  node.textContent =
+    textContent.slice(0, matchIndex) +
+    textContent.slice(cursorOffset);
+
+  const aElem = document.createElement('a');
+  aElem.href = linkUrl;
+  aElem.textContent = linkText;
+  aElem.target = '_blank';
+  aElem.rel = 'noopener noreferrer';
+  aElem.contentEditable = 'false';
+  aElem.className = 'memo-link';
+
+  const insertRange = document.createRange();
+  insertRange.setStart(node, matchIndex);
+  insertRange.collapse(true);
+  insertRange.insertNode(aElem);
+
+  // リンク直後にノーブレークスペースを置いてカーソルを移動
+  const spaceNode = document.createTextNode('\u00A0');
+  aElem.parentNode.insertBefore(spaceNode, aElem.nextSibling);
+
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  const afterLinkRange = document.createRange();
+  afterLinkRange.setStart(spaceNode, 1);
+  afterLinkRange.collapse(true);
+  selection.addRange(afterLinkRange);
+}
+
 function convertMarkdownLink() {
   const selection = window.getSelection();
   if (!selection.rangeCount) return;
@@ -2552,55 +2587,31 @@ function convertMarkdownLink() {
   const range = selection.getRangeAt(0);
   const node = range.startContainer;
 
-  // カーソルがテキストノード内にある場合のみ処理
   if (node.nodeType !== Node.TEXT_NODE) return;
 
   const textContent = node.textContent;
   const cursorOffset = range.startOffset;
 
-  // カーソル直前の文字（スペースまたは改行）を除いた部分を取得
   if (cursorOffset < 1) return;
+  // トリガーとなったスペース/改行の直前までの文字列を取得
   const textBeforeTrigger = textContent.slice(0, cursorOffset - 1);
 
-  // Markdown リンク書式 [表示テキスト](URL) を末尾で検知
+  // ① Markdown記法 [テキスト](URL) を優先して検知
   const markdownRegex = /\[([^\]]+)\]\(([^)]+)\)$/;
-  const match = textBeforeTrigger.match(markdownRegex);
-  if (!match) return;
+  const mdMatch = textBeforeTrigger.match(markdownRegex);
+  if (mdMatch) {
+    insertLinkNode(node, mdMatch.index, cursorOffset, mdMatch[1], mdMatch[2], textContent);
+    return;
+  }
 
-  const fullMatch = match[0];
-  const linkText = match[1];
-  const linkUrl = match[2];
-  const matchIndex = match.index;
-
-  // マッチした部分（Markdown記法 + トリガー文字）をテキストノードから削除
-  node.textContent =
-    textContent.slice(0, matchIndex) +
-    textContent.slice(cursorOffset); // トリガー文字も含めて除去
-
-  // <a> タグ生成
-  const aElem = document.createElement('a');
-  aElem.href = linkUrl;
-  aElem.textContent = linkText;
-  aElem.target = '_blank';
-  aElem.rel = 'noopener noreferrer';
-  aElem.contentEditable = 'false'; // エディタ内で意図せず編集されないよう固定
-  aElem.className = 'memo-link';
-
-  // テキストノード上のmatchIndex位置にリンクを挿入
-  const insertRange = document.createRange();
-  insertRange.setStart(node, matchIndex);
-  insertRange.collapse(true);
-  insertRange.insertNode(aElem);
-
-  // リンクの直後にスペースを置き、カーソルをそこへ移動（入力継続のため）
-  const spaceNode = document.createTextNode('\u00A0');
-  aElem.parentNode.insertBefore(spaceNode, aElem.nextSibling);
-
-  selection.removeAllRanges();
-  const afterLinkRange = document.createRange();
-  afterLinkRange.setStart(spaceNode, 1);
-  afterLinkRange.collapse(true);
-  selection.addRange(afterLinkRange);
+  // ② 生URL（https:// または http://）を末尾で検知
+  const urlRegex = /https?:\/\/[^\s\u00A0]+$/;
+  const urlMatch = textBeforeTrigger.match(urlRegex);
+  if (urlMatch) {
+    const rawUrl = urlMatch[0];
+    insertLinkNode(node, urlMatch.index, cursorOffset, rawUrl, rawUrl, textContent);
+    return;
+  }
 }
 
 if (memoContentEditor) {
