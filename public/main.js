@@ -226,7 +226,32 @@ const closePreviewButton = document.getElementById('close-preview-button');
 const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
 
 
-const databaseContainer = document.getElementById('database-container');
+// Candidate (Todo) State
+let candidates = [];
+let unsubscribeCandidates = () => { };
+const importCSVButton = document.getElementById('import-csv-button');
+const importCSVInput = document.getElementById('import-csv-input');
+let editingVaultId = null;
+let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
+let isVaultLocked = true; // New: Default locked
+// DataBase State (Employee)
+let employees = [];
+let unsubscribeEmployees = () => { };
+let editingEmployeeId = null;
+let employeeSearchQuery = '';
+const PASTEL_COLORS = [
+  '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
+  '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+  '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
+];
+const DEFAULT_CANDIDATE_TASKS = [
+  '面接',
+  '入社前説明',
+  '関係者への求職者情報の共有',
+  '経営会議への報告資料作成',
+  '社内ネットワークへの人事発令',
+  '入社時研修'
+];
 
 // ===== Secret Diary Feature =====
 if (archiveIcon) {
@@ -369,93 +394,6 @@ window.addEventListener('keydown', (e) => {
     }
   }
 });
-
-// ===== Global State & Constants =====
-let currentUserId = null;
-let workspaceSelection = localStorage.getItem('ivy_workspace_selection') || null; // 'task' | 'todo' | 'memo' | 'vault' | null
-let lastKnownAuthUser = null;
-let selectedLabelId = null;
-let labels = [];
-let unsubscribeLabels = () => { };
-let unsubscribeTasks = () => { };
-let currentlyEditingTaskId = null;
-let currentlyEditingTaskDueDate = null; // Date or null
-let selectedLabelColor = null;
-const selectedArchivedTaskIds = new Set();
-// Sleep mode state
-let sleepEnabled = false;
-let sleepSeconds = 60; // default
-let sleepTimerId = null;
-const THEME_KEYS = ['pastel', 'okinawa', 'jungle', 'dolphins', 'sunny', 'happyhacking', 'skycastle', 'lunar', 'custom'];
-let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
-let currentCandidateId = null;
-let currentDetailTasks = [];
-let currentInterviewTaskId = null;
-let currentInterviews = [];
-let currentOnboardingTaskId = null;
-// Memo State
-let memos = [];
-let currentMemoId = null;
-let unsubscribeMemos = () => { };
-let memoFolders = []; // { id, name, userId, order }
-let unsubscribeMemoFolders = () => { };
-let currentViewFolderId = 'all'; // 'all', 'uncategorized', or folderId
-let memoSaveTimeout = null;
-let memoSearchQuery = ''; // Search query state
-// Vault State
-let vaults = [];
-let unsubscribeVaults = () => { };
-let vaultSearchQuery = '';
-// Archive State
-let archivePdfs = [];
-let unsubscribeArchive = () => { };
-let currentArchiveFilter = 'all';
-let currentArchiveSort = 'dateDesc'; // 'dateDesc', 'dateAsc', 'nameAsc', 'nameDesc'
-let currentArchiveGenres = new Set();
-const archiveFilterContainer = document.getElementById('archive-filter-container');
-const archiveSortSelect = document.getElementById('archive-sort-select');
-let currentPreviewPdfId = null;
-// Secret Diary State
-let isSecretDiaryMode = false;
-let secretIconClickCount = 0;
-let secretIconClickTimer = null;
-const archiveIcon = document.getElementById('archive-icon');
-const archiveSecretCaption = document.getElementById('archive-secret-caption');
-const startDiarySlideshowButton = document.getElementById('start-diary-slideshow-button');
-const diarySlideshowModal = document.getElementById('diary-slideshow-modal');
-const closeSlideshowButton = document.getElementById('close-slideshow-button');
-const slideshowImage = document.getElementById('slideshow-image');
-const slideshowCaption = document.getElementById('slideshow-caption');
-const slideshowPrevButton = document.getElementById('slideshow-prev-button');
-const slideshowNextButton = document.getElementById('slideshow-next-button');
-let slideshowImages = [];
-let currentSlideshowIndex = 0;
-// Candidate (Todo) State
-let candidates = [];
-let unsubscribeCandidates = () => { };
-const importCSVButton = document.getElementById('import-csv-button');
-const importCSVInput = document.getElementById('import-csv-input');
-let editingVaultId = null;
-let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
-let isVaultLocked = true; // New: Default locked
-// DataBase State (Employee)
-let employees = [];
-let unsubscribeEmployees = () => { };
-let editingEmployeeId = null;
-let employeeSearchQuery = '';
-const PASTEL_COLORS = [
-  '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
-  '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
-  '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
-];
-const DEFAULT_CANDIDATE_TASKS = [
-  '面接',
-  '入社前説明',
-  '関係者への求職者情報の共有',
-  '経営会議への報告資料作成',
-  '社内ネットワークへの人事発令',
-  '入社時研修'
-];
 const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 
 
