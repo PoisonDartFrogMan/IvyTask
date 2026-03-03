@@ -88,6 +88,7 @@ const todoUpdatesList = document.getElementById('todo-updates-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
+const databaseContainer = document.getElementById('database-container');
 const userEmailSpan = document.getElementById('user-email');
 const settingsButton = document.getElementById('settings-button');
 const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
