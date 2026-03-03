@@ -3276,6 +3276,15 @@ span.required {
 }
 
 /* ===== Archive Workspace Styles ===== */
+#archive-workspace {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
 .pdf-drop-zone {
   border: 2px dashed var(--primary-color);
   background-color: rgba(255, 255, 255, 0.5);
