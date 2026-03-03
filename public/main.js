@@ -311,6 +311,7 @@ const DEFAULT_CANDIDATE_TASKS = [
 ];
 
 // ===== Secret Diary Feature =====
+const SECRET_PASSWORD = "jemiko";
 let isSecretDiaryMode = false;
 let secretIconClickCount = 0;
 let secretIconClickTimer = null;
@@ -372,7 +373,7 @@ if (archiveIcon) {
         confirmButtonColor: '#8D6E63', // Retro brown
         showLoaderOnConfirm: true,
         preConfirm: (password) => {
-          if (password === 'kyoko' || password === 'admin') {
+          if (password === SECRET_PASSWORD) {
             return true;
           } else {
             Swal.showValidationMessage('合言葉が違います...');
@@ -5178,17 +5179,9 @@ function subscribeArchive(userId) {
 
   let q;
   if (currentArchiveFilter === 'all') {
-    if (isSecretDiaryMode) {
-      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("isSecret", "==", true), orderBy(sortField, sortDirection));
-    } else {
-      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("isSecret", "in", [false, null]), orderBy(sortField, sortDirection));
-    }
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy(sortField, sortDirection));
   } else {
-    if (isSecretDiaryMode) {
-      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), where("isSecret", "==", true), orderBy(sortField, sortDirection));
-    } else {
-      q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), where("isSecret", "in", [false, null]), orderBy(sortField, sortDirection));
-    }
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), orderBy(sortField, sortDirection));
   }
 
   unsubscribeArchive = onSnapshot(q, (snapshot) => {
@@ -5201,6 +5194,17 @@ function subscribeArchive(userId) {
 
     snapshot.forEach(docSnap => {
       const pdf = { id: docSnap.id, ...docSnap.data() };
+
+      // Frontend filtering based on secret diary mode
+      // If diary mode is OFF, hide items that have isSecret === true
+      // If diary mode is ON, ONLY show items that have isSecret === true
+      if (!isSecretDiaryMode && pdf.isSecret === true) {
+        return; // Skip rendering secret items in normal mode
+      }
+      if (isSecretDiaryMode && pdf.isSecret !== true) {
+        return; // Skip rendering normal items in secret mode
+      }
+
       archivePdfs.push(pdf);
 
       if (currentArchiveFilter === 'all' && pdf.genre) {
