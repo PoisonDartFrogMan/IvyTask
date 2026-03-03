@@ -268,8 +268,10 @@ let vaultSearchQuery = '';
 let archivePdfs = [];
 let unsubscribeArchive = () => { };
 let currentArchiveFilter = 'all';
+let currentArchiveSort = 'dateDesc'; // 'dateDesc', 'dateAsc', 'nameAsc', 'nameDesc'
 let currentArchiveGenres = new Set();
 const archiveFilterContainer = document.getElementById('archive-filter-container');
+const archiveSortSelect = document.getElementById('archive-sort-select');
 let currentPreviewPdfId = null;
 // Candidate (Todo) State
 let candidates = [];
@@ -411,6 +413,8 @@ async function enterArchiveWorkspace() {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
     currentArchiveFilter = 'all'; // Reset filter when entering workspace
+    if (archiveSortSelect) archiveSortSelect.value = 'dateDesc';
+    currentArchiveSort = 'dateDesc';
     subscribeArchive(currentUserId);
   } else {
     handleSignedOut(true);
@@ -4987,11 +4991,35 @@ if (migrateCandidateButton) {
 function subscribeArchive(userId) {
   if (unsubscribeArchive) unsubscribeArchive();
 
+  if (archiveSortSelect) {
+    archiveSortSelect.onchange = (e) => {
+      currentArchiveSort = e.target.value;
+      subscribeArchive(currentUserId);
+    };
+  }
+
+  let sortField = "createdAt";
+  let sortDirection = "desc";
+
+  if (currentArchiveSort === 'dateDesc') {
+    sortField = "createdAt";
+    sortDirection = "desc";
+  } else if (currentArchiveSort === 'dateAsc') {
+    sortField = "createdAt";
+    sortDirection = "asc";
+  } else if (currentArchiveSort === 'nameAsc') {
+    sortField = "fileName";
+    sortDirection = "asc";
+  } else if (currentArchiveSort === 'nameDesc') {
+    sortField = "fileName";
+    sortDirection = "desc";
+  }
+
   let q;
   if (currentArchiveFilter === 'all') {
-    q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), orderBy(sortField, sortDirection));
   } else {
-    q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), orderBy("createdAt", "desc"));
+    q = query(collection(db, "pdfs"), where("userId", "==", userId), where("genre", "==", currentArchiveFilter), orderBy(sortField, sortDirection));
   }
 
   unsubscribeArchive = onSnapshot(q, (snapshot) => {

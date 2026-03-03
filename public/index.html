@@ -512,8 +512,17 @@
     </div>
 
     <div class="archive-list-section">
-      <h2 style="margin-top: 0; border: none; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">書庫リスト
-      </h2>
+      <div
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        <h2 style="margin: 0; border: none; padding: 0;">書庫リスト</h2>
+        <select id="archive-sort-select"
+          style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em; cursor: pointer;">
+          <option value="dateDesc">日付順 (新しい順)</option>
+          <option value="dateAsc">日付順 (古い順)</option>
+          <option value="nameAsc">名前順 (A-Z)</option>
+          <option value="nameDesc">名前順 (Z-A)</option>
+        </select>
+      </div>
       <div id="archive-filter-container" class="archive-filter-container">
         <!-- フィルターボタンがここに動的に追加されます -->
       </div>
