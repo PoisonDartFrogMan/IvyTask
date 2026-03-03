@@ -311,7 +311,6 @@ const DEFAULT_CANDIDATE_TASKS = [
 ];
 
 // ===== Secret Diary Feature =====
-const SECRET_PASSWORD = "jemiko";
 let isSecretDiaryMode = false;
 let secretIconClickCount = 0;
 let secretIconClickTimer = null;
@@ -359,42 +358,96 @@ if (archiveIcon) {
       secretIconClickCount = 0;
       clearTimeout(secretIconClickTimer);
 
-      Swal.fire({
-        title: '合言葉は？',
-        input: 'password',
-        inputPlaceholder: 'パスワードを入力...',
-        inputAttributes: {
-          autocapitalize: 'off',
-          autocorrect: 'off'
-        },
-        showCancelButton: true,
-        confirmButtonText: '開く',
-        cancelButtonText: 'キャンセル',
-        confirmButtonColor: '#8D6E63', // Retro brown
-        showLoaderOnConfirm: true,
-        preConfirm: (password) => {
-          if (password === SECRET_PASSWORD) {
-            return true;
-          } else {
-            Swal.showValidationMessage('合言葉が違います...');
-            return false;
-          }
-        },
-        allowOutsideClick: () => !Swal.isLoading()
-      }).then((result) => {
-        if (result.isConfirmed) {
-          isSecretDiaryMode = true;
-          document.body.classList.add('diary-mode');
-          if (archiveSecretCaption) archiveSecretCaption.style.display = 'block';
-          if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'block';
-          subscribeArchive(currentUserId);
+      const userRef = doc(db, 'users', currentUserId);
+      getDoc(userRef).then((userSnap) => {
+        let savedPassword = null;
+        if (userSnap.exists()) {
+          savedPassword = userSnap.data().secretPassword || null;
+        }
+
+        if (!savedPassword) {
           Swal.fire({
-            title: '秘密の日記が開きました',
-            icon: 'success',
-            timer: 1500,
-            showConfirmButton: false
+            title: '秘密のパスワードを設定',
+            text: '秘密の日記へのアクセス用パスワードを入力してください。',
+            input: 'password',
+            inputPlaceholder: 'パスワードを入力...',
+            inputAttributes: {
+              autocapitalize: 'off',
+              autocorrect: 'off'
+            },
+            showCancelButton: true,
+            confirmButtonText: '設定して開く',
+            cancelButtonText: 'キャンセル',
+            confirmButtonColor: '#8D6E63',
+            preConfirm: (password) => {
+              if (!password || password.trim() === '') {
+                Swal.showValidationMessage('パスワードを入力してください');
+                return false;
+              }
+              return password;
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+          }).then(async (result) => {
+            if (result.isConfirmed) {
+              try {
+                await setDoc(userRef, { secretPassword: result.value }, { merge: true });
+                isSecretDiaryMode = true;
+                document.body.classList.add('diary-mode');
+                if (archiveSecretCaption) archiveSecretCaption.style.display = 'block';
+                if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'block';
+                subscribeArchive(currentUserId);
+                Swal.fire({
+                  title: '秘密の日記が開きました',
+                  icon: 'success',
+                  timer: 1500,
+                  showConfirmButton: false
+                });
+              } catch (err) {
+                console.error("Error setting password", err);
+                Swal.fire('エラー', 'パスワードの保存に失敗しました。', 'error');
+              }
+            }
+          });
+        } else {
+          Swal.fire({
+            title: '合言葉は？',
+            input: 'password',
+            inputPlaceholder: 'パスワードを入力...',
+            inputAttributes: {
+              autocapitalize: 'off',
+              autocorrect: 'off'
+            },
+            showCancelButton: true,
+            confirmButtonText: '開く',
+            cancelButtonText: 'キャンセル',
+            confirmButtonColor: '#8D6E63', // Retro brown
+            preConfirm: (password) => {
+              if (password === savedPassword) {
+                return true;
+              } else {
+                Swal.showValidationMessage('合言葉が違います...');
+                return false;
+              }
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+          }).then((result) => {
+            if (result.isConfirmed) {
+              isSecretDiaryMode = true;
+              document.body.classList.add('diary-mode');
+              if (archiveSecretCaption) archiveSecretCaption.style.display = 'block';
+              if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'block';
+              subscribeArchive(currentUserId);
+              Swal.fire({
+                title: '秘密の日記が開きました',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+              });
+            }
           });
         }
+      }).catch(err => {
+        console.error("Error fetching user data", err);
       });
     }
   });
