@@ -226,6 +226,8 @@ const closePreviewButton = document.getElementById('close-preview-button');
 const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
 
 
+const databaseContainer = document.getElementById('database-container');
+
 // ===== Global State & Constants =====
 let currentUserId = null;
 let workspaceSelection = localStorage.getItem('ivy_workspace_selection') || null; // 'task' | 'todo' | 'memo' | 'vault' | null
@@ -2409,20 +2411,6 @@ if (startArchiveButton) {
 if (archiveBackStartupButton) {
   archiveBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
 }
-function resetPdfPinMode() {
-  isPdfPinMode = false;
-  if (togglePinModeButton) togglePinModeButton.classList.remove('active');
-  if (pdfAnnotationLayer) pdfAnnotationLayer.classList.remove('pin-mode');
-  clearTempPdfPin();
-}
-
-function clearTempPdfPin() {
-  if (tempPdfPinElement && tempPdfPinElement.parentNode) {
-    tempPdfPinElement.parentNode.removeChild(tempPdfPinElement);
-  }
-  tempPdfPinElement = null;
-  tempPdfPinCoords = null;
-}
 
 if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
@@ -2437,67 +2425,6 @@ if (pdfPreviewModalBackdrop) {
       pdfPreviewModalBackdrop.classList.add('hidden');
       if (pdfPreviewFrame) pdfPreviewFrame.src = '';
       currentPreviewPdfId = null;
-    }
-  });
-}
-
-if (togglePinModeButton && pdfAnnotationLayer) {
-  togglePinModeButton.addEventListener('click', () => {
-    isPdfPinMode = !isPdfPinMode;
-    togglePinModeButton.classList.toggle('active', isPdfPinMode);
-
-    if (isPdfPinMode) {
-      pdfAnnotationLayer.classList.add('pin-mode');
-    } else {
-      pdfAnnotationLayer.classList.remove('pin-mode');
-      clearTempPdfPin();
-    }
-  });
-
-  pdfAnnotationLayer.addEventListener('click', (e) => {
-    if (!isPdfPinMode) return;
-
-    const rect = pdfAnnotationLayer.getBoundingClientRect();
-    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
-    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
-
-    tempPdfPinCoords = { x: xPercent, y: yPercent };
-    clearTempPdfPin();
-
-    tempPdfPinElement = document.createElement('div');
-    tempPdfPinElement.className = 'pdf-pin temp-pin';
-    tempPdfPinElement.title = '新しいメモの位置';
-    tempPdfPinElement.style.left = `${xPercent}%`;
-    tempPdfPinElement.style.top = `${yPercent}%`;
-    pdfAnnotationLayer.appendChild(tempPdfPinElement);
-
-    console.log('クリックされた座標(x, y):', xPercent, yPercent, '生成されたピン要素:', tempPdfPinElement);
-
-    if (pdfMemoInput) pdfMemoInput.focus();
-  });
-}
-
-if (addPdfMemoButton) {
-  addPdfMemoButton.addEventListener('click', async () => {
-    const text = pdfMemoInput.value.trim();
-    if (!text || !currentPreviewPdfId || !currentUserId) return;
-    try {
-      const noteData = {
-        text: text,
-        createdAt: serverTimestamp()
-      };
-
-      if (tempPdfPinCoords) {
-        noteData.posX = tempPdfPinCoords.x;
-        noteData.posY = tempPdfPinCoords.y;
-      }
-
-      await addDoc(collection(db, `pdfs/${currentPreviewPdfId}/notes`), noteData);
-      pdfMemoInput.value = '';
-      resetPdfPinMode();
-    } catch (error) {
-      console.error("Error adding PDF note:", error);
-      alert('メモの保存に失敗しました。');
     }
   });
 }
@@ -4201,7 +4128,6 @@ function formatDateForInput(dateStr) {
 // DataBase Logic
 // DOM Elements
 const startDatabaseButton = document.getElementById('start-database-button');
-const databaseContainer = document.getElementById('database-container');
 const databaseBackStartupButton = document.getElementById('database-back-startup-button');
 const databaseAddButton = document.getElementById('database-add-button');
 const databaseSearchInput = document.getElementById('database-search-input');
