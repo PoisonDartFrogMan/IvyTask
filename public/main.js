@@ -316,6 +316,9 @@ let secretIconClickCount = 0;
 let secretIconClickTimer = null;
 let slideshowImages = [];
 let currentSlideshowIndex = 0;
+let slideshowInterval = null;
+const SLIDESHOW_INTERVAL_MS = 5000;
+
 if (archiveIcon) {
   archiveIcon.addEventListener('click', () => {
     if (isSecretDiaryMode) {
@@ -461,6 +464,25 @@ function renderDiarySlideshow() {
   if (slideshowCaption) slideshowCaption.textContent = currentImg.caption || '（ひとことメモはありません）';
 }
 
+function startSlideshowTimer() {
+  if (slideshowInterval) clearInterval(slideshowInterval);
+  slideshowInterval = setInterval(() => {
+    if (slideshowNextButton) slideshowNextButton.click();
+  }, SLIDESHOW_INTERVAL_MS);
+}
+
+function stopSlideshowTimer() {
+  if (slideshowInterval) {
+    clearInterval(slideshowInterval);
+    slideshowInterval = null;
+  }
+}
+
+function resetSlideshowTimer() {
+  stopSlideshowTimer();
+  startSlideshowTimer();
+}
+
 if (startDiarySlideshowButton) {
   startDiarySlideshowButton.addEventListener('click', () => {
     // Filter only images that are secret for the slideshow
@@ -472,12 +494,14 @@ if (startDiarySlideshowButton) {
     currentSlideshowIndex = 0;
     renderDiarySlideshow();
     if (diarySlideshowModal) diarySlideshowModal.classList.remove('hidden');
+    startSlideshowTimer();
   });
 }
 
 if (closeSlideshowButton) {
   closeSlideshowButton.addEventListener('click', () => {
     if (diarySlideshowModal) diarySlideshowModal.classList.add('hidden');
+    stopSlideshowTimer();
   });
 }
 
@@ -486,6 +510,7 @@ if (slideshowPrevButton) {
     if (slideshowImages.length > 0) {
       currentSlideshowIndex = (currentSlideshowIndex - 1 + slideshowImages.length) % slideshowImages.length;
       renderDiarySlideshow();
+      resetSlideshowTimer();
     }
   });
 }
@@ -495,6 +520,7 @@ if (slideshowNextButton) {
     if (slideshowImages.length > 0) {
       currentSlideshowIndex = (currentSlideshowIndex + 1) % slideshowImages.length;
       renderDiarySlideshow();
+      resetSlideshowTimer();
     }
   });
 }
