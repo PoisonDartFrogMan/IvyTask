@@ -2623,15 +2623,25 @@ if (memoContentEditor) {
     }
   });
 
-  // ===== URL ペースト時の自動リンク変換 =====
+  // ===== URL ペースト時の自動リンク変換 ＆ 画像ペースト =====
   memoContentEditor.addEventListener('paste', (e) => {
+    // ── ① 画像ファイルが含まれる場合は最優先で画像エディタへ ──
+    const files = e.clipboardData.files;
+    if (files && files.length > 0) {
+      const imageFile = Array.from(files).find(f => f.type.startsWith('image/'));
+      if (imageFile) {
+        e.preventDefault();
+        openImageEditor(imageFile);
+        return;
+      }
+    }
+
     const text = e.clipboardData.getData('text/plain').trim();
 
-    // URL単体かどうか判定（http:// or https:// で始まりスペースを含まないもの）
+    // ── ② URL単体の場合は <a> タグに変換 ──
     const isUrl = /^https?:\/\/\S+$/.test(text);
 
     if (isUrl) {
-      // デフォルトのペーストをキャンセルして <a> タグを挿入
       e.preventDefault();
 
       const aElem = document.createElement('a');
@@ -2646,7 +2656,6 @@ if (memoContentEditor) {
       if (!selection.rangeCount) return;
 
       const range = selection.getRangeAt(0);
-      // 選択範囲を削除してからリンクを挿入
       range.deleteContents();
       range.insertNode(aElem);
 
@@ -2662,8 +2671,19 @@ if (memoContentEditor) {
 
       // 自動保存トリガー
       memoContentEditor.dispatchEvent(new Event('input'));
+
+      // Swal トースト通知
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'リンクに変換しました',
+        showConfirmButton: false,
+        timer: 1800,
+        timerProgressBar: true,
+      });
     } else {
-      // URL以外はプレーンテキストとして貼り付け（書式を剥がす）
+      // ── ③ URL以外はプレーンテキストとして貼り付け（書式を剥がす） ──
       e.preventDefault();
       const plain = e.clipboardData.getData('text/plain');
       document.execCommand('insertText', false, plain);
