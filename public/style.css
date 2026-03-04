@@ -3385,10 +3385,24 @@ body.diary-mode .secondary:hover {
 
 .archive-filter-container {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 8px;
   margin-bottom: 15px;
   margin-top: 10px;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) transparent;
+}
+
+.archive-filter-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.archive-filter-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 150, 136, 0.4);
+  border-radius: 4px;
 }
 
 .archive-filter-btn {
@@ -3425,6 +3439,176 @@ body.diary-mode .secondary:hover {
   /* Override generic li margin */
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
+
+/* ===== Grid mode ===== */
+.archive-list-container.grid-mode {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.archive-grid-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.archive-grid-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+}
+
+.archive-grid-thumb {
+  width: 100%;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background-color: var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archive-grid-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-grid-thumb-icon {
+  font-size: 2.5rem;
+}
+
+.archive-grid-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archive-grid-card .archive-item-actions {
+  padding: 4px 6px 8px;
+  justify-content: center;
+}
+
+/* ===== Recent Section ===== */
+.archive-recent-section {
+  margin-bottom: 20px;
+}
+
+.archive-recent-heading {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.archive-recent-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) transparent;
+}
+
+.archive-recent-rail::-webkit-scrollbar {
+  height: 4px;
+}
+
+.archive-recent-rail::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 150, 136, 0.4);
+  border-radius: 4px;
+}
+
+.archive-recent-card {
+  flex: 0 0 120px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background-color: var(--surface-color);
+}
+
+.archive-recent-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.archive-recent-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background-color: var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archive-recent-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-recent-thumb-icon {
+  font-size: 2rem;
+}
+
+.archive-recent-name {
+  font-size: 0.75rem;
+  padding: 5px 6px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+/* ===== View Toggle Buttons ===== */
+.archive-view-toggle {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.archive-view-btn {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background-color 0.15s ease, color 0.15s ease;
+  line-height: 1;
+}
+
+.archive-view-btn:not(:last-child) {
+  border-right: 1px solid var(--border-color);
+}
+
+.archive-view-btn.active {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+.archive-view-btn:not(.active):hover {
+  background-color: rgba(0, 150, 136, 0.08);
+}
+
 
 .archive-list-container li:hover {
   transform: translateY(-1px);

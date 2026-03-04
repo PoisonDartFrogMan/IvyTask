@@ -500,7 +500,13 @@
       style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 20px;">
       <h1 style="margin: 0; border: none; padding: 0;"><span id="archive-icon"
           style="cursor: pointer; user-select: none;">📚</span> Archive</h1>
-      <button id="archive-back-startup-button" class="secondary">スタートに戻る</button>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div id="archive-view-toggle" class="archive-view-toggle" role="group" aria-label="表示形式">
+          <button id="archive-view-list-btn" class="archive-view-btn active" title="リスト表示">☰</button>
+          <button id="archive-view-grid-btn" class="archive-view-btn" title="グリッド表示">⊞</button>
+        </div>
+        <button id="archive-back-startup-button" class="secondary">スタートに戻る</button>
+      </div>
     </div>
 
     <div class="archive-upload-section" style="margin-bottom: 30px;">
@@ -530,6 +536,10 @@
           <option value="nameAsc">名前順 (A-Z)</option>
           <option value="nameDesc">名前順 (Z-A)</option>
         </select>
+      </div>
+      <!-- 最近追加されたファイル -->
+      <div id="archive-recent-section" class="archive-recent-section">
+        <!-- 動的に生成 -->
       </div>
       <div id="archive-filter-container" class="archive-filter-container">
         <!-- フィルターボタンがここに動的に追加されます -->

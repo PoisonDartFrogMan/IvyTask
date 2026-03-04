@@ -282,6 +282,8 @@ let currentArchiveGenres = new Set();
 const archiveFilterContainer = document.getElementById('archive-filter-container');
 const archiveSortSelect = document.getElementById('archive-sort-select');
 let currentPreviewPdfId = null;
+let archiveViewMode = 'list'; // 'list' | 'grid'
+
 
 // Candidate (Todo) State
 let candidates = [];
@@ -5372,6 +5374,7 @@ function subscribeArchive(userId) {
     });
 
     renderArchiveFilters();
+    renderRecentSection();
   });
 }
 
@@ -5418,79 +5421,119 @@ function renderArchiveFilters() {
 function renderArchivePdf(pdf) {
   if (!archiveListContainer) return;
 
-  const li = document.createElement('li');
+  if (archiveViewMode === 'grid') {
+    // ===== グリッドモード =====
+    const card = document.createElement('li');
+    card.className = 'archive-grid-card';
 
-  const infoContainer = document.createElement('div');
-  infoContainer.style.display = 'flex';
-  infoContainer.style.alignItems = 'center';
-  infoContainer.style.flexGrow = '1';
-  infoContainer.style.minWidth = '0';
-
-  if (pdf.fileType === 'image') {
-    const thumbImg = document.createElement('img');
-    thumbImg.src = pdf.fileUrl;
-    thumbImg.style.width = '48px';
-    thumbImg.style.height = '48px';
-    thumbImg.style.objectFit = 'cover';
-    thumbImg.style.marginRight = '12px';
-    thumbImg.style.borderRadius = '6px';
-    thumbImg.style.flexShrink = '0';
-    infoContainer.appendChild(thumbImg);
-  } else {
-    // PDF or unknown defaults to a simple document icon
-    const iconSpan = document.createElement('span');
-    iconSpan.textContent = '📄';
-    iconSpan.style.fontSize = '24px';
-    iconSpan.style.marginRight = '12px';
-    iconSpan.style.flexShrink = '0';
-    infoContainer.appendChild(iconSpan);
-  }
-
-  const infoDiv = document.createElement('div');
-  infoDiv.className = 'archive-item-info';
-
-  const titleDiv = document.createElement('div');
-  titleDiv.className = 'archive-item-title';
-  titleDiv.textContent = pdf.fileName;
-
-  const metaDiv = document.createElement('div');
-  metaDiv.className = 'archive-item-meta';
-
-  const genreSpan = document.createElement('span');
-  genreSpan.className = 'archive-item-genre';
-  genreSpan.style.cursor = 'pointer';
-  genreSpan.title = 'クリックしてジャンルを編集';
-  genreSpan.textContent = pdf.genre || '未分類';
-
-  genreSpan.onclick = async () => {
-    const newGenre = prompt('新しいジャンルを入力してください:', pdf.genre || '');
-    if (newGenre !== null && newGenre.trim() !== pdf.genre) {
-      try {
-        await updateDoc(doc(db, "pdfs", pdf.id), { genre: newGenre.trim() });
-      } catch (error) {
-        console.error("Error updating genre:", error);
-        alert('ジャンルの更新に失敗しました。');
-      }
+    const thumb = document.createElement('div');
+    thumb.className = 'archive-grid-thumb';
+    if (pdf.fileType === 'image') {
+      const img = document.createElement('img');
+      img.src = pdf.fileUrl;
+      img.alt = pdf.fileName;
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = '📄';
+      thumb.classList.add('archive-grid-thumb-icon');
     }
-  };
-  metaDiv.appendChild(genreSpan);
+    card.appendChild(thumb);
 
-  if (pdf.createdAt) {
-    const dateSpan = document.createElement('span');
-    dateSpan.className = 'archive-item-date';
-    dateSpan.textContent = new Date(pdf.createdAt.toMillis()).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
-    metaDiv.appendChild(dateSpan);
+    const cardTitle = document.createElement('div');
+    cardTitle.className = 'archive-grid-title';
+    cardTitle.textContent = pdf.fileName;
+    card.appendChild(cardTitle);
+
+    const cardActions = document.createElement('div');
+    cardActions.className = 'archive-item-actions';
+    cardActions.appendChild(buildViewBtn(pdf));
+    cardActions.appendChild(buildShareBtn(pdf));
+    cardActions.appendChild(buildDeleteBtn(pdf));
+    card.appendChild(cardActions);
+
+    archiveListContainer.appendChild(card);
+  } else {
+    // ===== リストモード =====
+    const li = document.createElement('li');
+
+    const infoContainer = document.createElement('div');
+    infoContainer.style.display = 'flex';
+    infoContainer.style.alignItems = 'center';
+    infoContainer.style.flexGrow = '1';
+    infoContainer.style.minWidth = '0';
+
+    if (pdf.fileType === 'image') {
+      const thumbImg = document.createElement('img');
+      thumbImg.src = pdf.fileUrl;
+      thumbImg.style.width = '48px';
+      thumbImg.style.height = '48px';
+      thumbImg.style.objectFit = 'cover';
+      thumbImg.style.marginRight = '12px';
+      thumbImg.style.borderRadius = '6px';
+      thumbImg.style.flexShrink = '0';
+      infoContainer.appendChild(thumbImg);
+    } else {
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = '📄';
+      iconSpan.style.fontSize = '24px';
+      iconSpan.style.marginRight = '12px';
+      iconSpan.style.flexShrink = '0';
+      infoContainer.appendChild(iconSpan);
+    }
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'archive-item-info';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'archive-item-title';
+    titleDiv.textContent = pdf.fileName;
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'archive-item-meta';
+
+    const genreSpan = document.createElement('span');
+    genreSpan.className = 'archive-item-genre';
+    genreSpan.style.cursor = 'pointer';
+    genreSpan.title = 'クリックしてジャンルを編集';
+    genreSpan.textContent = pdf.genre || '未分類';
+    genreSpan.onclick = async () => {
+      const newGenre = prompt('新しいジャンルを入力してください:', pdf.genre || '');
+      if (newGenre !== null && newGenre.trim() !== pdf.genre) {
+        try {
+          await updateDoc(doc(db, "pdfs", pdf.id), { genre: newGenre.trim() });
+        } catch (error) {
+          console.error("Error updating genre:", error);
+          alert('ジャンルの更新に失敗しました。');
+        }
+      }
+    };
+    metaDiv.appendChild(genreSpan);
+
+    if (pdf.createdAt) {
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'archive-item-date';
+      dateSpan.textContent = new Date(pdf.createdAt.toMillis()).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+      metaDiv.appendChild(dateSpan);
+    }
+
+    infoDiv.appendChild(titleDiv);
+    infoDiv.appendChild(metaDiv);
+    infoContainer.appendChild(infoDiv);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'archive-item-actions';
+    actionsDiv.appendChild(buildViewBtn(pdf));
+    actionsDiv.appendChild(buildShareBtn(pdf));
+    actionsDiv.appendChild(buildDeleteBtn(pdf));
+
+    li.appendChild(infoContainer);
+    li.appendChild(actionsDiv);
+    archiveListContainer.appendChild(li);
   }
+}
 
-  infoDiv.appendChild(titleDiv);
-  infoDiv.appendChild(metaDiv);
-
-  infoContainer.appendChild(infoDiv);
-
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'archive-item-actions';
-
-  // 閲覧ボタン
+// ===== ボタンファクトリ =====
+function buildViewBtn(pdf) {
   const viewBtn = document.createElement('button');
   viewBtn.type = 'button';
   viewBtn.className = 'archive-icon-btn';
@@ -5502,15 +5545,9 @@ function renderArchivePdf(pdf) {
     if (pdfPreviewModalBackdrop) {
       if (pdf.fileType === 'image') {
         if (pdfPreviewFrame) pdfPreviewFrame.style.display = 'none';
-        if (imgElem) {
-          imgElem.src = pdf.fileUrl;
-          imgElem.style.display = 'block';
-        }
+        if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
       } else {
-        if (imgElem) {
-          imgElem.src = '';
-          imgElem.style.display = 'none';
-        }
+        if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
         if (pdfPreviewFrame) {
           pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
           pdfPreviewFrame.style.display = 'block';
@@ -5520,9 +5557,10 @@ function renderArchivePdf(pdf) {
       pdfPreviewModalBackdrop.classList.remove('hidden');
     }
   };
-  actionsDiv.appendChild(viewBtn);
+  return viewBtn;
+}
 
-  // 共有ボタン
+function buildShareBtn(pdf) {
   const shareBtn = document.createElement('button');
   shareBtn.type = 'button';
   shareBtn.className = 'archive-icon-btn';
@@ -5531,30 +5569,19 @@ function renderArchivePdf(pdf) {
   shareBtn.onclick = async (e) => {
     e.preventDefault();
     if (navigator.share) {
-      try {
-        await navigator.share({ title: pdf.fileName, url: pdf.fileUrl });
-      } catch (err) {
-        if (err.name !== 'AbortError') console.error('Share failed:', err);
-      }
+      try { await navigator.share({ title: pdf.fileName, url: pdf.fileUrl }); }
+      catch (err) { if (err.name !== 'AbortError') console.error('Share failed:', err); }
     } else {
       try {
         await navigator.clipboard.writeText(pdf.fileUrl);
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'リンクをコピーしました',
-          showConfirmButton: false,
-          timer: 1500
-        });
-      } catch (err) {
-        console.error('Clipboard write failed:', err);
-      }
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'リンクをコピーしました', showConfirmButton: false, timer: 1500 });
+      } catch (err) { console.error('Clipboard write failed:', err); }
     }
   };
-  actionsDiv.appendChild(shareBtn);
+  return shareBtn;
+}
 
-  // 削除ボタン
+function buildDeleteBtn(pdf) {
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'archive-icon-btn danger-btn';
@@ -5573,13 +5600,107 @@ function renderArchivePdf(pdf) {
       }
     }
   };
-  actionsDiv.appendChild(deleteBtn);
-
-  li.appendChild(infoContainer);
-  li.appendChild(actionsDiv);
-
-  archiveListContainer.appendChild(li);
+  return deleteBtn;
 }
+
+// ===== 最近追加されたファイル =====
+function renderRecentSection() {
+  const section = document.getElementById('archive-recent-section');
+  if (!section) return;
+
+  // createdAt 降順で最大5件
+  const recent = [...archivePdfs]
+    .filter(p => p.createdAt)
+    .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+    .slice(0, 5);
+
+  if (recent.length === 0) {
+    section.innerHTML = '';
+    return;
+  }
+
+  section.innerHTML = '';
+  const heading = document.createElement('p');
+  heading.className = 'archive-recent-heading';
+  heading.textContent = '🕒 最近追加したファイル';
+  section.appendChild(heading);
+
+  const rail = document.createElement('div');
+  rail.className = 'archive-recent-rail';
+
+  recent.forEach(pdf => {
+    const card = document.createElement('div');
+    card.className = 'archive-recent-card';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'archive-recent-thumb';
+    if (pdf.fileType === 'image') {
+      const img = document.createElement('img');
+      img.src = pdf.fileUrl;
+      img.alt = pdf.fileName;
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = '📄';
+      thumb.classList.add('archive-recent-thumb-icon');
+    }
+    card.appendChild(thumb);
+
+    const name = document.createElement('div');
+    name.className = 'archive-recent-name';
+    name.textContent = pdf.fileName;
+    card.appendChild(name);
+
+    // クリックでプレビュー
+    card.onclick = () => {
+      const imgElem = document.getElementById('image-preview-element');
+      if (pdfPreviewModalBackdrop) {
+        if (pdf.fileType === 'image') {
+          if (pdfPreviewFrame) pdfPreviewFrame.style.display = 'none';
+          if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
+        } else {
+          if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
+          if (pdfPreviewFrame) {
+            pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
+            pdfPreviewFrame.style.display = 'block';
+          }
+        }
+        currentPreviewPdfId = pdf.id;
+        pdfPreviewModalBackdrop.classList.remove('hidden');
+      }
+    };
+
+    rail.appendChild(card);
+  });
+
+  section.appendChild(rail);
+}
+
+// ===== グリッド/リスト切り替えイベント =====
+(function initArchiveViewToggle() {
+  const listBtn = document.getElementById('archive-view-list-btn');
+  const gridBtn = document.getElementById('archive-view-grid-btn');
+  if (!listBtn || !gridBtn) return;
+
+  function applyMode(mode) {
+    archiveViewMode = mode;
+    if (mode === 'grid') {
+      archiveListContainer?.classList.add('grid-mode');
+      gridBtn.classList.add('active');
+      listBtn.classList.remove('active');
+    } else {
+      archiveListContainer?.classList.remove('grid-mode');
+      listBtn.classList.add('active');
+      gridBtn.classList.remove('active');
+    }
+    // 再描画
+    if (archiveListContainer) archiveListContainer.innerHTML = '';
+    archivePdfs.forEach(pdf => renderArchivePdf(pdf));
+  }
+
+  listBtn.onclick = () => applyMode('list');
+  gridBtn.onclick = () => applyMode('grid');
+})()
+
 
 function initArchiveDropZone() {
   if (!pdfDropZone) return;
