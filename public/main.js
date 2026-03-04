@@ -2622,6 +2622,53 @@ if (memoContentEditor) {
       convertMarkdownLink();
     }
   });
+
+  // ===== URL ペースト時の自動リンク変換 =====
+  memoContentEditor.addEventListener('paste', (e) => {
+    const text = e.clipboardData.getData('text/plain').trim();
+
+    // URL単体かどうか判定（http:// or https:// で始まりスペースを含まないもの）
+    const isUrl = /^https?:\/\/\S+$/.test(text);
+
+    if (isUrl) {
+      // デフォルトのペーストをキャンセルして <a> タグを挿入
+      e.preventDefault();
+
+      const aElem = document.createElement('a');
+      aElem.href = text;
+      aElem.textContent = text;
+      aElem.target = '_blank';
+      aElem.rel = 'noopener noreferrer';
+      aElem.contentEditable = 'false';
+      aElem.className = 'memo-link';
+
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+
+      const range = selection.getRangeAt(0);
+      // 選択範囲を削除してからリンクを挿入
+      range.deleteContents();
+      range.insertNode(aElem);
+
+      // リンク直後にノーブレークスペースを置いてカーソルを移動
+      const spaceNode = document.createTextNode('\u00A0');
+      aElem.parentNode.insertBefore(spaceNode, aElem.nextSibling);
+
+      const afterRange = document.createRange();
+      afterRange.setStart(spaceNode, 1);
+      afterRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(afterRange);
+
+      // 自動保存トリガー
+      memoContentEditor.dispatchEvent(new Event('input'));
+    } else {
+      // URL以外はプレーンテキストとして貼り付け（書式を剥がす）
+      e.preventDefault();
+      const plain = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, plain);
+    }
+  });
 }
 
 if (insertImageButton && memoImageInput) {
