@@ -5490,10 +5490,13 @@ function renderArchivePdf(pdf) {
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'archive-item-actions';
 
-  const viewLink = document.createElement('a');
-  viewLink.href = '#';
-  viewLink.textContent = '閲覧する';
-  viewLink.onclick = (e) => {
+  // 閲覧ボタン
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'archive-icon-btn';
+  viewBtn.title = '閲覧する';
+  viewBtn.textContent = '🔍';
+  viewBtn.onclick = (e) => {
     e.preventDefault();
     const imgElem = document.getElementById('image-preview-element');
     if (pdfPreviewModalBackdrop) {
@@ -5517,13 +5520,46 @@ function renderArchivePdf(pdf) {
       pdfPreviewModalBackdrop.classList.remove('hidden');
     }
   };
-  actionsDiv.appendChild(viewLink);
+  actionsDiv.appendChild(viewBtn);
 
-  const deleteBtn = document.createElement('a');
-  deleteBtn.href = '#';
-  deleteBtn.style.marginLeft = '8px';
-  deleteBtn.style.backgroundColor = 'var(--danger-color)';
-  deleteBtn.textContent = '削除';
+  // 共有ボタン
+  const shareBtn = document.createElement('button');
+  shareBtn.type = 'button';
+  shareBtn.className = 'archive-icon-btn';
+  shareBtn.title = '共有する';
+  shareBtn.textContent = '⬆️';
+  shareBtn.onclick = async (e) => {
+    e.preventDefault();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: pdf.fileName, url: pdf.fileUrl });
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('Share failed:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(pdf.fileUrl);
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'リンクをコピーしました',
+          showConfirmButton: false,
+          timer: 1500
+        });
+      } catch (err) {
+        console.error('Clipboard write failed:', err);
+      }
+    }
+  };
+  actionsDiv.appendChild(shareBtn);
+
+  // 削除ボタン
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'archive-icon-btn danger-btn';
+  deleteBtn.title = '削除する';
+  deleteBtn.textContent = '🗑️';
   deleteBtn.onclick = async (e) => {
     e.preventDefault();
     if (confirm(`本当に「${pdf.fileName}」を削除しますか？`)) {
