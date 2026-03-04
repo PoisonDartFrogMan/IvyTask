@@ -3279,11 +3279,15 @@ span.required {
 #archive-workspace {
   max-width: 900px;
   margin: 0 auto;
-  padding: 30px;
+  padding: 20px 30px;
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   min-height: calc(100vh - 40px);
+}
+
+.archive-upload-section {
+  margin-bottom: 12px !important;
 }
 
 /* Secret Diary Mode */
@@ -3359,12 +3363,18 @@ body.diary-mode .secondary:hover {
   border: 2px dashed var(--primary-color);
   background-color: rgba(255, 255, 255, 0.5);
   border-radius: 8px;
-  padding: 40px 20px;
+  padding: 14px 20px;
   text-align: center;
   color: var(--text-secondary);
   transition: all 0.2s ease;
   cursor: pointer;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.pdf-drop-zone p {
+  margin: 0;
+  line-height: 1.4;
 }
 
 .pdf-drop-zone:hover,
@@ -3372,6 +3382,19 @@ body.diary-mode .secondary:hover {
   background-color: rgba(0, 150, 136, 0.1);
   border-color: #00796B;
   color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  #archive-workspace {
+    padding: 12px 14px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .pdf-drop-zone {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
 }
 
 .archive-list-container {
