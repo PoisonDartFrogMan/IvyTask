@@ -225,7 +225,7 @@ const archiveListContainer = document.getElementById('archive-list-container');
 const pdfPreviewModalBackdrop = document.getElementById('pdf-preview-modal-backdrop');
 const closePreviewButton = document.getElementById('close-preview-button');
 // ====== DOM Elements ======
-const pdfPreviewFrame = document.getElementById('pdf-preview-frame');
+const pdfCanvasContainer = document.getElementById('pdf-canvas-container');
 
 const archiveIcon = document.getElementById('archive-icon');
 const archiveSecretCaption = document.getElementById('archive-secret-caption');
@@ -2807,15 +2807,9 @@ if (archiveBackStartupButton) {
 if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
     if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
-    if (pdfPreviewFrame) {
-      pdfPreviewFrame.src = '';
-      pdfPreviewFrame.style.display = 'none';
-    }
+    if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
     const imgElem = document.getElementById('image-preview-element');
-    if (imgElem) {
-      imgElem.src = '';
-      imgElem.style.display = 'none';
-    }
+    if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
     currentPreviewPdfId = null;
   });
 }
@@ -2823,15 +2817,9 @@ if (pdfPreviewModalBackdrop) {
   pdfPreviewModalBackdrop.addEventListener('click', (e) => {
     if (e.target === pdfPreviewModalBackdrop) {
       pdfPreviewModalBackdrop.classList.add('hidden');
-      if (pdfPreviewFrame) {
-        pdfPreviewFrame.src = '';
-        pdfPreviewFrame.style.display = 'none';
-      }
+      if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
       const imgElem = document.getElementById('image-preview-element');
-      if (imgElem) {
-        imgElem.src = '';
-        imgElem.style.display = 'none';
-      }
+      if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
       currentPreviewPdfId = null;
     }
   });
@@ -5599,6 +5587,51 @@ function renderArchivePdf(pdf) {
   }
 }
 
+// ===== PDF.js によるプレビュー関数 =====
+async function openPdfPreview(url) {
+  if (!pdfCanvasContainer) return;
+  pdfCanvasContainer.innerHTML = '<p style="color:#ccc;text-align:center;padding:20px;">読み込み中...</p>';
+
+  try {
+    // PDF.js をESモジュールとして動的インポート
+    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+
+    const loadingTask = pdfjsLib.getDocument(url);
+    const pdfDoc = await loadingTask.promise;
+    pdfCanvasContainer.innerHTML = '';
+
+    const dpr = window.devicePixelRatio || 1;
+    // コンテナ幅に合わせたスケールを計算（最大幅基準）
+    const containerWidth = pdfCanvasContainer.clientWidth || window.innerWidth;
+
+    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1 });
+      // コンテナ幅いっぱいになるスケールを算出
+      const scale = (containerWidth / viewport.width) * dpr;
+      const scaledViewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page-canvas';
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      // CSS上の表示サイズはコンテナ幅に合わせる
+      canvas.style.width = containerWidth + 'px';
+      canvas.style.height = (scaledViewport.height / dpr) + 'px';
+
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+      pdfCanvasContainer.appendChild(canvas);
+    }
+  } catch (err) {
+    console.error('PDF.js render error:', err);
+    pdfCanvasContainer.innerHTML =
+      '<p style="color:#f87171;text-align:center;padding:20px;">PDFの読み込みに失敗しました。<br>' + err.message + '</p>';
+  }
+}
+
 // ===== ボタンファクトリ =====
 function buildViewBtn(pdf) {
   const viewBtn = document.createElement('button');
@@ -5611,14 +5644,11 @@ function buildViewBtn(pdf) {
     const imgElem = document.getElementById('image-preview-element');
     if (pdfPreviewModalBackdrop) {
       if (pdf.fileType === 'image') {
-        if (pdfPreviewFrame) pdfPreviewFrame.style.display = 'none';
+        if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
         if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
       } else {
         if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
-        if (pdfPreviewFrame) {
-          pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
-          pdfPreviewFrame.style.display = 'block';
-        }
+        openPdfPreview(pdf.fileUrl);
       }
       currentPreviewPdfId = pdf.id;
       pdfPreviewModalBackdrop.classList.remove('hidden');
@@ -5722,14 +5752,11 @@ function renderRecentSection() {
       const imgElem = document.getElementById('image-preview-element');
       if (pdfPreviewModalBackdrop) {
         if (pdf.fileType === 'image') {
-          if (pdfPreviewFrame) pdfPreviewFrame.style.display = 'none';
+          if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
           if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
         } else {
           if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
-          if (pdfPreviewFrame) {
-            pdfPreviewFrame.src = pdf.fileUrl + "#toolbar=0&navpanes=0";
-            pdfPreviewFrame.style.display = 'block';
-          }
+          openPdfPreview(pdf.fileUrl);
         }
         currentPreviewPdfId = pdf.id;
         pdfPreviewModalBackdrop.classList.remove('hidden');
