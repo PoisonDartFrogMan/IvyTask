@@ -558,9 +558,17 @@
         </div>
         <div class="pdf-modal-content">
           <div id="pdf-canvas-container"></div>
-          <img id="image-preview-element"
-            style="display: none; max-width: 90vw; max-height: 80vh; object-fit: contain; margin: auto; border-radius: 4px;"
-            alt="Preview" />
+          <div id="image-preview-wrapper"
+            style="display: none; position: relative; max-width: 90vw; max-height: 80vh; margin: auto; cursor: pointer;"
+            title="クリックでコメントを表示/非表示">
+            <img id="image-preview-element"
+              style="display: block; width: 100%; height: 100%; max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 4px;"
+              alt="Preview" />
+            <div id="image-preview-caption" class="image-preview-caption hidden-caption">
+              <span id="image-preview-caption-text"></span>
+            </div>
+            <div id="image-preview-tap-hint" class="hidden-caption">💬 タップでコメント表示</div>
+          </div>
         </div>
       </div>
     </div>

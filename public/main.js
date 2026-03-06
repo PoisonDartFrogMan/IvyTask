@@ -226,6 +226,59 @@ const pdfPreviewModalBackdrop = document.getElementById('pdf-preview-modal-backd
 const closePreviewButton = document.getElementById('close-preview-button');
 // ====== DOM Elements ======
 const pdfCanvasContainer = document.getElementById('pdf-canvas-container');
+const imagePreviewWrapper = document.getElementById('image-preview-wrapper');
+const imagePreviewCaption = document.getElementById('image-preview-caption');
+const imagePreviewCaptionText = document.getElementById('image-preview-caption-text');
+const imagePreviewTapHint = document.getElementById('image-preview-tap-hint');
+
+// ===== 画像プレビューを開く共通ユーティリティ =====
+function openImagePreview(pdf) {
+  if (!pdfPreviewModalBackdrop) return;
+  if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = 'none'; }
+
+  const captionText = pdf.caption || '';
+
+  if (imagePreviewWrapper) {
+    imagePreviewWrapper.style.display = 'block';
+  }
+  const imgElem = document.getElementById('image-preview-element');
+  if (imgElem) imgElem.src = pdf.fileUrl;
+
+  // キャプション初期化（常に非表示スタートでトグル待ち）
+  if (imagePreviewCaptionText) imagePreviewCaptionText.textContent = captionText || '（コメントなし）';
+  if (imagePreviewCaption) {
+    imagePreviewCaption.classList.toggle('no-comment', !captionText);
+    imagePreviewCaption.classList.add('hidden-caption');
+  }
+  // タップヒントの表示（コメントの有無に関わらず表示）
+  if (imagePreviewTapHint) imagePreviewTapHint.classList.remove('hidden-caption');
+
+  currentPreviewPdfId = pdf.id;
+  pdfPreviewModalBackdrop.classList.remove('hidden');
+}
+
+// ===== 画像プレビューを閉じる共通ユーティリティ =====
+function closeImagePreview() {
+  if (imagePreviewWrapper) imagePreviewWrapper.style.display = 'none';
+  const imgElem = document.getElementById('image-preview-element');
+  if (imgElem) imgElem.src = '';
+  if (imagePreviewCaption) imagePreviewCaption.classList.add('hidden-caption');
+  if (imagePreviewTapHint) imagePreviewTapHint.classList.add('hidden-caption');
+}
+
+// ===== 画像ラッパーのクリックでコメントトグル =====
+if (imagePreviewWrapper) {
+  imagePreviewWrapper.addEventListener('click', () => {
+    if (!imagePreviewCaption) return;
+    imagePreviewCaption.classList.toggle('hidden-caption');
+    // タップヒントはコメント表示中は隠す
+    if (imagePreviewTapHint) {
+      const captionVisible = !imagePreviewCaption.classList.contains('hidden-caption');
+      imagePreviewTapHint.classList.toggle('hidden-caption', captionVisible);
+    }
+  });
+}
+
 
 const archiveIcon = document.getElementById('archive-icon');
 const archiveSecretCaption = document.getElementById('archive-secret-caption');
@@ -2808,8 +2861,7 @@ if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
     if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
     if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
-    const imgElem = document.getElementById('image-preview-element');
-    if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
+    closeImagePreview();
     currentPreviewPdfId = null;
   });
 }
@@ -2818,8 +2870,7 @@ if (pdfPreviewModalBackdrop) {
     if (e.target === pdfPreviewModalBackdrop) {
       pdfPreviewModalBackdrop.classList.add('hidden');
       if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
-      const imgElem = document.getElementById('image-preview-element');
-      if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
+      closeImagePreview();
       currentPreviewPdfId = null;
     }
   });
@@ -5641,18 +5692,14 @@ function buildViewBtn(pdf) {
   viewBtn.textContent = '🔍';
   viewBtn.onclick = (e) => {
     e.preventDefault();
-    const imgElem = document.getElementById('image-preview-element');
-    if (pdfPreviewModalBackdrop) {
-      if (pdf.fileType === 'image') {
-        if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = 'none'; }
-        if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
-      } else {
-        if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
-        if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
-        openPdfPreview(pdf.fileUrl);
-      }
+    if (pdf.fileType === 'image') {
+      openImagePreview(pdf);
+    } else {
+      if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
+      if (imagePreviewWrapper) imagePreviewWrapper.style.display = 'none';
       currentPreviewPdfId = pdf.id;
-      pdfPreviewModalBackdrop.classList.remove('hidden');
+      if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.remove('hidden');
+      openPdfPreview(pdf.fileUrl);
     }
   };
   return viewBtn;
@@ -5750,18 +5797,14 @@ function renderRecentSection() {
 
     // クリックでプレビュー
     card.onclick = () => {
-      const imgElem = document.getElementById('image-preview-element');
-      if (pdfPreviewModalBackdrop) {
-        if (pdf.fileType === 'image') {
-          if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = 'none'; }
-          if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
-        } else {
-          if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
-          if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
-          openPdfPreview(pdf.fileUrl);
-        }
+      if (pdf.fileType === 'image') {
+        openImagePreview(pdf);
+      } else {
+        if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
+        if (imagePreviewWrapper) imagePreviewWrapper.style.display = 'none';
         currentPreviewPdfId = pdf.id;
-        pdfPreviewModalBackdrop.classList.remove('hidden');
+        if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.remove('hidden');
+        openPdfPreview(pdf.fileUrl);
       }
     };
 
