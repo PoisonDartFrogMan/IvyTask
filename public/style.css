@@ -3453,16 +3453,17 @@ body.diary-mode .secondary:hover {
 
 .archive-list-container li {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-left: 4px solid var(--primary-color);
   border-radius: 6px;
-  padding: 12px 16px;
+  padding: 0;
   margin-bottom: 0;
   /* Override generic li margin */
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
 }
 
 /* ===== Grid mode ===== */
@@ -3940,7 +3941,129 @@ body.diary-mode .secondary:hover {
   text-align: center;
 }
 
+/* ===== Archive: コメント入力UI ===== */
+.archive-caption-toggle-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background-color: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.archive-caption-toggle-btn:hover {
+  background-color: rgba(100, 116, 139, 0.24);
+  transform: translateY(-1px);
+}
+
+.archive-caption-toggle-btn.has-comment {
+  background-color: rgba(0, 150, 136, 0.12);
+  color: var(--primary-color);
+}
+
+.archive-caption-toggle-btn.has-comment:hover {
+  background-color: rgba(0, 150, 136, 0.22);
+}
+
+.archive-item-caption-row {
+  width: 100%;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border-color);
+  background-color: rgba(248, 250, 252, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 開閉アニメーション */
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.25s ease, padding 0.2s ease;
+}
+
+.archive-item-caption-row.collapsed {
+  max-height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-top: none;
+}
+
+.archive-caption-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.archive-caption-textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background-color: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+  line-height: 1.6;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.archive-caption-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 150, 136, 0.12);
+}
+
+.archive-caption-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.archive-caption-save-btn {
+  padding: 6px 18px;
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.1s ease;
+}
+
+.archive-caption-save-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.archive-caption-save-btn:active {
+  transform: translateY(0);
+}
+
+.archive-list-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* ===== Memo: Markdown Link Styles ===== */
+
 .memo-link {
   color: #0d6efd;
   text-decoration: underline;

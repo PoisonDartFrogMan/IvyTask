@@ -5562,6 +5562,10 @@ function renderArchivePdf(pdf) {
     // ===== リストモード =====
     const li = document.createElement('li');
 
+    // ─── メイン行 ───────────────────────────────────────
+    const mainRow = document.createElement('div');
+    mainRow.className = 'archive-list-item-main';
+
     const infoContainer = document.createElement('div');
     infoContainer.style.display = 'flex';
     infoContainer.style.alignItems = 'center';
@@ -5626,14 +5630,85 @@ function renderArchivePdf(pdf) {
     infoDiv.appendChild(metaDiv);
     infoContainer.appendChild(infoDiv);
 
+    // ─── アクションボタン ────────────────────────────────
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'archive-item-actions';
     actionsDiv.appendChild(buildViewBtn(pdf));
     actionsDiv.appendChild(buildShareBtn(pdf));
+
+    // 💬 コメントトグルボタン
+    const captionToggleBtn = document.createElement('button');
+    captionToggleBtn.type = 'button';
+    captionToggleBtn.className = 'archive-caption-toggle-btn' + (pdf.caption ? ' has-comment' : '');
+    captionToggleBtn.title = 'コメントを編集';
+    captionToggleBtn.textContent = '💬';
+
+    actionsDiv.appendChild(captionToggleBtn);
     actionsDiv.appendChild(buildDeleteBtn(pdf));
 
-    li.appendChild(infoContainer);
-    li.appendChild(actionsDiv);
+    mainRow.appendChild(infoContainer);
+    mainRow.appendChild(actionsDiv);
+    li.appendChild(mainRow);
+
+    // ─── コメント入力行 ──────────────────────────────────
+    const captionRow = document.createElement('div');
+    captionRow.className = 'archive-item-caption-row collapsed';
+    // 展開アニメーション用に最大高さを設定
+    captionRow.style.maxHeight = '200px';
+
+    const captionLabel = document.createElement('div');
+    captionLabel.className = 'archive-caption-label';
+    captionLabel.innerHTML = '💬 コメント';
+
+    const captionTextarea = document.createElement('textarea');
+    captionTextarea.className = 'archive-caption-textarea';
+    captionTextarea.placeholder = 'このファイルへのコメントやメモを入力...';
+    captionTextarea.value = pdf.caption || '';
+
+    const captionActionsRow = document.createElement('div');
+    captionActionsRow.className = 'archive-caption-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'archive-caption-save-btn';
+    saveBtn.textContent = '保存';
+    saveBtn.onclick = async () => {
+      const newCaption = captionTextarea.value.trim();
+      try {
+        await updateDoc(doc(db, 'pdfs', pdf.id), { caption: newCaption });
+        // トグルボタンの has-comment クラスを更新
+        if (newCaption) {
+          captionToggleBtn.classList.add('has-comment');
+        } else {
+          captionToggleBtn.classList.remove('has-comment');
+        }
+        Swal.fire({
+          toast: true, position: 'top-end', icon: 'success',
+          title: 'コメントを保存しました', showConfirmButton: false, timer: 1800
+        });
+        // 保存後に折りたたむ
+        captionRow.classList.add('collapsed');
+      } catch (err) {
+        console.error('Caption save error:', err);
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: '保存に失敗しました', showConfirmButton: false, timer: 2000 });
+      }
+    };
+
+    captionActionsRow.appendChild(saveBtn);
+    captionRow.appendChild(captionLabel);
+    captionRow.appendChild(captionTextarea);
+    captionRow.appendChild(captionActionsRow);
+    li.appendChild(captionRow);
+
+    // トグルボタンのクリックで開閉
+    captionToggleBtn.onclick = () => {
+      const isCollapsed = captionRow.classList.contains('collapsed');
+      captionRow.classList.toggle('collapsed');
+      if (isCollapsed) {
+        captionTextarea.focus();
+      }
+    };
+
     archiveListContainer.appendChild(li);
   }
 }
