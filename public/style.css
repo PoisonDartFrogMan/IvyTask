@@ -3412,43 +3412,53 @@ body.diary-mode .secondary:hover {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
+  white-space: nowrap;
   gap: 8px;
   margin-bottom: 15px;
   margin-top: 10px;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
+  padding-left: 2px;
+  padding-right: 2px;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary-color) transparent;
+  /* スクロールバーを非表示 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .archive-filter-container::-webkit-scrollbar {
-  height: 4px;
-}
-
-.archive-filter-container::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 150, 136, 0.4);
-  border-radius: 4px;
+  display: none;
 }
 
 .archive-filter-btn {
-  background-color: transparent;
-  border: 1px solid var(--primary-color);
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(0, 150, 136, 0.45);
   color: var(--primary-color);
   border-radius: 20px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  padding: 6px 16px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.1s ease;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .archive-filter-btn:hover {
-  background-color: rgba(0, 150, 136, 0.1);
+  background-color: rgba(0, 150, 136, 0.08);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(0, 150, 136, 0.15);
+  transform: translateY(-1px);
 }
 
 .archive-filter-btn.active {
   background-color: var(--primary-color);
+  border-color: var(--primary-color);
   color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 150, 136, 0.35);
+  transform: translateY(-1px);
 }
 
 .archive-list-container li {
