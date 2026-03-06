@@ -2807,7 +2807,7 @@ if (archiveBackStartupButton) {
 if (closePreviewButton) {
   closePreviewButton.addEventListener('click', () => {
     if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
-    if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
+    if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
     const imgElem = document.getElementById('image-preview-element');
     if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
     currentPreviewPdfId = null;
@@ -2817,7 +2817,7 @@ if (pdfPreviewModalBackdrop) {
   pdfPreviewModalBackdrop.addEventListener('click', (e) => {
     if (e.target === pdfPreviewModalBackdrop) {
       pdfPreviewModalBackdrop.classList.add('hidden');
-      if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
+      if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
       const imgElem = document.getElementById('image-preview-element');
       if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
       currentPreviewPdfId = null;
@@ -5644,9 +5644,10 @@ function buildViewBtn(pdf) {
     const imgElem = document.getElementById('image-preview-element');
     if (pdfPreviewModalBackdrop) {
       if (pdf.fileType === 'image') {
-        if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
+        if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = 'none'; }
         if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
       } else {
+        if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
         if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
         openPdfPreview(pdf.fileUrl);
       }
@@ -5752,9 +5753,10 @@ function renderRecentSection() {
       const imgElem = document.getElementById('image-preview-element');
       if (pdfPreviewModalBackdrop) {
         if (pdf.fileType === 'image') {
-          if (pdfCanvasContainer) pdfCanvasContainer.innerHTML = '';
+          if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = 'none'; }
           if (imgElem) { imgElem.src = pdf.fileUrl; imgElem.style.display = 'block'; }
         } else {
+          if (pdfCanvasContainer) pdfCanvasContainer.style.display = '';
           if (imgElem) { imgElem.src = ''; imgElem.style.display = 'none'; }
           openPdfPreview(pdf.fileUrl);
         }

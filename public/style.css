@@ -3779,6 +3779,8 @@ body.diary-mode .secondary:hover {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  justify-content: center;
+  align-items: center;
 }
 
 @media (max-width: 768px) {
