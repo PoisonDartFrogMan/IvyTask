@@ -220,6 +220,7 @@ const archiveWorkspace = document.getElementById('archive-workspace');
 const startArchiveButton = document.getElementById('start-archive-button');
 const archiveBackStartupButton = document.getElementById('archive-back-startup-button');
 const archiveGenreInput = document.getElementById('archive-genre-input');
+const archiveGenreDropdown = document.getElementById('archive-genre-dropdown');
 const pdfDropZone = document.getElementById('pdf-drop-zone');
 const archiveListContainer = document.getElementById('archive-list-container');
 const pdfPreviewModalBackdrop = document.getElementById('pdf-preview-modal-backdrop');
@@ -5513,16 +5514,96 @@ function renderArchiveFilters() {
     archiveFilterContainer.appendChild(btn);
   });
 
-  const datalist = document.getElementById('archive-genre-list');
-  if (datalist) {
-    datalist.innerHTML = '';
-    sortedGenres.forEach(genre => {
-      const option = document.createElement('option');
-      option.value = genre;
-      datalist.appendChild(option);
-    });
-  }
+  // カスタムドロップダウンへジャンル一覧を同期する
+  updateGenreDropdown(sortedGenres);
 }
+
+// ===== ジャンルドロップダウン管理 =====
+// 現在のジャンル一覧を保持する（フィルタリング用）
+let _allGenres = [];
+
+function updateGenreDropdown(genres) {
+  _allGenres = genres;
+  renderGenreDropdownItems(genres);
+}
+
+function renderGenreDropdownItems(genres) {
+  if (!archiveGenreDropdown) return;
+  archiveGenreDropdown.innerHTML = '';
+
+  if (genres.length === 0) {
+    const emptyLi = document.createElement('li');
+    const emptyBtn = document.createElement('button');
+    emptyBtn.type = 'button';
+    emptyBtn.textContent = '（登録済みジャンルなし）';
+    emptyBtn.style.color = 'var(--text-secondary)';
+    emptyBtn.style.fontStyle = 'italic';
+    emptyBtn.disabled = true;
+    emptyLi.appendChild(emptyBtn);
+    archiveGenreDropdown.appendChild(emptyLi);
+    return;
+  }
+
+  genres.forEach(genre => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = genre;
+    btn.addEventListener('mousedown', (e) => {
+      // blur より先に値をセットするため mousedown を使う
+      e.preventDefault();
+      if (archiveGenreInput) archiveGenreInput.value = genre;
+      closeGenreDropdown();
+    });
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (archiveGenreInput) archiveGenreInput.value = genre;
+      closeGenreDropdown();
+    });
+    li.appendChild(btn);
+    archiveGenreDropdown.appendChild(li);
+  });
+}
+
+function openGenreDropdown() {
+  if (!archiveGenreDropdown) return;
+  // 入力値でフィルタリング
+  const q = (archiveGenreInput?.value || '').trim().toLowerCase();
+  const filtered = q
+    ? _allGenres.filter(g => g.toLowerCase().includes(q))
+    : _allGenres;
+  renderGenreDropdownItems(filtered);
+  archiveGenreDropdown.classList.remove('hidden');
+}
+
+function closeGenreDropdown() {
+  if (archiveGenreDropdown) archiveGenreDropdown.classList.add('hidden');
+}
+
+// イベントリスナーを初期化（一度だけ登録）
+(function initGenreDropdownEvents() {
+  if (!archiveGenreInput) return;
+
+  // フォーカス・クリックで開く（スマホ・PC共通）
+  archiveGenreInput.addEventListener('focus', openGenreDropdown);
+  archiveGenreInput.addEventListener('click', openGenreDropdown);
+
+  // 入力中にリアルタイムフィルタリング
+  archiveGenreInput.addEventListener('input', openGenreDropdown);
+
+  // フォーカスアウトで閉じる（mousedown の後に発火するため遅延不要）
+  archiveGenreInput.addEventListener('blur', () => {
+    // 少し遅延してタップ選択と競合しないようにする
+    setTimeout(closeGenreDropdown, 150);
+  });
+
+  // ドロップダウン外クリックで閉じる
+  document.addEventListener('click', (e) => {
+    if (!archiveGenreInput.contains(e.target) && !archiveGenreDropdown?.contains(e.target)) {
+      closeGenreDropdown();
+    }
+  }, { passive: true });
+})();
 
 function renderArchivePdf(pdf) {
   if (!archiveListContainer) return;
