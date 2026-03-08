@@ -61,6 +61,13 @@ service cloud.firestore {
       allow list: if request.auth != null;
     }
 
+    // recurring_tasks
+    match /recurring_tasks/{taskId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow list: if request.auth != null;
+    }
+
     // pdfs
     match /pdfs/{pdfId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
