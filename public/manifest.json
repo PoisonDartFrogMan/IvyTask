@@ -1,6 +1,6 @@
 {
-  "name": "Ivy アプリ",
-  "short_name": "Ivy",
+  "name": "CoralDesk",
+  "short_name": "CoralDesk",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
