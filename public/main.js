@@ -754,7 +754,9 @@ async function enterChatWorkspace() {
   }
 
   if (lastKnownAuthUser) {
-    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    if (!currentUserId && lastKnownAuthUser?.uid) currentUserId = lastKnownAuthUser.uid;
+    if (!currentUserId) return; // double check
+
     await loadUserSettings(currentUserId);
     
     // Unsubscribe from previous chat rooms if any
@@ -792,12 +794,15 @@ onAuthStateChanged(auth, async (user) => {
     enterDatabaseWorkspace();
   } else if (workspaceSelection === 'archive') {
     enterArchiveWorkspace();
+  } else if (workspaceSelection === 'chat') {
+    enterChatWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
 });
 
 async function handleSignedIn(user) {
+  if (!user || !user.uid) return;
   currentUserId = user.uid;
   authContainer.style.display = 'none';
   mainContainer.style.display = 'block';
@@ -6321,6 +6326,11 @@ function listenChatRooms() {
 }
 
 async function createChatRoom() {
+  if (!currentUserId || !lastKnownAuthUser) {
+    alert('ログインが必要です。');
+    return;
+  }
+
   const { value: roomName } = await Swal.fire({
     title: '新規ルーム作成',
     input: 'text',
@@ -6410,7 +6420,10 @@ function appendChatMessage(msg) {
 }
 
 async function sendChatMessage(text) {
-  if (!text.trim() || !currentChatRoomId || !currentUserId) return;
+  if (!text.trim() || !currentChatRoomId || !currentUserId || !lastKnownAuthUser) {
+    console.error("Missing required chat message params.");
+    return;
+  }
   if (chatMessageInput) chatMessageInput.value = '';
   
   const userEmail = lastKnownAuthUser?.email || 'User';
