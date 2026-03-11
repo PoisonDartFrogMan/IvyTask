@@ -199,6 +199,7 @@ const startVaultButton = document.getElementById('start-vault-button');
 const vaultBackButton = document.getElementById('vault-back-startup-button');
 const vaultLockButton = document.getElementById('vault-lock-button'); // New
 const vaultAddButton = document.getElementById('vault-add-button');
+const vaultImportShareBtn = document.getElementById('vault-import-share-btn');
 const vaultSearchInput = document.getElementById('vault-search-input');
 const vaultListEl = document.getElementById('vault-list');
 const vaultModalBackdrop = document.getElementById('vault-modal-backdrop');
@@ -4105,11 +4106,17 @@ async function renderVaultList() {
     editBtn.className = 'vault-edit-btn';
     editBtn.textContent = '編集';
     editBtn.addEventListener('click', () => openVaultModal(v.id));
+
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'vault-share-btn';
+    shareBtn.textContent = '共有';
+    shareBtn.addEventListener('click', () => shareVaultItem(v));
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'vault-delete-btn';
     deleteBtn.textContent = '削除';
     deleteBtn.addEventListener('click', () => deleteVault(v.id, v.title));
-    actions.append(editBtn, deleteBtn);
+    actions.append(editBtn, shareBtn, deleteBtn);
     header.appendChild(actions);
     li.appendChild(header);
 
@@ -4295,6 +4302,109 @@ async function deleteVault(id, title) {
   }
 }
 
+function generateShareKey() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let key = '';
+  for (let i = 0; i < 6; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
+
+async function shareVaultItem(v) {
+  if (!confirm(`「${v.title || '(無題)'}」を共有しますか？\n共有用のワンタイムキーを発行します。`)) return;
+
+  const shareKey = generateShareKey();
+
+  const shareData = {
+    title: v.title,
+    category: v.category || '',
+    url: v.url || '',
+    loginId: v.loginId || '',
+    password: v.password || '', // そのまま転送
+    memo: v.memo || '',
+    createdAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, 'shared_vault_items', shareKey), shareData);
+    
+    Swal.fire({
+      title: '🔑 共有キー発行',
+      html: `
+        <p>以下のキーを受信者に伝えてください（1回使い切り）。</p>
+        <div style="font-size: 2rem; font-family: monospace; font-weight: bold; margin: 20px 0; letter-spacing: 4px; color: #7c4dff;">
+          ${shareKey}
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'コピーして閉じる',
+      cancelButtonText: '閉じる',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigator.clipboard.writeText(shareKey).then(() => {
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'キーをコピーしました', showConfirmButton: false, timer: 1500 });
+        });
+      }
+    });
+
+  } catch (err) {
+    console.error('Vault share error:', err);
+    alert('共有キーの発行に失敗しました。');
+  }
+}
+
+async function importSharedVaultItem() {
+  const { value: shareKey } = await Swal.fire({
+    title: '共有キーを入力',
+    input: 'text',
+    inputLabel: '送信者から受け取った6桁のキー',
+    inputPlaceholder: 'XXXXXX',
+    showCancelButton: true,
+    confirmButtonText: 'インポート',
+    cancelButtonText: 'キャンセル',
+    inputValidator: (value) => {
+      if (!value) {
+        return 'キーを入力してください！';
+      }
+    }
+  });
+
+  if (!shareKey) return;
+  const normalizedKey = shareKey.trim().toUpperCase();
+
+  try {
+    const docRef = doc(db, 'shared_vault_items', normalizedKey);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      
+      const newData = {
+        userId: currentUserId,
+        title: data.title,
+        category: data.category || '',
+        url: data.url || '',
+        loginId: data.loginId || '',
+        password: data.password || '',
+        memo: data.memo || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'vaults'), newData);
+      await deleteDoc(docRef);
+
+      Swal.fire('インポート完了', 'データを追加しました。', 'success');
+    } else {
+      Swal.fire('エラー', '無効なキー、または既に使用されています。', 'error');
+    }
+  } catch (err) {
+    console.error('Vault import error:', err);
+    Swal.fire('エラー', 'インポート時にエラーが発生しました。', 'error');
+  }
+}
+
 function vaultCopyToClipboard(text, btnEl) {
   navigator.clipboard.writeText(text).then(() => {
     const original = btnEl.textContent;
@@ -4339,6 +4449,10 @@ if (vaultBackButton) {
 
 if (vaultAddButton) {
   vaultAddButton.addEventListener('click', () => openVaultModal());
+}
+
+if (vaultImportShareBtn) {
+  vaultImportShareBtn.addEventListener('click', () => importSharedVaultItem());
 }
 
 if (vaultForm) {

@@ -2667,6 +2667,17 @@ body.sleeping #happy-hacking-sticker {
   color: #fff;
 }
 
+.vault-share-btn {
+  background: transparent;
+  color: #00bcd4;
+  border: 1px solid #00bcd4;
+}
+
+.vault-share-btn:hover {
+  background: #00bcd4;
+  color: #fff;
+}
+
 .vault-item-fields {
   display: flex;
   flex-direction: column;
