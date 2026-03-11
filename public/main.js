@@ -216,6 +216,21 @@ const vaultLockScreen = document.getElementById('vault-lock-screen'); // New
 const vaultMasterPasswordInput = document.getElementById('vault-master-password-input'); // New
 const vaultUnlockButton = document.getElementById('vault-unlock-button'); // New
 
+// Chat Workspace Elements
+const startChatButton = document.getElementById('start-chat-button');
+const chatContainer = document.getElementById('chat-container');
+const chatBackStartupButton = document.getElementById('chat-back-startup-button');
+const chatCreateRoomBtn = document.getElementById('chat-create-room-btn');
+const chatRoomList = document.getElementById('chat-room-list');
+const chatCurrentRoomName = document.getElementById('chat-current-room-name');
+const chatMessages = document.getElementById('chat-messages');
+const chatInputForm = document.getElementById('chat-input-form');
+const chatMessageInput = document.getElementById('chat-message-input');
+
+let currentChatRoomId = null;
+let chatRoomsUnsubscribe = null;
+let chatMessagesUnsubscribe = null;
+
 // Archive Workspace Elements
 const archiveWorkspace = document.getElementById('archive-workspace');
 const startArchiveButton = document.getElementById('start-archive-button');
@@ -610,10 +625,10 @@ function showStartupScreen(showTodoMessage = false) {
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
-  if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.style.display = 'none';
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -714,6 +729,49 @@ async function enterArchiveWorkspace() {
     if (archiveSecretCaption) archiveSecretCaption.style.display = 'none';
     if (startDiarySlideshowButton) startDiarySlideshowButton.style.display = 'none';
     subscribeArchive(currentUserId);
+  } else {
+    handleSignedOut(true);
+  }
+}
+
+async function enterChatWorkspace() {
+  workspaceSelection = 'chat';
+  localStorage.setItem('ivy_workspace_selection', 'chat');
+  document.body.dataset.workspace = 'chat';
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (authContainer) authContainer.style.display = 'none';
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  
+  if (chatContainer) {
+    chatContainer.style.display = 'flex';
+  }
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    await loadUserSettings(currentUserId);
+    
+    // Unsubscribe from previous chat rooms if any
+    if (chatRoomsUnsubscribe) {
+      chatRoomsUnsubscribe();
+      chatRoomsUnsubscribe = null;
+    }
+    if (chatMessagesUnsubscribe) {
+      chatMessagesUnsubscribe();
+      chatMessagesUnsubscribe = null;
+    }
+    currentChatRoomId = null;
+    if (chatCurrentRoomName) chatCurrentRoomName.textContent = 'ルームを選択してください';
+    if (chatMessages) chatMessages.innerHTML = '';
+    if (chatInputForm) chatInputForm.classList.add('hidden');
+    
+    listenChatRooms();
   } else {
     handleSignedOut(true);
   }
@@ -2857,6 +2915,33 @@ if (startArchiveButton) {
 }
 if (archiveBackStartupButton) {
   archiveBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
+}
+if (startChatButton) {
+  startChatButton.addEventListener('click', () => { enterChatWorkspace(); });
+}
+if (chatBackStartupButton) {
+  chatBackStartupButton.addEventListener('click', () => { 
+    if (chatRoomsUnsubscribe) {
+      chatRoomsUnsubscribe();
+      chatRoomsUnsubscribe = null;
+    }
+    if (chatMessagesUnsubscribe) {
+      chatMessagesUnsubscribe();
+      chatMessagesUnsubscribe = null;
+    }
+    showStartupScreen(); 
+  });
+}
+if (chatCreateRoomBtn) {
+  chatCreateRoomBtn.addEventListener('click', () => createChatRoom());
+}
+if (chatInputForm) {
+  chatInputForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (chatMessageInput) {
+      sendChatMessage(chatMessageInput.value);
+    }
+  });
 }
 
 if (closePreviewButton) {
@@ -6202,3 +6287,145 @@ function initArchiveDropZone() {
 
 initArchiveDropZone();
 
+// =========================================================================
+// Chat Workspace Logic
+// =========================================================================
+
+function listenChatRooms() {
+  if (!currentUserId) return;
+  const q = query(collection(db, 'chat_rooms'), orderBy('createdAt', 'desc'));
+  
+  chatRoomsUnsubscribe = onSnapshot(q, (snapshot) => {
+    chatRoomList.innerHTML = '';
+    snapshot.forEach(doc => {
+      const room = doc.data();
+      room.id = doc.id;
+      
+      const li = document.createElement('li');
+      li.className = 'chat-room-item';
+      if (room.id === currentChatRoomId) li.classList.add('active');
+      
+      const icon = document.createElement('span');
+      icon.textContent = '💬';
+      
+      const name = document.createElement('span');
+      name.className = 'chat-room-name';
+      name.textContent = room.name;
+      
+      li.append(icon, name);
+      li.addEventListener('click', () => selectChatRoom(room));
+      
+      chatRoomList.appendChild(li);
+    });
+  });
+}
+
+async function createChatRoom() {
+  const { value: roomName } = await Swal.fire({
+    title: '新規ルーム作成',
+    input: 'text',
+    inputLabel: 'ルーム名を入力してください',
+    inputPlaceholder: '雑談ルーム',
+    showCancelButton: true,
+    inputValidator: (value) => {
+      if (!value) return 'ルーム名が必要です！';
+    }
+  });
+
+  if (roomName) {
+    try {
+      await addDoc(collection(db, 'chat_rooms'), {
+        name: roomName,
+        createdBy: currentUserId,
+        createdAt: serverTimestamp()
+      });
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ルームを作成しました', showConfirmButton: false, timer: 1500 });
+    } catch (err) {
+      console.error('Error creating room', err);
+      alert('ルームの作成に失敗しました。');
+    }
+  }
+}
+
+function selectChatRoom(room) {
+  currentChatRoomId = room.id;
+  if (chatCurrentRoomName) chatCurrentRoomName.textContent = room.name;
+  if (chatInputForm) chatInputForm.classList.remove('hidden');
+  
+  // Highlight active room in list
+  document.querySelectorAll('.chat-room-item').forEach(el => el.classList.remove('active'));
+  const items = Array.from(chatRoomList.children);
+  const activeItem = items.find(li => li.querySelector('.chat-room-name').textContent === room.name);
+  if (activeItem) activeItem.classList.add('active');
+
+  listenChatMessages(room.id);
+}
+
+function listenChatMessages(roomId) {
+  if (chatMessagesUnsubscribe) {
+    chatMessagesUnsubscribe();
+  }
+  
+  if (chatMessages) chatMessages.innerHTML = '';
+  
+  const q = query(collection(db, 'chat_messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
+  
+  chatMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === 'added') {
+        const msg = change.doc.data();
+        appendChatMessage(msg);
+      }
+    });
+    
+    // Auto-scroll to bottom
+    if (chatMessages) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  });
+}
+
+function appendChatMessage(msg) {
+  if (!chatMessages) return;
+  
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chat-message';
+  
+  if (msg.senderId === currentUserId) {
+    wrapper.classList.add('self');
+  } else {
+    wrapper.classList.add('other');
+    const sender = document.createElement('div');
+    sender.className = 'chat-message-sender';
+    sender.textContent = msg.senderName || 'Anonymous';
+    wrapper.appendChild(sender);
+  }
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-message-bubble';
+  bubble.textContent = msg.text;
+  
+  wrapper.appendChild(bubble);
+  chatMessages.appendChild(wrapper);
+}
+
+async function sendChatMessage(text) {
+  if (!text.trim() || !currentChatRoomId || !currentUserId) return;
+  if (chatMessageInput) chatMessageInput.value = '';
+  
+  const userEmail = lastKnownAuthUser?.email || 'User';
+  const senderName = userEmail.split('@')[0];
+  
+  try {
+    await addDoc(collection(db, 'chat_messages'), {
+      roomId: currentChatRoomId,
+      text: text.trim(),
+      senderId: currentUserId,
+      senderName: senderName,
+      createdAt: serverTimestamp()
+    });
+  } catch (err) {
+    console.error('Error sending message:', err);
+    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: '送信失敗', showConfirmButton: false, timer: 1500 });
+  }
+}
