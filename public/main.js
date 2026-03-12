@@ -637,7 +637,7 @@ function showStartupScreen(showTodoMessage = false) {
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
-  if (chatContainer) chatContainer.style.display = 'none';
+  if (chatContainer) chatContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 }
 
@@ -657,6 +657,7 @@ async function enterTaskWorkspace() {
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
 }
 
 function enterTodoWorkspace() {
@@ -671,6 +672,7 @@ function enterTodoWorkspace() {
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     if (authContainer) authContainer.style.display = 'none';
@@ -696,6 +698,7 @@ async function enterMemoWorkspace() {
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
 
   if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
@@ -725,6 +728,7 @@ async function enterArchiveWorkspace() {
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.remove('hidden');
 
   if (lastKnownAuthUser) {
@@ -759,6 +763,7 @@ async function enterChatWorkspace() {
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   
   if (chatContainer) {
+    chatContainer.classList.remove('hidden');
     chatContainer.style.display = 'flex';
   }
 
@@ -4047,8 +4052,9 @@ async function enterVaultWorkspace() {
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.remove('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
-
-  if (lastKnownAuthUser) {
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.remove('hidden');
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
 
@@ -4884,6 +4890,7 @@ async function enterDatabaseWorkspace() {
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.remove('hidden');
 
   if (lastKnownAuthUser) {
