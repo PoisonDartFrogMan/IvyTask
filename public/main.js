@@ -792,6 +792,15 @@ async function enterChatWorkspace() {
 // ===== Auth State Change (Top Level Controller) =====
 onAuthStateChanged(auth, async (user) => {
   lastKnownAuthUser = user;
+
+  // マスターUID判定: ログイン確定直後に表示制御
+  const startDbBtn = document.getElementById('start-database-button');
+  if (user && user.uid === MASTER_UID) {
+    if (startDbBtn) startDbBtn.classList.remove('hidden');
+  } else {
+    if (startDbBtn) startDbBtn.classList.add('hidden');
+  }
+
   if (workspaceSelection === 'task') {
     await enterTaskWorkspace();
   } else if (workspaceSelection === 'todo') {
@@ -821,11 +830,6 @@ async function handleSignedIn(user) {
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
-
-  // マスター限定UI: DataBaseボタン、秘密の日記アイコン
-  const startDbBtn = document.getElementById('start-database-button');
-  if (startDbBtn) startDbBtn.style.display = (user.uid === MASTER_UID) ? '' : 'none';
-  if (archiveIcon) archiveIcon.style.cursor = (user.uid === MASTER_UID) ? 'pointer' : 'default';
 
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
