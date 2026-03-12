@@ -230,6 +230,7 @@ const chatMessageInput = document.getElementById('chat-message-input');
 let currentChatRoomId = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
+let unlockedChatRooms = new Set();
 
 // Archive Workspace Elements
 const archiveWorkspace = document.getElementById('archive-workspace');
@@ -772,6 +773,7 @@ async function enterChatWorkspace() {
     if (chatCurrentRoomName) chatCurrentRoomName.textContent = 'ルームを選択してください';
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInputForm) chatInputForm.classList.add('hidden');
+    unlockedChatRooms.clear();
     
     listenChatRooms();
   } else {
@@ -6311,18 +6313,83 @@ function listenChatRooms() {
       if (room.id === currentChatRoomId) li.classList.add('active');
       
       const icon = document.createElement('span');
-      icon.textContent = '💬';
+      // Show lock icon if password is set
+      icon.textContent = room.password ? '🔒' : '💬';
       
       const name = document.createElement('span');
       name.className = 'chat-room-name';
       name.textContent = room.name;
       
       li.append(icon, name);
+
+      // Show delete button if current user created the room
+      if (room.createdBy === currentUserId) {
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '&#128465;'; // Trash
+        delBtn.className = 'chat-room-delete-btn';
+        delBtn.title = 'ルーム削除';
+        delBtn.style.padding = '0 5px';
+        delBtn.style.marginLeft = 'auto';
+        delBtn.style.background = 'transparent';
+        delBtn.style.border = 'none';
+        delBtn.style.cursor = 'pointer';
+        delBtn.style.fontSize = '1.1rem';
+        
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Avoid triggering selectChatRoom
+          deleteChatRoom(room.id, room.name);
+        });
+        li.appendChild(delBtn);
+      }
+      
       li.addEventListener('click', () => selectChatRoom(room));
       
       chatRoomList.appendChild(li);
     });
   });
+}
+
+async function deleteChatRoom(roomId, roomName) {
+  const result = await Swal.fire({
+    title: 'ルーム削除',
+    html: `本当にルーム「<b>${roomName}</b>」を削除しますか？<br><br><span style="color:var(--danger, #ff4d4f); font-size: 0.9em;">※この操作は取り消せません。中のメッセージもすべて一括削除されます。</span>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: 'var(--danger, #ff4d4f)',
+    confirmButtonText: '削除する',
+    cancelButtonText: 'キャンセル'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      // 1. Delete all chat_messages associated with it
+      const q = query(collection(db, 'chat_messages'), where('roomId', '==', roomId));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(docSnap => batch.delete(docSnap.ref));
+      await batch.commit();
+
+      // 2. Delete the room itself
+      await deleteDoc(doc(db, 'chat_rooms', roomId));
+
+      // 3. Clear current view if active
+      if (currentChatRoomId === roomId) {
+        currentChatRoomId = null;
+        if (chatCurrentRoomName) chatCurrentRoomName.textContent = 'ルームを選択してください';
+        if (chatMessages) chatMessages.innerHTML = '';
+        if (chatInputForm) chatInputForm.classList.add('hidden');
+        if (chatMessagesUnsubscribe) {
+          chatMessagesUnsubscribe();
+          chatMessagesUnsubscribe = null;
+        }
+      }
+
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ルームを削除しました', showConfirmButton: false, timer: 1500 });
+    } catch (err) {
+      console.error('Error deleting chat room:', err);
+      Swal.fire('エラー', 'ルームの削除に失敗しました', 'error');
+    }
+  }
 }
 
 async function createChatRoom() {
@@ -6331,24 +6398,35 @@ async function createChatRoom() {
     return;
   }
 
-  const { value: roomName } = await Swal.fire({
+  const { value: formValues } = await Swal.fire({
     title: '新規ルーム作成',
-    input: 'text',
-    inputLabel: 'ルーム名を入力してください',
-    inputPlaceholder: '雑談ルーム',
+    html:
+      '<input id="swal-input-room-name" class="swal2-input" placeholder="ルーム名（必須）" style="margin-bottom: 5px;">' +
+      '<input id="swal-input-room-password" class="swal2-input" placeholder="パスワード（任意）" type="password">',
+    focusConfirm: false,
     showCancelButton: true,
-    inputValidator: (value) => {
-      if (!value) return 'ルーム名が必要です！';
+    preConfirm: () => {
+      const name = document.getElementById('swal-input-room-name').value.trim();
+      const pwd = document.getElementById('swal-input-room-password').value.trim();
+      if (!name) {
+        Swal.showValidationMessage('ルーム名が必要です！');
+        return false;
+      }
+      return { name, password: pwd };
     }
   });
 
-  if (roomName) {
+  if (formValues && formValues.name) {
     try {
-      await addDoc(collection(db, 'chat_rooms'), {
-        name: roomName,
+      const roomData = {
+        name: formValues.name,
         createdBy: currentUserId,
         createdAt: serverTimestamp()
-      });
+      };
+      if (formValues.password) {
+        roomData.password = formValues.password;
+      }
+      await addDoc(collection(db, 'chat_rooms'), roomData);
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ルームを作成しました', showConfirmButton: false, timer: 1500 });
     } catch (err) {
       console.error('Error creating room', err);
@@ -6357,7 +6435,28 @@ async function createChatRoom() {
   }
 }
 
-function selectChatRoom(room) {
+async function selectChatRoom(room) {
+  if (room.password && room.createdBy !== currentUserId && !unlockedChatRooms.has(room.id)) {
+    const { value: inputPassword } = await Swal.fire({
+      title: 'パスワードを入力',
+      input: 'password',
+      inputLabel: 'このルームは鍵がかかっています',
+      inputPlaceholder: 'パスワード',
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value) return 'パスワードを入力してください';
+      }
+    });
+
+    if (inputPassword !== room.password) {
+      if (inputPassword) Swal.fire('エラー', 'パスワードが間違っています', 'error');
+      return;
+    } else {
+      unlockedChatRooms.add(room.id);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ロック解除しました', showConfirmButton: false, timer: 1500 });
+    }
+  }
+
   currentChatRoomId = room.id;
   if (chatCurrentRoomName) chatCurrentRoomName.textContent = room.name;
   if (chatInputForm) chatInputForm.classList.remove('hidden');
