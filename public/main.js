@@ -230,7 +230,7 @@ const chatMessageInput = document.getElementById('chat-message-input');
 let currentChatRoomId = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
-let unlockedChatRooms = new Set();
+
 
 // Archive Workspace Elements
 const archiveWorkspace = document.getElementById('archive-workspace');
@@ -773,7 +773,7 @@ async function enterChatWorkspace() {
     if (chatCurrentRoomName) chatCurrentRoomName.textContent = 'ルームを選択してください';
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInputForm) chatInputForm.classList.add('hidden');
-    unlockedChatRooms.clear();
+
     
     listenChatRooms();
   } else {
@@ -6300,7 +6300,11 @@ initArchiveDropZone();
 
 function listenChatRooms() {
   if (!currentUserId) return;
-  const q = query(collection(db, 'chat_rooms'), orderBy('createdAt', 'desc'));
+  const q = query(
+    collection(db, 'chat_rooms'),
+    where('members', 'array-contains', currentUserId),
+    orderBy('createdAt', 'desc')
+  );
   
   chatRoomsUnsubscribe = onSnapshot(q, (snapshot) => {
     chatRoomList.innerHTML = '';
@@ -6313,8 +6317,7 @@ function listenChatRooms() {
       if (room.id === currentChatRoomId) li.classList.add('active');
       
       const icon = document.createElement('span');
-      // Show lock icon if password is set
-      icon.textContent = room.password ? '🔒' : '💬';
+      icon.textContent = '💬';
       
       const name = document.createElement('span');
       name.className = 'chat-room-name';
@@ -6401,18 +6404,16 @@ async function createChatRoom() {
   const { value: formValues } = await Swal.fire({
     title: '新規ルーム作成',
     html:
-      '<input id="swal-input-room-name" class="swal2-input" placeholder="ルーム名（必須）" style="margin-bottom: 5px;">' +
-      '<input id="swal-input-room-password" class="swal2-input" placeholder="パスワード（任意）" type="password">',
+      '<input id="swal-input-room-name" class="swal2-input" placeholder="ルーム名（必須）">',
     focusConfirm: false,
     showCancelButton: true,
     preConfirm: () => {
       const name = document.getElementById('swal-input-room-name').value.trim();
-      const pwd = document.getElementById('swal-input-room-password').value.trim();
       if (!name) {
         Swal.showValidationMessage('ルーム名が必要です！');
         return false;
       }
-      return { name, password: pwd };
+      return { name };
     }
   });
 
@@ -6421,11 +6422,9 @@ async function createChatRoom() {
       const roomData = {
         name: formValues.name,
         createdBy: currentUserId,
+        members: [currentUserId],
         createdAt: serverTimestamp()
       };
-      if (formValues.password) {
-        roomData.password = formValues.password;
-      }
       await addDoc(collection(db, 'chat_rooms'), roomData);
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ルームを作成しました', showConfirmButton: false, timer: 1500 });
     } catch (err) {
@@ -6436,30 +6435,15 @@ async function createChatRoom() {
 }
 
 async function selectChatRoom(room) {
-  if (room.password && room.createdBy !== currentUserId && !unlockedChatRooms.has(room.id)) {
-    const { value: inputPassword } = await Swal.fire({
-      title: 'パスワードを入力',
-      input: 'password',
-      inputLabel: 'このルームは鍵がかかっています',
-      inputPlaceholder: 'パスワード',
-      showCancelButton: true,
-      inputValidator: (value) => {
-        if (!value) return 'パスワードを入力してください';
-      }
-    });
-
-    if (inputPassword !== room.password) {
-      if (inputPassword) Swal.fire('エラー', 'パスワードが間違っています', 'error');
-      return;
-    } else {
-      unlockedChatRooms.add(room.id);
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'ロック解除しました', showConfirmButton: false, timer: 1500 });
-    }
-  }
-
   currentChatRoomId = room.id;
   if (chatCurrentRoomName) chatCurrentRoomName.textContent = room.name;
   if (chatInputForm) chatInputForm.classList.remove('hidden');
+
+  // Show/hide invite button based on whether user is room creator
+  const inviteBtn = document.getElementById('chat-invite-btn');
+  if (inviteBtn) {
+    inviteBtn.classList.remove('hidden');
+  }
   
   // Highlight active room in list
   document.querySelectorAll('.chat-room-item').forEach(el => el.classList.remove('active'));
