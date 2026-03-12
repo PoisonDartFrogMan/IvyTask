@@ -763,10 +763,11 @@ async function enterChatWorkspace() {
   }
 
   if (lastKnownAuthUser) {
-    if (!currentUserId && lastKnownAuthUser?.uid) currentUserId = lastKnownAuthUser.uid;
-    if (!currentUserId) return; // double check
+    // currentUserId を確実にセット
+    currentUserId = lastKnownAuthUser.uid;
+    if (!currentUserId) return;
 
-    await loadUserSettings(currentUserId);
+    await handleSignedIn(lastKnownAuthUser);
     
     // Unsubscribe from previous chat rooms if any
     if (chatRoomsUnsubscribe) {
@@ -782,7 +783,6 @@ async function enterChatWorkspace() {
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInputForm) chatInputForm.classList.add('hidden');
 
-    
     listenChatRooms();
   } else {
     handleSignedOut(true);
