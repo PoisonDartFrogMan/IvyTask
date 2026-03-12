@@ -6,7 +6,7 @@ import {
 import {
   initializeFirestore, collection, addDoc, query, where, getDocs,
   getDoc, doc, deleteDoc, updateDoc, orderBy, writeBatch,
-  Timestamp, onSnapshot, serverTimestamp, setDoc
+  Timestamp, onSnapshot, serverTimestamp, setDoc, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -231,6 +231,7 @@ const chatInputForm = document.getElementById('chat-input-form');
 const chatMessageInput = document.getElementById('chat-message-input');
 
 let currentChatRoomId = null;
+let currentChatRoom = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
 
@@ -806,6 +807,28 @@ onAuthStateChanged(auth, async (user) => {
     if (startDbBtn) startDbBtn.classList.add('hidden');
   }
 
+  // user_profiles に保存 & 保留中の招待を処理
+  if (user && user.uid && user.email) {
+    const emailLower = user.email.toLowerCase();
+    setDoc(doc(db, 'user_profiles', user.uid), { email: emailLower, uid: user.uid }, { merge: true })
+      .catch(err => console.error('user_profiles 保存エラー:', err));
+
+    // 自分宛の保留招待を処理（members追加 → 招待削除）
+    getDocs(query(collection(db, 'chat_invitations'), where('inviteeEmail', '==', emailLower)))
+      .then(async (snap) => {
+        for (const inviteDoc of snap.docs) {
+          const { roomId } = inviteDoc.data();
+          try {
+            await updateDoc(doc(db, 'chat_rooms', roomId), { members: arrayUnion(user.uid) });
+            await deleteDoc(inviteDoc.ref);
+          } catch (e) {
+            console.error('招待処理エラー:', e);
+          }
+        }
+      })
+      .catch(err => console.error('招待確認エラー:', err));
+  }
+
   if (workspaceSelection === 'task') {
     await enterTaskWorkspace();
   } else if (workspaceSelection === 'todo') {
@@ -829,12 +852,13 @@ async function handleSignedIn(user) {
   if (!user || !user.uid) return;
   currentUserId = user.uid;
   authContainer.style.display = 'none';
-  mainContainer.style.display = 'block';
+  mainContainer.style.display = workspaceSelection === 'task' ? 'block' : 'none';
   archiveContainer.style.display = 'none';
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
+
 
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
@@ -2964,6 +2988,10 @@ if (chatBackStartupButton) {
 if (chatCreateRoomBtn) {
   chatCreateRoomBtn.addEventListener('click', () => createChatRoom());
 }
+const chatInviteBtn = document.getElementById('chat-invite-btn');
+if (chatInviteBtn) {
+  chatInviteBtn.addEventListener('click', () => inviteToChatRoom());
+}
 if (chatInputForm) {
   chatInputForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -4049,12 +4077,12 @@ async function enterVaultWorkspace() {
   if (archiveContainer) archiveContainer.style.display = 'none';
   if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
-  if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.remove('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
-  if (vaultContainer) vaultContainer.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
     if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
     await loadUserSettings(currentUserId);
 
@@ -6458,8 +6486,74 @@ async function createChatRoom() {
   }
 }
 
+async function inviteToChatRoom() {
+  if (!currentChatRoomId || !currentUserId) return;
+
+  const { value: email } = await Swal.fire({
+    title: 'メンバーを招待',
+    input: 'email',
+    inputLabel: '招待するユーザーのメールアドレス',
+    inputPlaceholder: 'example@email.com',
+    showCancelButton: true,
+    confirmButtonText: '招待',
+    cancelButtonText: 'キャンセル',
+    inputValidator: (value) => {
+      if (!value) return 'メールアドレスを入力してください';
+    }
+  });
+
+  if (!email) return;
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // 自分自身チェック
+  if (lastKnownAuthUser && normalizedEmail === lastKnownAuthUser.email.toLowerCase()) {
+    Swal.fire('エラー', '自分自身は招待できません。', 'error');
+    return;
+  }
+
+  try {
+    // user_profiles でUID検索（すでにログイン済みの場合）
+    const profileSnap = await getDocs(query(collection(db, 'user_profiles'), where('email', '==', normalizedEmail)));
+
+    if (!profileSnap.empty) {
+      // プロフィールあり → 直接 members に追加
+      const inviteeUid = profileSnap.docs[0].data().uid;
+      if (currentChatRoom?.members?.includes(inviteeUid)) {
+        Swal.fire('確認', 'そのユーザーはすでにメンバーです。', 'info');
+        return;
+      }
+      await updateDoc(doc(db, 'chat_rooms', currentChatRoomId), { members: arrayUnion(inviteeUid) });
+    } else {
+      // プロフィールなし → 招待を保存（次回ログイン時に自動追加）
+      const existingSnap = await getDocs(query(
+        collection(db, 'chat_invitations'),
+        where('roomId', '==', currentChatRoomId),
+        where('inviteeEmail', '==', normalizedEmail)
+      ));
+      if (!existingSnap.empty) {
+        Swal.fire('確認', 'すでに招待済みです。相手が次回ログイン時に自動で参加します。', 'info');
+        return;
+      }
+      await addDoc(collection(db, 'chat_invitations'), {
+        roomId: currentChatRoomId,
+        roomName: currentChatRoom?.name ?? '',
+        inviteeEmail: normalizedEmail,
+        inviterUid: currentUserId,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `${normalizedEmail} を招待しました`, showConfirmButton: false, timer: 2000 });
+  } catch (err) {
+    console.error('招待エラー:', err);
+    Swal.fire('エラー', '招待に失敗しました。', 'error');
+  }
+}
+
 async function selectChatRoom(room) {
   currentChatRoomId = room.id;
+  currentChatRoom = room;
   if (chatCurrentRoomName) chatCurrentRoomName.textContent = room.name;
   if (chatInputForm) chatInputForm.classList.remove('hidden');
 
