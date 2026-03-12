@@ -59,11 +59,9 @@ service cloud.firestore {
       allow list: if request.auth != null;
     }
 
-    // employees
+    // employees (マスターUIDのみアクセス可能)
     match /employees/{employeeId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow list: if request.auth != null;
+      allow read, write: if request.auth != null && request.auth.uid == "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
     }
 
     // recurring_tasks
@@ -73,9 +71,11 @@ service cloud.firestore {
       allow list: if request.auth != null;
     }
 
-    // pdfs
+    // pdfs (isSecret == true のドキュメントはマスターUIDのみアクセス可能)
     match /pdfs/{pdfId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, update, delete: if request.auth != null
+        && request.auth.uid == resource.data.userId
+        && (resource.data.isSecret != true || request.auth.uid == "8V7CfCrj4wSD8aZymfrf1WKZaAg1");
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow list: if request.auth != null;
 

@@ -38,6 +38,9 @@ const db = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
+
+// マスターUID（特権ユーザー）
+const MASTER_UID = "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
 initializeRecurringTasks(db);
 
 
@@ -394,6 +397,9 @@ const SLIDESHOW_INTERVAL_MS = 5000;
 
 if (archiveIcon) {
   archiveIcon.addEventListener('click', () => {
+    // マスター以外は秘密の日記機能を無効化
+    if (currentUserId !== MASTER_UID) return;
+
     if (isSecretDiaryMode) {
       // If already in secret mode, clicking the icon again exits it
       Swal.fire({
@@ -558,6 +564,8 @@ function resetSlideshowTimer() {
 
 if (startDiarySlideshowButton) {
   startDiarySlideshowButton.addEventListener('click', () => {
+    // マスター以外はスライドショー機能を無効化
+    if (currentUserId !== MASTER_UID) return;
     // Filter only images that are secret for the slideshow
     slideshowImages = archivePdfs.filter(pdf => pdf.fileType === 'image' && pdf.isSecret);
     if (slideshowImages.length === 0) {
@@ -813,6 +821,11 @@ async function handleSignedIn(user) {
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
+
+  // マスター限定UI: DataBaseボタン、秘密の日記アイコン
+  const startDbBtn = document.getElementById('start-database-button');
+  if (startDbBtn) startDbBtn.style.display = (user.uid === MASTER_UID) ? '' : 'none';
+  if (archiveIcon) archiveIcon.style.cursor = (user.uid === MASTER_UID) ? 'pointer' : 'default';
 
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
