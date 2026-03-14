@@ -12,6 +12,9 @@ import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import {
+  getMessaging, getToken
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+import {
   initializeRecurringTasks,
   setRecurringTaskUser,
   refreshTodayRecurringTasks,
@@ -37,6 +40,7 @@ const db = initializeFirestore(app, {
   useFetchStreams: false,
 });
 const storage = getStorage(app);
+const messaging = getMessaging(app);
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
 
 // マスターUID（特権ユーザー）
@@ -618,6 +622,39 @@ window.addEventListener('keydown', (e) => {
     }
   }
 });
+// ===== FCM (Push Notifications) =====
+const VAPID_KEY = "YOUR_VAPID_KEY"; // TODO: Set your VAPID key later
+
+async function requestNotificationPermission(userId) {
+  if (!('Notification' in window)) {
+    console.log('This browser does not support notification');
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      console.log('Notification permission granted.');
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+      if (token) {
+        console.log('FCM Token:', token);
+        // Firestoreの users/${userId} ドキュメント内に fcmTokens 配列として保存
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, {
+          fcmTokens: arrayUnion(token)
+        }, { merge: true });
+        console.log('FCM Token saved to Firestore.');
+      } else {
+        console.log('No registration token available. Request permission to generate one.');
+      }
+    } else {
+      console.log('Unable to get permission to notify.');
+    }
+  } catch (err) {
+    console.error('An error occurred while retrieving token. ', err);
+  }
+}
+
 const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 
 
@@ -789,7 +826,11 @@ async function enterChatWorkspace() {
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInputForm) chatInputForm.classList.add('hidden');
 
+    if (chatInputForm) chatInputForm.classList.add('hidden');
+
     listenChatRooms();
+    // チャット画面を開いた際にも通知許可を確認
+    requestNotificationPermission(currentUserId);
   } else {
     handleSignedOut(true);
   }
@@ -845,6 +886,11 @@ onAuthStateChanged(auth, async (user) => {
     enterChatWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
+  }
+
+  // ログイン成功時に通知許可を確認
+  if (user) {
+    requestNotificationPermission(user.uid);
   }
 });
 
