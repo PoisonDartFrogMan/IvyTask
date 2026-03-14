@@ -623,7 +623,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 // ===== FCM (Push Notifications) =====
-const VAPID_KEY = "YOUR_VAPID_KEY"; // TODO: Set your VAPID key later
+const VAPID_KEY = "BPvZ4aRQzkDO6s0Ag4GLj_yiaKq_V_XcyNH1GmP6BWR5bLHlVeyllekT-Se_avdKyFa3BEK92dF7diHUWdxIFGc"; // Set by Master
 
 async function requestNotificationPermission(userId) {
   if (!('Notification' in window)) {
