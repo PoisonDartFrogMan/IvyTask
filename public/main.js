@@ -3723,13 +3723,14 @@ function switchToEditMode() {
   cancelEditButton.classList.remove('hidden');
 }
 
-settingsButton.addEventListener('click', () => {
+const openSettingsModal = () => {
   if (auth.currentUser) { settingsUserIdSpan.textContent = auth.currentUser.email; }
   settingsModalBackdrop.classList.remove('hidden');
   document.body.classList.add('modal-open');
-  // Load updates when settings opens
   ensureUpdatesLoaded();
-});
+};
+settingsButton.addEventListener('click', openSettingsModal);
+document.getElementById('startup-settings-button')?.addEventListener('click', openSettingsModal);
 const closeSettings = () => {
   settingsModalBackdrop.classList.add('hidden');
   document.body.classList.remove('modal-open');
