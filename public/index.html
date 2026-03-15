@@ -517,6 +517,16 @@
       </div>
     </div>
 
+    <div id="storage-gauge-container" style="margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.8em; color: #888;">
+        <span>ストレージ使用量</span>
+        <span id="storage-gauge-label">計算中...</span>
+      </div>
+      <div style="background: #e8e8e8; border-radius: 99px; height: 6px; overflow: hidden;">
+        <div id="storage-gauge-bar" style="height: 100%; width: 0%; border-radius: 99px; background: #4CAF50; transition: width 0.4s ease, background 0.4s ease;"></div>
+      </div>
+    </div>
+
     <div class="archive-upload-section">
       <div class="archive-genre-wrapper">
         <input type="text" id="archive-genre-input" placeholder="ジャンル・カテゴリを入力..." style="margin-bottom: 8px;"

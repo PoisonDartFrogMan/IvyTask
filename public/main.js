@@ -9,7 +9,7 @@ import {
   Timestamp, onSnapshot, serverTimestamp, setDoc, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import {
   getMessaging, getToken
@@ -635,7 +635,16 @@ async function requestNotificationPermission(userId) {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       console.log('Notification permission granted.');
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+      
+      // サービスワーカーの登録を明示的に行う
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      console.log('Service Worker registered with scope:', registration.scope);
+
+      const token = await getToken(messaging, { 
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration 
+      });
+
       if (token) {
         console.log('FCM Token:', token);
         // Firestoreの users/${userId} ドキュメント内に fcmTokens 配列として保存
@@ -5786,7 +5795,52 @@ function subscribeArchive(userId) {
 
     renderArchiveFilters();
     renderRecentSection();
+
+    // ストレージゲージ更新（Firebase Storageから実サイズを取得）
+    calcStorageUsage();
   });
+}
+
+async function calcStorageUsage() {
+  if (!currentUserId) return;
+  const label = document.getElementById('storage-gauge-label');
+  if (label) label.textContent = '計算中...';
+
+  try {
+    const folders = [
+      storageRef(storage, `pdfs/${currentUserId}`),
+      storageRef(storage, `memos/${currentUserId}`)
+    ];
+    let totalBytes = 0;
+    for (const folder of folders) {
+      const result = await listAll(folder);
+      const sizes = await Promise.all(result.items.map(item => getMetadata(item).then(m => m.size).catch(() => 0)));
+      totalBytes += sizes.reduce((a, b) => a + b, 0);
+    }
+    updateStorageGauge(totalBytes);
+  } catch (err) {
+    console.error('ストレージ使用量取得エラー:', err);
+    if (label) label.textContent = '取得失敗';
+  }
+}
+
+function updateStorageGauge(usedBytes) {
+  const LIMIT_BYTES = 5 * 1024 * 1024 * 1024; // Firebase Spark: 5GB
+  const pct = Math.min(usedBytes / LIMIT_BYTES * 100, 100);
+  const bar = document.getElementById('storage-gauge-bar');
+  const label = document.getElementById('storage-gauge-label');
+  if (!bar || !label) return;
+
+  bar.style.width = `${pct.toFixed(1)}%`;
+  bar.style.background = pct > 80 ? '#f44336' : pct > 60 ? '#ff9800' : '#4CAF50';
+
+  const fmt = (b) => b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(2)} GB`
+    : b >= 1024 ** 2 ? `${(b / 1024 ** 2).toFixed(1)} MB`
+    : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`;
+
+  label.textContent = usedBytes > 0
+    ? `${fmt(usedBytes)} / 5 GB (${pct.toFixed(1)}%)`
+    : '計測データなし（既存ファイルは集計外）';
 }
 
 
@@ -6365,6 +6419,7 @@ function initArchiveDropZone() {
         userId: currentUserId,
         fileName: file.name,
         fileUrl: fileUrl,
+        fileSize: file.size,
         genre: genre,
         fileType: fileTypeStr,
         createdAt: serverTimestamp()
@@ -6627,14 +6682,29 @@ function listenChatMessages(roomId) {
   
   const q = query(collection(db, 'chat_messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
   
+  let isInitialLoad = true;
+
   chatMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added') {
         const msg = change.doc.data();
         appendChatMessage(msg);
+
+        // 初回ロード以外・自分以外のメッセージ・アプリが非アクティブのとき通知
+        if (!isInitialLoad && msg.senderId !== currentUserId && document.hidden) {
+          if (Notification.permission === 'granted') {
+            new Notification(msg.senderName || '新しいメッセージ', {
+              body: msg.text,
+              icon: '/icon-192.png',
+              tag: roomId  // 同じルームの通知は1つにまとめる
+            });
+          }
+        }
       }
     });
-    
+
+    isInitialLoad = false;
+
     // Auto-scroll to bottom
     if (chatMessages) {
       chatMessages.scrollTop = chatMessages.scrollHeight;
