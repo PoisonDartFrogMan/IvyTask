@@ -97,7 +97,6 @@ const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
 const databaseContainer = document.getElementById('database-container');
 const userEmailSpan = document.getElementById('user-email');
-const settingsButton = document.getElementById('settings-button');
 const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
 const closeSettingsModalButton = document.getElementById('close-settings-modal-button');
 const wallpaperChoices = document.getElementById('wallpaper-choices');
@@ -3729,7 +3728,6 @@ const openSettingsModal = () => {
   document.body.classList.add('modal-open');
   ensureUpdatesLoaded();
 };
-settingsButton.addEventListener('click', openSettingsModal);
 document.getElementById('startup-settings-button')?.addEventListener('click', openSettingsModal);
 const closeSettings = () => {
   settingsModalBackdrop.classList.add('hidden');
