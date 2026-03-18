@@ -2950,6 +2950,11 @@ body.sleeping #happy-hacking-sticker {
 }
 
 /* ===== DataBase Workspace ===== */
+body[data-workspace="database"] {
+  background-image: none !important;
+  background-color: var(--bg-color);
+}
+
 #database-container {
   padding: 30px;
   max-width: 1200px;
