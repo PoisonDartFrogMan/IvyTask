@@ -1029,7 +1029,7 @@ function scheduleSleepTimer() {
 }
 
 // ===== Updates (GitHub) =====
-const GITHUB_REPO = 'PoisonDartFrogMan/CoralDesk';
+const GITHUB_REPO = 'PoisonDartFrogMan/IvyTask';
 const UPDATES_CACHE_KEY = 'ivy_updates_cache_v1';
 const UPDATES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
