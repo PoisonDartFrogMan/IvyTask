@@ -1785,6 +1785,45 @@ body.sleeping #happy-hacking-sticker {
     bottom: -14px;
     left: -14px;
   }
+
+  .title-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .title-bar h1 {
+    order: -1;
+    font-size: 1.4em;
+    text-align: center;
+  }
+
+  .title-bar-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .title-bar-buttons button {
+    width: 100%;
+    font-size: 0.78rem;
+    padding: 9px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .main-controls {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .main-controls button {
+    font-size: 0.78rem;
+    padding: 9px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* ===== Memo Workspace ===== */
