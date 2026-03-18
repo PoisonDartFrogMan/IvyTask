@@ -6,7 +6,7 @@ import {
 import {
   initializeFirestore, collection, addDoc, query, where, getDocs,
   getDoc, doc, deleteDoc, updateDoc, orderBy, writeBatch,
-  Timestamp, onSnapshot, serverTimestamp, setDoc, arrayUnion
+  Timestamp, onSnapshot, serverTimestamp, setDoc, arrayUnion, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata
@@ -4915,6 +4915,9 @@ const empInputPhone = document.getElementById('emp-input-phone');
 const empInputNote = document.getElementById('emp-input-note');
 const employeeModalCancel = document.getElementById('employee-modal-cancel');
 
+// Bulk delete state
+let selectedEmployeeIds = new Set();
+
 // Column Selection & CSV Elements
 const databaseColumnsButton = document.getElementById('database-columns-button');
 const databaseImportButton = document.getElementById('database-import-button');
@@ -4925,6 +4928,10 @@ const columnCheckboxes = document.getElementById('column-checkboxes');
 const columnModalCancel = document.getElementById('column-modal-cancel');
 const columnModalSave = document.getElementById('column-modal-save');
 const databaseTableHeaderRow = document.getElementById('database-table-header-row');
+const databaseBulkToolbar = document.getElementById('database-bulk-toolbar');
+const databaseBulkCount = document.getElementById('database-bulk-count');
+const databaseBulkDeleteButton = document.getElementById('database-bulk-delete-button');
+const databaseBulkClearButton = document.getElementById('database-bulk-clear-button');
 
 // Filter Elements
 const databaseFilterButton = document.getElementById('database-filter-button');
@@ -5097,6 +5104,24 @@ function renderEmployeeList() {
   databaseTableHeaderRow.innerHTML = '';
   const activeCols = ALL_COLUMNS.filter(c => visibleColumns.includes(c.id));
 
+  // Checkbox header (select all)
+  const thCheck = document.createElement('th');
+  thCheck.className = 'bulk-check-col';
+  const selectAllCheckbox = document.createElement('input');
+  selectAllCheckbox.type = 'checkbox';
+  selectAllCheckbox.title = 'すべて選択';
+  selectAllCheckbox.addEventListener('change', () => {
+    if (selectAllCheckbox.checked) {
+      filtered.forEach(e => selectedEmployeeIds.add(e.id));
+    } else {
+      filtered.forEach(e => selectedEmployeeIds.delete(e.id));
+    }
+    updateBulkToolbar();
+    renderEmployeeList();
+  });
+  thCheck.appendChild(selectAllCheckbox);
+  databaseTableHeaderRow.appendChild(thCheck);
+
   activeCols.forEach(c => {
     const th = document.createElement('th');
     th.textContent = c.label;
@@ -5124,8 +5149,32 @@ function renderEmployeeList() {
 
   filtered.forEach(e => {
     const tr = document.createElement('tr');
+    if (e.csvUpdated) tr.classList.add('csv-updated-row');
+    if (selectedEmployeeIds.has(e.id)) tr.classList.add('bulk-selected-row');
 
-    activeCols.forEach(c => {
+    // Checkbox cell
+    const tdCheck = document.createElement('td');
+    tdCheck.className = 'bulk-check-col';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selectedEmployeeIds.has(e.id);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) {
+        selectedEmployeeIds.add(e.id);
+      } else {
+        selectedEmployeeIds.delete(e.id);
+      }
+      updateBulkToolbar();
+      tr.classList.toggle('bulk-selected-row', checkbox.checked);
+      // Update select-all state
+      const allChecked = filtered.every(emp => selectedEmployeeIds.has(emp.id));
+      selectAllCheckbox.checked = allChecked;
+      selectAllCheckbox.indeterminate = !allChecked && filtered.some(emp => selectedEmployeeIds.has(emp.id));
+    });
+    tdCheck.appendChild(checkbox);
+    tr.appendChild(tdCheck);
+
+    activeCols.forEach((c, colIndex) => {
       const td = document.createElement('td');
       if (c.id === 'status') {
         const span = document.createElement('span');
@@ -5136,6 +5185,14 @@ function renderEmployeeList() {
         td.textContent = formatEmpId(e.empId) || '-';
       } else {
         td.textContent = e[c.id] || '-';
+      }
+      // Show update dot on the first column
+      if (colIndex === 0 && e.csvUpdated) {
+        const dot = document.createElement('span');
+        dot.className = 'csv-update-dot';
+        dot.title = 'CSVで更新されました';
+        td.insertBefore(dot, td.firstChild);
+        td.style.position = 'relative';
       }
       tr.appendChild(td);
     });
@@ -5160,6 +5217,45 @@ function renderEmployeeList() {
 
     databaseList.appendChild(tr);
   });
+
+  // Set select-all checkbox initial state
+  const allChecked = filtered.length > 0 && filtered.every(e => selectedEmployeeIds.has(e.id));
+  const someChecked = filtered.some(e => selectedEmployeeIds.has(e.id));
+  selectAllCheckbox.checked = allChecked;
+  selectAllCheckbox.indeterminate = !allChecked && someChecked;
+}
+
+function updateBulkToolbar() {
+  if (!databaseBulkToolbar) return;
+  if (selectedEmployeeIds.size > 0) {
+    databaseBulkToolbar.classList.remove('hidden');
+    databaseBulkCount.textContent = `${selectedEmployeeIds.size}件選択中`;
+  } else {
+    databaseBulkToolbar.classList.add('hidden');
+  }
+}
+
+async function bulkDeleteEmployees() {
+  const count = selectedEmployeeIds.size;
+  if (count === 0) return;
+  if (!confirm(`選択した ${count} 件を削除しますか？\nこの操作は取り消せません。`)) return;
+
+  try {
+    const ids = [...selectedEmployeeIds];
+    const chunkSize = 400;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const batch = writeBatch(db);
+      ids.slice(i, i + chunkSize).forEach(id => {
+        batch.delete(doc(db, 'employees', id));
+      });
+      await batch.commit();
+    }
+    selectedEmployeeIds.clear();
+    updateBulkToolbar();
+  } catch (err) {
+    console.error('Bulk delete error:', err);
+    alert('削除に失敗しました: ' + err.message);
+  }
 }
 
 function getStatusClass(status) {
@@ -5530,8 +5626,6 @@ async function importEmployeeCSV(file) {
     const lines = text.split(/\r\n|\n/);
     if (lines.length < 2) return;
 
-    // Parse CSV simple parser (handling quotes is tricky but assuming simple format for now or use regex)
-    // Actually, let's use a slightly robust regex splitter for CSV
     const parseCSVLine = (line) => {
       const arr = [];
       let quote = false;
@@ -5554,7 +5648,6 @@ async function importEmployeeCSV(file) {
     const headerLine = lines[0];
     const headers = parseCSVLine(headerLine).map(h => h.trim());
 
-    // Map headers to IDs
     const colMap = {};
     ALL_COLUMNS.forEach(c => {
       const idx = headers.indexOf(c.label);
@@ -5566,11 +5659,11 @@ async function importEmployeeCSV(file) {
       return;
     }
 
-    const newEmployees = [];
+    const csvEmployees = [];
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
       const vals = parseCSVLine(lines[i]);
-      const emp = { userId: currentUserId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      const emp = {};
 
       let hasData = false;
       Object.keys(colMap).forEach(key => {
@@ -5588,29 +5681,85 @@ async function importEmployeeCSV(file) {
       });
 
       if (hasData && emp.name && emp.empId) {
-        newEmployees.push(emp);
+        csvEmployees.push(emp);
       }
     }
 
-    if (newEmployees.length === 0) {
+    if (csvEmployees.length === 0) {
       alert('インポート可能なデータがありませんでした。必須項目（氏名、社員番号）を確認してください。');
       return;
     }
 
-    if (!confirm(`${newEmployees.length}件のデータをインポートしますか？`)) return;
+    // Build map of existing employees by empId
+    const existingByEmpId = {};
+    employees.forEach(emp => {
+      if (emp.empId) existingByEmpId[emp.empId] = emp;
+    });
+
+    // Classify: new vs updated
+    const toAdd = [];
+    const toUpdate = []; // { id, changes }
+    const compareKeys = Object.keys(colMap).filter(k => k !== 'empId');
+
+    csvEmployees.forEach(csvEmp => {
+      const existing = existingByEmpId[csvEmp.empId];
+      if (!existing) {
+        toAdd.push(csvEmp);
+      } else {
+        const changes = {};
+        compareKeys.forEach(key => {
+          const csvVal = csvEmp[key] || '';
+          const existVal = existing[key] || '';
+          if (csvVal !== existVal) changes[key] = csvVal;
+        });
+        if (Object.keys(changes).length > 0) {
+          toUpdate.push({ id: existing.id, changes });
+        }
+      }
+    });
+
+    if (toAdd.length === 0 && toUpdate.length === 0) {
+      alert('差分はありませんでした。データは最新の状態です。');
+      return;
+    }
+
+    const summaryParts = [];
+    if (toAdd.length > 0) summaryParts.push(`新規追加: ${toAdd.length}件`);
+    if (toUpdate.length > 0) summaryParts.push(`更新: ${toUpdate.length}件`);
+    if (!confirm(`${summaryParts.join('、')}\n\nインポートを実行しますか？`)) return;
 
     try {
-      // Batch write (chunk by 400)
       const chunkSize = 400;
-      for (let i = 0; i < newEmployees.length; i += chunkSize) {
+
+      // Step 1: Clear csvUpdated flag from all previously marked records
+      const markedEmployees = employees.filter(emp => emp.csvUpdated);
+      for (let i = 0; i < markedEmployees.length; i += chunkSize) {
         const batch = writeBatch(db);
-        const chunk = newEmployees.slice(i, i + chunkSize);
-        chunk.forEach(emp => {
-          const ref = doc(collection(db, 'employees'));
-          batch.set(ref, emp);
+        markedEmployees.slice(i, i + chunkSize).forEach(emp => {
+          batch.update(doc(db, 'employees', emp.id), { csvUpdated: deleteField() });
         });
         await batch.commit();
       }
+
+      // Step 2: Add new records
+      for (let i = 0; i < toAdd.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        toAdd.slice(i, i + chunkSize).forEach(emp => {
+          const ref = doc(collection(db, 'employees'));
+          batch.set(ref, { ...emp, userId: currentUserId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        });
+        await batch.commit();
+      }
+
+      // Step 3: Update changed records and mark them
+      for (let i = 0; i < toUpdate.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        toUpdate.slice(i, i + chunkSize).forEach(({ id, changes }) => {
+          batch.update(doc(db, 'employees', id), { ...changes, updatedAt: serverTimestamp(), csvUpdated: true });
+        });
+        await batch.commit();
+      }
+
       alert('インポートが完了しました。');
     } catch (err) {
       console.error('Import Error:', err);
@@ -5647,6 +5796,16 @@ if (databaseImportInput) {
       importEmployeeCSV(e.target.files[0]);
       e.target.value = ''; // Reset
     }
+  });
+}
+if (databaseBulkDeleteButton) {
+  databaseBulkDeleteButton.addEventListener('click', bulkDeleteEmployees);
+}
+if (databaseBulkClearButton) {
+  databaseBulkClearButton.addEventListener('click', () => {
+    selectedEmployeeIds.clear();
+    updateBulkToolbar();
+    renderEmployeeList();
   });
 }
 
