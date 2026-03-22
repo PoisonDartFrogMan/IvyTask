@@ -463,10 +463,11 @@ function renderTodayRecurringTasks() {
   todayRecurringTasksList.innerHTML = '';
 
   const today = getStartOfToday();
+  const focalistCutoff = getFocalistCutoffDate(today); // 明日（前日表示のため）
 
   const matches = cachedRecurringTasks
     .map((task) => {
-      // 最後に完了した日の翌日、または1年前を起点に検索
+      // 前回完了日の翌日、または1年前を起点に検索
       let searchFrom;
       if (task.lastCompletedDate) {
         const completedDate = parseDateKey(task.lastCompletedDate);
@@ -479,14 +480,11 @@ function renderTodayRecurringTasks() {
         searchFrom = new Date(today);
         searchFrom.setFullYear(searchFrom.getFullYear() - 1);
       }
-      const nextDate = getNextOccurrenceDate(task.schedule, searchFrom, null);
+      // 明日までの範囲で最も直近の発生日を取得（前日表示 + 過去未完了継続）
+      const nextDate = getMostRecentOccurrenceUpTo(task.schedule, searchFrom, focalistCutoff);
       return { task, nextDate };
     })
-    .filter(({ nextDate }) => {
-      if (!nextDate) return false;
-      // 今日以前の未完了発生日があれば表示
-      return nextDate.getTime() <= today.getTime();
-    })
+    .filter(({ nextDate }) => nextDate !== null)
     .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
 
   matches.forEach(({ task, nextDate }) => {
@@ -495,6 +493,20 @@ function renderTodayRecurringTasks() {
 
   const shouldHide = matches.length === 0;
   recurringTasksContainer?.classList.toggle('hidden', shouldHide);
+}
+
+// searchFrom 以降で cutoffDate 以前の最も直近の発生日を返す
+function getMostRecentOccurrenceUpTo(schedule, searchFrom, cutoffDate) {
+  let lastFound = null;
+  let current = new Date(searchFrom);
+  for (let i = 0; i < 500; i++) {
+    const next = getNextOccurrenceDate(schedule, current, null);
+    if (!next || next.getTime() > cutoffDate.getTime()) break;
+    lastFound = next;
+    current = new Date(next);
+    current.setDate(current.getDate() + 1);
+  }
+  return lastFound;
 }
 
 function renderAllRecurringTasks() {
