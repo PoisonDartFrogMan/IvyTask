@@ -463,18 +463,29 @@ function renderTodayRecurringTasks() {
   todayRecurringTasksList.innerHTML = '';
 
   const today = getStartOfToday();
-  const focalistCutoff = getFocalistCutoffDate(today);
 
   const matches = cachedRecurringTasks
     .map((task) => {
-      const nextDate = getNextOccurrenceDate(task.schedule, today, task.lastCompletedDate);
+      // 最後に完了した日の翌日、または1年前を起点に検索
+      let searchFrom;
+      if (task.lastCompletedDate) {
+        const completedDate = parseDateKey(task.lastCompletedDate);
+        if (completedDate) {
+          searchFrom = new Date(completedDate);
+          searchFrom.setDate(searchFrom.getDate() + 1);
+        }
+      }
+      if (!searchFrom) {
+        searchFrom = new Date(today);
+        searchFrom.setFullYear(searchFrom.getFullYear() - 1);
+      }
+      const nextDate = getNextOccurrenceDate(task.schedule, searchFrom, null);
       return { task, nextDate };
     })
-    .filter(({ task, nextDate }) => {
+    .filter(({ nextDate }) => {
       if (!nextDate) return false;
-      if (nextDate.getTime() > focalistCutoff.getTime()) return false;
-      const key = formatDateKey(nextDate);
-      return task.lastCompletedDate !== key;
+      // 今日以前の未完了発生日があれば表示
+      return nextDate.getTime() <= today.getTime();
     })
     .sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
 
