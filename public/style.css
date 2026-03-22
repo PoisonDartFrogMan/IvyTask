@@ -996,9 +996,15 @@ button:hover {
 
 .main-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-bottom: 20px;
+}
+
+@media (min-width: 900px) {
+  .main-controls {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .main-controls button {
@@ -1137,24 +1143,48 @@ body.modal-open {
 /* タイトル左の追加ボタン配置用 */
 .title-bar {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .title-bar h1 {
-  flex: 1;
+  order: -1;
   text-align: center;
   margin: 0;
 }
 
 .title-bar-buttons {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
 .title-bar-buttons button {
+  width: 100%;
+  min-width: 0;
   margin-left: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ワイドスクリーンでは横並び4列レイアウトに戻す */
+@media (min-width: 900px) {
+  .title-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .title-bar h1 {
+    flex: 1;
+    order: 0;
+  }
+  .title-bar-buttons {
+    grid-template-columns: repeat(4, auto);
+  }
+  .title-bar-buttons button {
+    width: auto;
+  }
 }
 
 #open-add-task-modal-button {
@@ -1786,43 +1816,18 @@ body.sleeping #happy-hacking-sticker {
     left: -14px;
   }
 
-  .title-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
   .title-bar h1 {
-    order: -1;
     font-size: 1.4em;
-    text-align: center;
-  }
-
-  .title-bar-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
   }
 
   .title-bar-buttons button {
-    width: 100%;
     font-size: 0.78rem;
     padding: 9px 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .main-controls {
-    grid-template-columns: repeat(2, 1fr);
   }
 
   .main-controls button {
     font-size: 0.78rem;
     padding: 9px 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
