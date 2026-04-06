@@ -6884,7 +6884,9 @@ function listenChatMessages(roomId) {
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added') {
         const msg = change.doc.data();
+        msg.id = change.doc.id;
         appendChatMessage(msg);
+
 
         // 初回ロード以外・自分以外のメッセージ・アプリが非アクティブのとき通知
         if (!isInitialLoad && msg.senderId !== currentUserId && document.hidden) {
@@ -6923,14 +6925,60 @@ function appendChatMessage(msg) {
     sender.textContent = msg.senderName || 'Anonymous';
     wrapper.appendChild(sender);
   }
+
+  // Check if it's an unread message from someone else
+  const isUnreadOther = msg.senderId !== currentUserId && (!msg.openedBy || !msg.openedBy.includes(currentUserId));
   
+  const contentWrapper = document.createElement('div');
+  
+  if (isUnreadOther) {
+    // Render Envelope
+    const envelope = document.createElement('div');
+    envelope.className = 'message-envelope pet-arrival-animation';
+    // Use the senderPet or default to a generic icon
+    const petIcon = msg.senderPet ? `<img src="/img/pets/${msg.senderPet}.png" class="pet-icon-small" alt="${msg.senderPet}">` : '📮';
+    
+    envelope.innerHTML = `
+      <div class="envelope-body">
+        <span class="envelope-icon">${petIcon}</span>
+        <span class="envelope-text">お手紙が届いています（タップして開封）</span>
+      </div>
+    `;
+    
+    envelope.addEventListener('click', async () => {
+      // Mark as read
+      try {
+        await updateDoc(doc(db, 'chat_messages', msg.id), {
+          openedBy: arrayUnion(currentUserId)
+        });
+      } catch (err) {
+        console.error("Failed to mark message as read:", err);
+      }
+      // UI is local optimistic update or let onSnapshot handle it?
+      // Since it's onSnapshot 'modified', it's better to handle 'modified' in docChanges. 
+      // But we just append now. So let's optimistically replace it.
+      envelope.classList.add('pop-open');
+      setTimeout(() => {
+        wrapper.replaceChild(renderNormalBubble(msg), envelope);
+      }, 300);
+    });
+    
+    wrapper.appendChild(envelope);
+  } else {
+    // Render normally
+    wrapper.appendChild(renderNormalBubble(msg));
+  }
+  
+  chatMessages.appendChild(wrapper);
+}
+
+function renderNormalBubble(msg) {
   const bubble = document.createElement('div');
   bubble.className = 'chat-message-bubble';
   bubble.textContent = msg.text;
-  
-  wrapper.appendChild(bubble);
-  chatMessages.appendChild(wrapper);
+  return bubble;
 }
+
 
 async function sendChatMessage(text) {
   if (!text.trim() || !currentChatRoomId || !currentUserId || !lastKnownAuthUser) {

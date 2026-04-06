@@ -4499,23 +4499,64 @@ body[data-workspace="chat"] {
   display: none !important;
 }
 
-/* ===== Pet Arrival Animation ===== */
+/* ===== Pet Arrival Animation & Envelope ===== */
 .pet-arrival-animation {
-  position: absolute;
-  bottom: 20px;
-  right: -100px;
-  width: 80px;
-  height: 80px;
-  object-fit: contain;
-  z-index: 1000;
-  animation: petSlideIn 4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  pointer-events: none;
+  animation: petSlideIn 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 @keyframes petSlideIn {
-  0% { transform: translateX(100px) translateY(0); opacity: 0; }
-  15% { transform: translateX(-150px) translateY(-15px) rotate(-10deg); opacity: 1; }
-  25% { transform: translateX(-150px) translateY(0) rotate(5deg); opacity: 1; }
-  75% { transform: translateX(-150px) translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateX(-500px) translateY(20px) scale(0.8); opacity: 0; }
+  0% { transform: translateX(100%); opacity: 0; }
+  60% { transform: translateX(-10px); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.message-envelope {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px dashed var(--primary-color);
+  border-radius: 12px;
+  padding: 10px 15px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.message-envelope:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  background: #fff;
+}
+
+.message-envelope.pop-open {
+  animation: popOpen 0.3s ease forwards;
+}
+
+@keyframes popOpen {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.envelope-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.envelope-icon {
+  font-size: 1.5rem;
+}
+
+.pet-icon-small {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.envelope-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
 }
