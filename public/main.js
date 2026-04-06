@@ -232,11 +232,13 @@ const chatCurrentRoomName = document.getElementById('chat-current-room-name');
 const chatMessages = document.getElementById('chat-messages');
 const chatInputForm = document.getElementById('chat-input-form');
 const chatMessageInput = document.getElementById('chat-message-input');
+const chatPetSelect = document.getElementById('chat-pet-select');
 
 let currentChatRoomId = null;
 let currentChatRoom = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
+let currentPetType = 'turtle';
 
 
 // Archive Workspace Elements
@@ -912,6 +914,28 @@ async function handleSignedIn(user) {
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
+  
+  if (currentUserId === MASTER_UID) {
+    if (chatPetSelect && !chatPetSelect.querySelector('option[value="frog"]')) {
+      const frogOption = document.createElement('option');
+      frogOption.value = 'frog';
+      frogOption.textContent = '🐸 黄金のカエル (Frog)';
+      chatPetSelect.appendChild(frogOption);
+    }
+  }
+  
+  const userRef = doc(db, 'users', currentUserId);
+  getDoc(userRef).then(docSnap => {
+    if (docSnap.exists() && docSnap.data().petType) {
+      currentPetType = docSnap.data().petType;
+    } else {
+      currentPetType = 'turtle';
+      setDoc(userRef, { petType: 'turtle' }, { merge: true }).catch(console.error);
+    }
+    if (chatPetSelect) {
+      chatPetSelect.value = currentPetType;
+    }
+  }).catch(console.error);
 
 
   if (unsubscribeLabels) unsubscribeLabels();
@@ -3045,6 +3069,20 @@ if (chatCreateRoomBtn) {
 const chatInviteBtn = document.getElementById('chat-invite-btn');
 if (chatInviteBtn) {
   chatInviteBtn.addEventListener('click', () => inviteToChatRoom());
+}
+if (chatPetSelect) {
+  chatPetSelect.addEventListener('change', async (e) => {
+    const selectedPet = e.target.value;
+    currentPetType = selectedPet;
+    if (currentUserId) {
+      try {
+        await setDoc(doc(db, 'users', currentUserId), { petType: selectedPet }, { merge: true });
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'パートナーを変更しました', showConfirmButton: false, timer: 1500 });
+      } catch (err) {
+        console.error('Error saving pet type:', err);
+      }
+    }
+  });
 }
 if (chatInputForm) {
   chatInputForm.addEventListener('submit', (e) => {
@@ -6910,6 +6948,7 @@ async function sendChatMessage(text) {
       text: text.trim(),
       senderId: currentUserId,
       senderName: senderName,
+      senderPet: currentPetType,
       createdAt: serverTimestamp()
     });
   } catch (err) {

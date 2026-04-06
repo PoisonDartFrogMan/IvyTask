@@ -4498,3 +4498,24 @@ body[data-workspace="chat"] {
 .chat-input-area.hidden {
   display: none !important;
 }
+
+/* ===== Pet Arrival Animation ===== */
+.pet-arrival-animation {
+  position: absolute;
+  bottom: 20px;
+  right: -100px;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  z-index: 1000;
+  animation: petSlideIn 4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes petSlideIn {
+  0% { transform: translateX(100px) translateY(0); opacity: 0; }
+  15% { transform: translateX(-150px) translateY(-15px) rotate(-10deg); opacity: 1; }
+  25% { transform: translateX(-150px) translateY(0) rotate(5deg); opacity: 1; }
+  75% { transform: translateX(-150px) translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(-500px) translateY(20px) scale(0.8); opacity: 0; }
+}
