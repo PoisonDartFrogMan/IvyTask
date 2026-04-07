@@ -238,7 +238,7 @@ let currentChatRoomId = null;
 let currentChatRoom = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
-let currentPetType = 'turtle';
+let currentSelectedPet = 'turtle';
 
 
 // Archive Workspace Elements
@@ -926,14 +926,18 @@ async function handleSignedIn(user) {
   
   const userRef = doc(db, 'users', currentUserId);
   getDoc(userRef).then(docSnap => {
-    if (docSnap.exists() && docSnap.data().petType) {
-      currentPetType = docSnap.data().petType;
+    // 既存のpetType互換のため両方チェック、今後はselectedPetに統一
+    const data = docSnap.exists() ? docSnap.data() : {};
+    const loadedPet = data.selectedPet || data.petType;
+    
+    if (loadedPet) {
+      currentSelectedPet = loadedPet;
     } else {
-      currentPetType = 'turtle';
-      setDoc(userRef, { petType: 'turtle' }, { merge: true }).catch(console.error);
+      currentSelectedPet = 'turtle';
+      setDoc(userRef, { selectedPet: 'turtle' }, { merge: true }).catch(console.error);
     }
     if (chatPetSelect) {
-      chatPetSelect.value = currentPetType;
+      chatPetSelect.value = currentSelectedPet;
     }
   }).catch(console.error);
 
@@ -3072,11 +3076,11 @@ if (chatInviteBtn) {
 }
 if (chatPetSelect) {
   chatPetSelect.addEventListener('change', async (e) => {
-    const selectedPet = e.target.value;
-    currentPetType = selectedPet;
+    const newPet = e.target.value;
+    currentSelectedPet = newPet;
     if (currentUserId) {
       try {
-        await setDoc(doc(db, 'users', currentUserId), { petType: selectedPet }, { merge: true });
+        await setDoc(doc(db, 'users', currentUserId), { selectedPet: newPet }, { merge: true });
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'パートナーを変更しました', showConfirmButton: false, timer: 1500 });
       } catch (err) {
         console.error('Error saving pet type:', err);
@@ -6996,7 +7000,7 @@ async function sendChatMessage(text) {
       text: text.trim(),
       senderId: currentUserId,
       senderName: senderName,
-      senderPet: currentPetType,
+      senderPet: currentSelectedPet,
       createdAt: serverTimestamp()
     });
   } catch (err) {
