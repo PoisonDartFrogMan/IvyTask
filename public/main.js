@@ -6981,7 +6981,7 @@ function appendChatMessage(msg, isInitialLoad = false) {
     envelope.innerHTML = `
       <div class="envelope-body">
         <span class="envelope-icon">${petIcon}</span>
-        <span class="envelope-text">Coral-Petが届いています（タップして開封）</span>
+        <span class="envelope-text">お手紙が届いています（タップして開封）</span>
       </div>
     `;
     envelope.addEventListener('click', async () => {
