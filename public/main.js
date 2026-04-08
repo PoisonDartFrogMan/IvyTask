@@ -936,6 +936,10 @@ async function handleSignedIn(user) {
     if (chatPetSelect) {
       chatPetSelect.value = currentSelectedPet;
     }
+    // チャット画面が開いている場合は、読み込んだペットに更新する
+    if (currentChatRoomId) {
+      spawnPetOnStage(currentSelectedPet, 'master');
+    }
   } catch (e) {
     console.error('ユーザーデータ読み込みエラー:', e);
   }
@@ -3077,6 +3081,10 @@ if (chatPetSelect) {
   chatPetSelect.addEventListener('change', async (e) => {
     const newPet = e.target.value;
     currentSelectedPet = newPet;
+    // チャット画面が開いている場合は、ステージのペットを即座に更新する
+    if (chatContainer && chatContainer.style.display !== 'none') {
+      spawnPetOnStage(newPet, 'master');
+    }
     // currentUserId が null の場合（スタートアップ画面）でも auth.currentUser から取得して保存
     const saveUserId = currentUserId || auth.currentUser?.uid;
     if (saveUserId) {
@@ -6899,6 +6907,9 @@ async function selectChatRoom(room) {
   const activeItem = items.find(li => li.querySelector('.chat-room-name').textContent === room.name);
   if (activeItem) activeItem.classList.add('active');
 
+  // お部屋に自分のペット（設定されたパートナー）を登場させる
+  spawnPetOnStage(currentSelectedPet || 'turtle', 'master');
+
   listenChatMessages(room.id);
 }
 
@@ -6918,7 +6929,7 @@ function listenChatMessages(roomId) {
       if (change.type === 'added') {
         const msg = change.doc.data();
         msg.id = change.doc.id;
-        appendChatMessage(msg);
+        appendChatMessage(msg, isInitialLoad);
 
 
         // 初回ロード以外・自分以外のメッセージ・アプリが非アクティブのとき通知
@@ -6943,7 +6954,8 @@ function listenChatMessages(roomId) {
   });
 }
 
-function appendChatMessage(msg) {
+function appendChatMessage(msg, isInitialLoad = false) {
+  // メッセージをDOMに追加（オーバーレイとしてpet-stageの上に表示）
   if (!chatMessages) return;
   
   const wrapper = document.createElement('div');
@@ -6959,50 +6971,105 @@ function appendChatMessage(msg) {
     wrapper.appendChild(sender);
   }
 
-  // Check if it's an unread message from someone else
+  // 未読の他ユーザーからのメッセージは封筒演出
   const isUnreadOther = msg.senderId !== currentUserId && (!msg.openedBy || !msg.openedBy.includes(currentUserId));
   
-  const contentWrapper = document.createElement('div');
-  
   if (isUnreadOther) {
-    // Render Envelope
     const envelope = document.createElement('div');
     envelope.className = 'message-envelope pet-arrival-animation';
-    // Use the senderPet or default to a generic icon
     const petIcon = msg.senderPet ? `<img src="/img/pets/${msg.senderPet}.png" class="pet-icon-small" alt="${msg.senderPet}">` : '📮';
-    
     envelope.innerHTML = `
       <div class="envelope-body">
         <span class="envelope-icon">${petIcon}</span>
-        <span class="envelope-text">お手紙が届いています（タップして開封）</span>
+        <span class="envelope-text">Coral-Petが届いています（タップして開封）</span>
       </div>
     `;
-    
     envelope.addEventListener('click', async () => {
-      // Mark as read
       try {
         await updateDoc(doc(db, 'chat_messages', msg.id), {
           openedBy: arrayUnion(currentUserId)
         });
       } catch (err) {
-        console.error("Failed to mark message as read:", err);
+        console.error('Failed to mark message as read:', err);
       }
-      // UI is local optimistic update or let onSnapshot handle it?
-      // Since it's onSnapshot 'modified', it's better to handle 'modified' in docChanges. 
-      // But we just append now. So let's optimistically replace it.
       envelope.classList.add('pop-open');
       setTimeout(() => {
         wrapper.replaceChild(renderNormalBubble(msg), envelope);
       }, 300);
     });
-    
     wrapper.appendChild(envelope);
   } else {
-    // Render normally
     wrapper.appendChild(renderNormalBubble(msg));
   }
   
   chatMessages.appendChild(wrapper);
+
+  // 新着メッセージのときだけペットを登場させる（初回ロード時はスキップ）
+  if (!isInitialLoad) {
+    if (msg.senderId !== currentUserId && isUnreadOther) {
+      // 相手のペットが「来客」として現れる
+      spawnPetOnStage(msg.senderPet || 'turtle', 'guest');
+    } else if (msg.senderId === currentUserId) {
+      // 自分が送信したとき、自分のペットをリフレッシュ（または再登場）
+      spawnPetOnStage(currentSelectedPet || 'turtle', 'master');
+    }
+  }
+}
+
+let petIntervals = {};
+
+// ペットをステージに登場させる (role: 'master' もしくは 'guest')
+function spawnPetOnStage(petType, role = 'guest') {
+  const container = document.getElementById('pet-character-container');
+  const stage = document.getElementById('pet-stage');
+  if (!container || !stage) return;
+  
+  // 既存の同じroleのペットがいれば削除（上書き）
+  const existingPet = container.querySelector(`.pet-character.${role}`);
+  if (existingPet) {
+    if (existingPet.dataset.type === petType) {
+        return; // 同じ種類ならそのまま
+    }
+    existingPet.remove();
+    if (petIntervals[role]) {
+      clearInterval(petIntervals[role]);
+      delete petIntervals[role];
+    }
+  }
+  
+  const petImg = document.createElement('img');
+  petImg.src = `/img/pets/${petType}.png`;
+  petImg.alt = petType;
+  petImg.className = `pet-character ${role}`;
+  petImg.dataset.type = petType;
+  
+  container.appendChild(petImg);
+  
+  requestAnimationFrame(() => {
+    const sw = stage.clientWidth || 400;
+    const sh = stage.clientHeight || 300;
+    
+    // 初期配置: 役割によって少しずらす
+    if (role === 'master') {
+      petImg.style.left = `${Math.floor(sw * 0.3)}px`;
+      petImg.style.top = `${Math.floor(sh * 0.5)}px`;
+    } else {
+      petImg.style.left = `${Math.floor(sw * 0.7)}px`;
+      petImg.style.top = `${Math.floor(sh * 0.5)}px`;
+    }
+    
+    // 自律移動アニメーション
+    petIntervals[role] = setInterval(() => {
+      const curW = stage.clientWidth;
+      const curH = stage.clientHeight;
+      if (curW === 0 || curH === 0) return;
+      
+      const randomX = Math.max(20, Math.floor(Math.random() * (curW - 140)));
+      const randomY = Math.max(20, Math.floor(Math.random() * (curH - 140)));
+      petImg.style.left = `${randomX}px`;
+      petImg.style.top = `${randomY}px`;
+    }, 5000 + Math.random() * 2000); // タイミングをランダムにずらす
+  });
 }
 
 function renderNormalBubble(msg) {

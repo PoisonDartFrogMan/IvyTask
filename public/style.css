@@ -4382,13 +4382,17 @@ body[data-workspace="chat"] {
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative; /* オーバーレイ配置の基準 */
   background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
 }
 
 .chat-messages-header {
   padding: 15px 20px;
   background: rgba(255, 255, 255, 0.3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  position: relative;
+  z-index: 20; /* ステージより前面 */
 }
 
 .chat-messages-header h2 {
@@ -4398,18 +4402,29 @@ body[data-workspace="chat"] {
 }
 
 .chat-messages {
-  flex: 1;
-  padding: 20px;
+  /* ステージの上にオーバーレイ表示 */
+  position: absolute;
+  bottom: 80px; /* 入力フォーム（約70px）に重ならないように調整 */
+  left: 0;
+  right: 0;
+  max-height: 55%;
+  padding: 20px 20px 40px;
   overflow-y: auto;
-  display: flex;
+  display: flex !important;
   flex-direction: column;
-  gap: 15px;
+  gap: 14px;
+  z-index: 20;
+  /* 背景のグラデーションを少し濃くして文字を読みやすくする */
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.8) 70%, transparent 100%);
+  pointer-events: auto;
+  scrollbar-width: thin;
 }
 
 .chat-message {
-  max-width: 70%;
+  max-width: 85%; /* 少し広げる */
   display: flex;
   flex-direction: column;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
 }
 
 .chat-message.self {
@@ -4455,11 +4470,14 @@ body[data-workspace="chat"] {
 }
 
 .chat-input-area {
+  position: relative;
+  z-index: 30; /* メッセージやステージより前面に配置 */
   padding: 15px 20px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.9); /* 少し濃くして視認性を上げる */
   border-top: 1px solid rgba(255, 255, 255, 0.4);
   display: flex;
   gap: 10px;
+  margin-top: auto; /* 下部に固定 */
 }
 
 #chat-message-input {
@@ -4559,4 +4577,52 @@ body[data-workspace="chat"] {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--primary-color);
+}
+
+/* =========================================
+   Pet Room Stage (Phase 2 PostPet-like UI)
+   ========================================= */
+.bg-sunny {
+  /* 薄いオレンジの仮背景色、後日画像に変更予定 */
+  background-color: #ffe8d6;
+  background-image: url('/wallpaper-sunny.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.pet-stage {
+  position: relative;
+  width: 100%;
+  flex: 1; /* 取れるだけの高さを取る */
+  overflow: hidden; /* 境界からペットが出ないようにする */
+  border-radius: 8px; /* 枠線を丸く */
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.05); /* 少し奥行き */
+  min-height: 200px; /* 最低限の高さを確保 */
+}
+
+#pet-character-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pet-character {
+  position: absolute;
+  width: 120px; /* ペットのサイズ */
+  height: auto;
+  z-index: 10;
+  transition: left 1s ease-in-out, top 1s ease-in-out;
+  will-change: top, left;
+  filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+  animation: float-pet 3s ease-in-out infinite;
+  pointer-events: auto;
+}
+
+@keyframes float-pet {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
