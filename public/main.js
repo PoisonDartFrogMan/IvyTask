@@ -925,21 +925,20 @@ async function handleSignedIn(user) {
   }
   
   const userRef = doc(db, 'users', currentUserId);
-  getDoc(userRef).then(docSnap => {
+  try {
+    const docSnap = await getDoc(userRef);
     // 既存のpetType互換のため両方チェック、今後はselectedPetに統一
     const data = docSnap.exists() ? docSnap.data() : {};
     const loadedPet = data.selectedPet || data.petType;
     
-    if (loadedPet) {
-      currentSelectedPet = loadedPet;
-    } else {
-      currentSelectedPet = 'turtle';
-      setDoc(userRef, { selectedPet: 'turtle' }, { merge: true }).catch(console.error);
-    }
+    // loadedPet が未設定でもFirestoreへturtleの強制書き込みはしない（変数のみデフォルト）
+    currentSelectedPet = loadedPet || 'turtle';
     if (chatPetSelect) {
       chatPetSelect.value = currentSelectedPet;
     }
-  }).catch(console.error);
+  } catch (e) {
+    console.error('ユーザーデータ読み込みエラー:', e);
+  }
 
 
   if (unsubscribeLabels) unsubscribeLabels();
@@ -3078,13 +3077,17 @@ if (chatPetSelect) {
   chatPetSelect.addEventListener('change', async (e) => {
     const newPet = e.target.value;
     currentSelectedPet = newPet;
-    if (currentUserId) {
+    // currentUserId が null の場合（スタートアップ画面）でも auth.currentUser から取得して保存
+    const saveUserId = currentUserId || auth.currentUser?.uid;
+    if (saveUserId) {
       try {
-        await setDoc(doc(db, 'users', currentUserId), { selectedPet: newPet }, { merge: true });
+        await setDoc(doc(db, 'users', saveUserId), { selectedPet: newPet }, { merge: true });
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'パートナーを変更しました', showConfirmButton: false, timer: 1500 });
       } catch (err) {
         console.error('Error saving pet type:', err);
       }
+    } else {
+      console.warn('パートナー保存失敗: ユーザーIDが取得できません');
     }
   });
 }
@@ -3764,11 +3767,37 @@ function switchToEditMode() {
   cancelEditButton.classList.remove('hidden');
 }
 
-const openSettingsModal = () => {
+const openSettingsModal = async () => {
   if (auth.currentUser) { settingsUserIdSpan.textContent = auth.currentUser.email; }
   settingsModalBackdrop.classList.remove('hidden');
   document.body.classList.add('modal-open');
   ensureUpdatesLoaded();
+  // スタートアップ画面では currentUserId=null のため auth.currentUser からフォールバック
+  const modalUserId = currentUserId || auth.currentUser?.uid;
+  // 設定を開くたびに最新のペット選択をFirestoreから取得してセレクトに反映
+  if (modalUserId && chatPetSelect) {
+    // マスターの場合はfrogオプションを確保
+    if (modalUserId === MASTER_UID && !chatPetSelect.querySelector('option[value="frog"]')) {
+      const frogOption = document.createElement('option');
+      frogOption.value = 'frog';
+      frogOption.textContent = '🐸 黄金のカエル (Frog)';
+      chatPetSelect.appendChild(frogOption);
+    }
+    try {
+      const userSnap = await getDoc(doc(db, 'users', modalUserId));
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        const savedPet = data.selectedPet || data.petType || 'turtle';
+        currentSelectedPet = savedPet;
+        chatPetSelect.value = savedPet;
+      } else if (currentSelectedPet) {
+        chatPetSelect.value = currentSelectedPet;
+      }
+    } catch (e) {
+      console.error('設定モーダル: ペット読み込みエラー', e);
+      if (currentSelectedPet) chatPetSelect.value = currentSelectedPet;
+    }
+  }
 };
 document.getElementById('startup-settings-button')?.addEventListener('click', openSettingsModal);
 const closeSettings = () => {
