@@ -7037,13 +7037,18 @@ function spawnPetOnStage(petType, role = 'guest') {
     }
   }
   
-  const petImg = document.createElement('img');
-  petImg.src = `/img/pets/${petType}.png`;
-  petImg.alt = petType;
-  petImg.className = `pet-character ${role}`;
-  petImg.dataset.type = petType;
+  // カメさんの場合は div (スプライト制御用)、それ以外は img
+  const petEl = document.createElement(petType === 'turtle' ? 'div' : 'img');
+  if (petType === 'turtle') {
+    petEl.classList.add('state-idle');
+  } else {
+    petEl.src = `/img/pets/${petType}.png`;
+  }
+  petEl.alt = petType;
+  petEl.className = `pet-character ${role} ${petType}`;
+  petEl.dataset.type = petType;
   
-  container.appendChild(petImg);
+  container.appendChild(petEl);
   
   requestAnimationFrame(() => {
     const sw = stage.clientWidth || 400;
@@ -7051,11 +7056,11 @@ function spawnPetOnStage(petType, role = 'guest') {
     
     // 初期配置: 役割によって少しずらす
     if (role === 'master') {
-      petImg.style.left = `${Math.floor(sw * 0.3)}px`;
-      petImg.style.top = `${Math.floor(sh * 0.5)}px`;
+      petEl.style.left = `${Math.floor(sw * 0.3)}px`;
+      petEl.style.top = `${Math.floor(sh * 0.5)}px`;
     } else {
-      petImg.style.left = `${Math.floor(sw * 0.7)}px`;
-      petImg.style.top = `${Math.floor(sh * 0.5)}px`;
+      petEl.style.left = `${Math.floor(sw * 0.7)}px`;
+      petEl.style.top = `${Math.floor(sh * 0.5)}px`;
     }
     
     // 自律移動アニメーション
@@ -7064,10 +7069,26 @@ function spawnPetOnStage(petType, role = 'guest') {
       const curH = stage.clientHeight;
       if (curW === 0 || curH === 0) return;
       
+      const currentX = parseInt(petEl.style.left) || 0;
       const randomX = Math.max(20, Math.floor(Math.random() * (curW - 140)));
       const randomY = Math.max(20, Math.floor(Math.random() * (curH - 140)));
-      petImg.style.left = `${randomX}px`;
-      petImg.style.top = `${randomY}px`;
+      
+      // カメさんの場合、向きとアニメーションの切り替え
+      if (petType === 'turtle') {
+        const isFlipped = randomX < currentX;
+        petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
+        
+        petEl.classList.remove('state-idle');
+        petEl.classList.add('state-move');
+        
+        setTimeout(() => {
+          petEl.classList.remove('state-move');
+          petEl.classList.add('state-idle');
+        }, 1000);
+      }
+      
+      petEl.style.left = `${randomX}px`;
+      petEl.style.top = `${randomY}px`;
     }, 5000 + Math.random() * 2000); // タイミングをランダムにずらす
   });
 }

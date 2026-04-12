@@ -4617,12 +4617,43 @@ body[data-workspace="chat"] {
   transition: left 1s ease-in-out, top 1s ease-in-out;
   will-change: top, left;
   filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+  --pet-scale: scaleX(1);
   animation: float-pet 3s ease-in-out infinite;
   pointer-events: auto;
 }
 
+/* カメさん専用 */
+.pet-character.turtle {
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-size: 480px auto; /* 120px * 4frames */
+  width: 120px;
+  height: 156px; /* スプライトの高さを考慮 */
+}
+
+.pet-character.turtle.state-idle {
+  background-image: url('/img/pets/turtle_idle.png');
+  animation: turtle-idle 0.8s steps(4) infinite, float-pet 3s ease-in-out infinite;
+}
+
+.pet-character.turtle.state-move {
+  background-image: url('/img/pets/turtle_move.png');
+  animation: turtle-move 0.6s steps(4) infinite, float-pet 3s ease-in-out infinite;
+}
+
+@keyframes turtle-idle {
+  from { background-position: 0 0; }
+  to { background-position: -480px 0; }
+}
+
+@keyframes turtle-move {
+  from { background-position: 0 0; }
+  to { background-position: -480px 0; }
+}
+
+
 @keyframes float-pet {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% { transform: var(--pet-scale) translateY(0px); }
+  50% { transform: var(--pet-scale) translateY(-10px); }
+  100% { transform: var(--pet-scale) translateY(0px); }
 }
