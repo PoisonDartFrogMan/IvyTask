@@ -4633,7 +4633,7 @@ body[data-workspace="chat"] {
 
 .pet-character.turtle.state-idle {
   background-image: url('/img/pets/turtle_idle.png');
-  animation: turtle-idle 0.8s steps(4) infinite, float-pet 3s ease-in-out infinite;
+  animation: turtle-idle 1.4s steps(4) infinite, float-pet 5s ease-in-out infinite;
 }
 
 .pet-character.turtle.state-move {
@@ -4654,6 +4654,6 @@ body[data-workspace="chat"] {
 
 @keyframes float-pet {
   0% { transform: var(--pet-scale) translateY(0px); }
-  50% { transform: var(--pet-scale) translateY(-10px); }
+  50% { transform: var(--pet-scale) translateY(-8px); }
   100% { transform: var(--pet-scale) translateY(0px); }
 }
