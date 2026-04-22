@@ -7038,7 +7038,7 @@ function spawnPetOnStage(petType, role = 'guest') {
   }
   
   // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
-  const isSprite = (petType === 'turtle' || petType === 'frog');
+  const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta');
   const petEl = document.createElement(isSprite ? 'div' : 'img');
   if (isSprite) {
     petEl.classList.add('state-idle');
@@ -7056,12 +7056,17 @@ function spawnPetOnStage(petType, role = 'guest') {
     const sh = stage.clientHeight || 300;
     
     // 初期配置: 役割によって少しずらす
+    let initY = Math.floor(sh * 0.5);
+    if (petType === 'manta') {
+      initY = Math.floor(sh * 0.25); // マンタは少し高めに配置
+    }
+    
     if (role === 'master') {
       petEl.style.left = `${Math.floor(sw * 0.3)}px`;
-      petEl.style.top = `${Math.floor(sh * 0.5)}px`;
+      petEl.style.top = `${initY}px`;
     } else {
       petEl.style.left = `${Math.floor(sw * 0.7)}px`;
-      petEl.style.top = `${Math.floor(sh * 0.5)}px`;
+      petEl.style.top = `${initY}px`;
     }
     
     // 自律移動アニメーション
@@ -7078,14 +7083,22 @@ function spawnPetOnStage(petType, role = 'guest') {
       } else if (petType === 'turtle') {
         petWidth = 120;
         petHeight = 156;
+      } else if (petType === 'manta') {
+        petWidth = 150;
+        petHeight = 128;
       }
 
       const currentX = parseInt(petEl.style.left) || 0;
       const randomX = Math.max(20, Math.floor(Math.random() * (curW - (petWidth + 20))));
-      const randomY = Math.max(20, Math.floor(Math.random() * (curH - (petHeight + 20))));
+      let randomY = Math.max(20, Math.floor(Math.random() * (curH - (petHeight + 20))));
       
-      // カメさん・カエルさんの場合、向きとアニメーションの切り替え
-      if (petType === 'turtle' || petType === 'frog') {
+      // マンタの場合は常に少し高め（画面の上半分〜少し下）を泳がせる
+      if (petType === 'manta') {
+        randomY = Math.max(20, Math.floor(Math.random() * (curH * 0.6)));
+      }
+      
+      // カメさん・カエルさん・マンタさんの場合、向きとアニメーションの切り替え
+      if (petType === 'turtle' || petType === 'frog' || petType === 'manta') {
         const isFlipped = randomX < currentX;
         petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
         
