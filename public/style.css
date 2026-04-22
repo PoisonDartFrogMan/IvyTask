@@ -4670,8 +4670,8 @@ body[data-workspace="chat"] {
 .pet-character.frog.state-move {
   background-image: url('/img/pets/frog_move.png');
   background-size: 768px 128px; /* 128px * 6コマ */
-  /* ジャンプ動作も合わせる */
-  animation: frog-move-anim 0.8s steps(6) infinite, frog-jump 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
+  /* ジャンプ動作も合わせる（マニュアルステップでclipping防止） */
+  animation: frog-move-anim-fixed 0.8s linear infinite, frog-jump 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
 }
 
 /* アニメーションの定義 */
@@ -4680,9 +4680,20 @@ body[data-workspace="chat"] {
   to { background-position: -512px 0; }
 }
 
-@keyframes frog-move-anim {
-  from { background-position: 0 0; }
-  to { background-position: -768px 0; }
+/* カエルくんの移動アニメーション（マニュアル修正・座標計算済） */
+@keyframes frog-move-anim-fixed {
+  /* 1コマ目: 画像左端から 0〜516px (計算上のセンタリング位置: 2px) */
+  0%, 16.65% { background-position: 2px 0; }
+  /* 2コマ目: 画像 538〜1057px (計算上のセンタリング位置: -127px) */
+  16.66%, 33.31% { background-position: -127px 0; }
+  /* 3コマ目: 画像 1078〜1598px (計算上のセンタリング位置: -256px) */
+  33.32%, 49.97% { background-position: -256px 0; }
+  /* 4コマ目: 画像 1651〜2103px (計算上のセンタリング位置: -385px) */
+  49.98%, 66.63% { background-position: -385px 0; }
+  /* 5コマ目: 画像 2175〜2657px (計算上のセンタリング位置: -514px) */
+  66.64%, 83.29% { background-position: -514px 0; }
+  /* 6コマ目: 画像 2695〜3212px (計算上のセンタリング位置: -642px) */
+  83.30%, 100% { background-position: -642px 0; }
 }
 
 @keyframes frog-jump {
