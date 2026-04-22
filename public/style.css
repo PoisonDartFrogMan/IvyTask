@@ -4747,3 +4747,21 @@ body[data-workspace="chat"] {
   50% { transform: var(--pet-scale) translateY(-15px); }
   100% { transform: var(--pet-scale) translateY(0px); }
 }
+/* スマホ向けレスポンシブ（チャット・ペット画面） */
+@media (max-width: 768px) {
+  .chat-layout {
+    flex-direction: column;
+  }
+  .chat-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    flex: none;      /* 縦に伸びすぎないように固定 */
+    height: 25vh;    /* スマホ画面の25%だけをリスト領域に */
+  }
+  .chat-main {
+    width: 100%;
+    flex: 1;         /* 残りの高さをすべてお部屋に割り当て */
+  }
+}
+
