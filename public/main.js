@@ -7084,7 +7084,7 @@ function spawnPetOnStage(petType, role = 'guest') {
         petWidth = 120;
         petHeight = 156;
       } else if (petType === 'manta') {
-        petWidth = 150;
+        petWidth = 128;
         petHeight = 128;
       }
 

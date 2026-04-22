@@ -4712,33 +4712,33 @@ body[data-workspace="chat"] {
 .pet-character.manta {
   image-rendering: pixelated;
   background-repeat: no-repeat;
-  width: 150px;
+  width: 128px;
   height: 128px;
 }
 
-/* 待機アニメーション：4コマ (1コマ0.25秒 -> 計1.0秒) */
+/* 待機アニメーション：8コマ (1コマ0.1875秒 -> 計1.5秒) */
 .pet-character.manta.state-idle {
   background-image: url('/img/pets/manta_idle.png');
-  background-size: 600px 128px; /* 150px * 4コマ */
-  animation: manta-idle-anim 1.0s steps(4) infinite, float-manta 4s ease-in-out infinite;
+  background-size: 1024px 128px; /* 128px * 8コマ */
+  animation: manta-idle-anim 1.5s steps(8) infinite, float-manta 4s ease-in-out infinite;
 }
 
-/* 移動アニメーション：8コマ (1コマ0.15秒 -> 計1.2秒) */
+/* 移動アニメーション：6コマ (1コマ約0.166秒 -> 計1.0秒) */
 .pet-character.manta.state-move {
   background-image: url('/img/pets/manta_move.png');
-  background-size: 1200px 128px; /* 150px * 8コマ */
-  animation: manta-move-anim 1.2s steps(8) infinite, float-manta 4s ease-in-out infinite;
+  background-size: 768px 128px; /* 128px * 6コマ */
+  animation: manta-move-anim 1.0s steps(6) infinite, float-manta 4s ease-in-out infinite;
 }
 
 /* アニメーションの定義 */
 @keyframes manta-idle-anim {
   from { background-position: 0 0; }
-  to { background-position: -600px 0; }
+  to { background-position: -1024px 0; }
 }
 
 @keyframes manta-move-anim {
   from { background-position: 0 0; }
-  to { background-position: -1200px 0; }
+  to { background-position: -768px 0; }
 }
 
 /* マンタさん特有の優雅な浮遊感 */
