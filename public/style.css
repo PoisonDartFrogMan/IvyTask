@@ -4651,6 +4651,42 @@ body[data-workspace="chat"] {
   to { background-position: -480px 0; }
 }
 
+/* カエルさん専用 */
+.pet-character.frog {
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-size: 360px auto; /* 120px * 3frames */
+  width: 120px;
+  height: 120px; 
+}
+
+.pet-character.frog.state-idle {
+  background-image: url('/img/pets/frog_idle.png');
+  /* 待機中の呼吸：ゆっくり（2.4秒） */
+  animation: frog-idle 2.4s steps(3) infinite, float-pet 5s ease-in-out infinite;
+}
+
+.pet-character.frog.state-move {
+  background-image: url('/img/pets/frog_move.png');
+  /* 移動中は跳ねるように（0.5秒で1サイクル） */
+  animation: frog-move 0.5s steps(3) infinite, frog-jump 0.5s cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
+}
+
+@keyframes frog-idle {
+  from { background-position: 0 0; }
+  to { background-position: -360px 0; }
+}
+
+@keyframes frog-move {
+  from { background-position: 0 0; }
+  to { background-position: -360px 0; }
+}
+
+@keyframes frog-jump {
+  0% { transform: var(--pet-scale) translateY(0px); }
+  50% { transform: var(--pet-scale) translateY(-30px); }
+  100% { transform: var(--pet-scale) translateY(0px); }
+}
 
 @keyframes float-pet {
   0% { transform: var(--pet-scale) translateY(0px); }

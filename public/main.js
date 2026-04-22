@@ -7037,9 +7037,10 @@ function spawnPetOnStage(petType, role = 'guest') {
     }
   }
   
-  // カメさんの場合は div (スプライト制御用)、それ以外は img
-  const petEl = document.createElement(petType === 'turtle' ? 'div' : 'img');
-  if (petType === 'turtle') {
+  // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
+  const isSprite = (petType === 'turtle' || petType === 'frog');
+  const petEl = document.createElement(isSprite ? 'div' : 'img');
+  if (isSprite) {
     petEl.classList.add('state-idle');
   } else {
     petEl.src = `/img/pets/${petType}.png`;
@@ -7073,8 +7074,8 @@ function spawnPetOnStage(petType, role = 'guest') {
       const randomX = Math.max(20, Math.floor(Math.random() * (curW - 140)));
       const randomY = Math.max(20, Math.floor(Math.random() * (curH - 140)));
       
-      // カメさんの場合、向きとアニメーションの切り替え
-      if (petType === 'turtle') {
+      // カメさん・カエルさんの場合、向きとアニメーションの切り替え
+      if (petType === 'turtle' || petType === 'frog') {
         const isFlipped = randomX < currentX;
         petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
         
