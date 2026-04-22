@@ -7070,9 +7070,19 @@ function spawnPetOnStage(petType, role = 'guest') {
       const curH = stage.clientHeight;
       if (curW === 0 || curH === 0) return;
       
+      let petWidth = 120;
+      let petHeight = 120;
+      if (petType === 'frog') {
+        petWidth = 128;
+        petHeight = 128;
+      } else if (petType === 'turtle') {
+        petWidth = 120;
+        petHeight = 156;
+      }
+
       const currentX = parseInt(petEl.style.left) || 0;
-      const randomX = Math.max(20, Math.floor(Math.random() * (curW - 140)));
-      const randomY = Math.max(20, Math.floor(Math.random() * (curH - 140)));
+      const randomX = Math.max(20, Math.floor(Math.random() * (curW - (petWidth + 20))));
+      const randomY = Math.max(20, Math.floor(Math.random() * (curH - (petHeight + 20))));
       
       // カメさん・カエルさんの場合、向きとアニメーションの切り替え
       if (petType === 'turtle' || petType === 'frog') {

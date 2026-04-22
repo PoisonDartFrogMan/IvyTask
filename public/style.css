@@ -4655,31 +4655,34 @@ body[data-workspace="chat"] {
 .pet-character.frog {
   image-rendering: pixelated;
   background-repeat: no-repeat;
-  background-size: 360px auto; /* 120px * 3frames */
-  width: 120px;
-  height: 120px; 
+  width: 128px;  /* 1コマの幅 */
+  height: 128px; /* 1コマの高さ */
 }
 
+/* 待機アニメーション：4コマ */
 .pet-character.frog.state-idle {
   background-image: url('/img/pets/frog_idle.png');
-  /* 待機中の呼吸：ゆっくり（2.4秒） */
-  animation: frog-idle 2.4s steps(3) infinite, float-pet 5s ease-in-out infinite;
+  background-size: 512px 128px; /* 128px * 4コマ */
+  animation: frog-idle-anim 1.0s steps(4) infinite, float-pet 5s ease-in-out infinite;
 }
 
+/* 移動アニメーション：6コマ */
 .pet-character.frog.state-move {
   background-image: url('/img/pets/frog_move.png');
-  /* 移動中は跳ねるように（0.5秒で1サイクル） */
-  animation: frog-move 0.5s steps(3) infinite, frog-jump 0.5s cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
+  background-size: 768px 128px; /* 128px * 6コマ */
+  /* ジャンプ動作も合わせる */
+  animation: frog-move-anim 0.8s steps(6) infinite, frog-jump 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
 }
 
-@keyframes frog-idle {
+/* アニメーションの定義 */
+@keyframes frog-idle-anim {
   from { background-position: 0 0; }
-  to { background-position: -360px 0; }
+  to { background-position: -512px 0; }
 }
 
-@keyframes frog-move {
+@keyframes frog-move-anim {
   from { background-position: 0 0; }
-  to { background-position: -360px 0; }
+  to { background-position: -768px 0; }
 }
 
 @keyframes frog-jump {
