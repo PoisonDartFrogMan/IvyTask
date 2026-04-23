@@ -4273,30 +4273,373 @@ body.diary-mode .memo-link {
   color: #8D6E63;
 }
 
+
 /* =========================================================================
-   Chat Workspace
+   PostPet メーラー UI（Phase 4）
    ========================================================================= */
 
+/* チャット画面全体のラッパー */
 #chat-container {
-  max-width: 1200px;
-  margin: 40px auto;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-  height: calc(100vh - 80px); /* Fill screen minus margin */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #d4a574 0%, #c8956c 50%, #b8845a 100%);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* PostPetウィンドウ本体 */
+#postpet-window {
+  width: min(780px, 100%);
   display: flex;
   flex-direction: column;
+  border: 3px solid #8b6340;
+  border-radius: 6px;
+  box-shadow: 
+    inset 2px 2px 0 rgba(255,255,255,0.4),
+    inset -2px -2px 0 rgba(0,0,0,0.2),
+    6px 10px 30px rgba(0,0,0,0.45);
+  background: #f0dcc0;
+  overflow: hidden;
+  font-family: 'MS PGothic', 'ヒラギノ丸ゴ Pro W4', 'Hiragino Maru Gothic Pro', sans-serif;
+}
+
+/* タイトルバー */
+#postpet-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: linear-gradient(180deg, #d4a97a 0%, #b8824a 100%);
+  border-bottom: 2px solid #8b6340;
+  user-select: none;
+}
+.postpet-pet-icon-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+#postpet-title-text {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+  letter-spacing: 0.05em;
+}
+.postpet-titlebar-buttons {
+  display: flex;
+  gap: 4px;
+}
+.titlebar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(0,0,0,0.3);
+  border-radius: 2px;
+  cursor: pointer;
+  background: #e8d4b0;
+  color: #3a2a10;
+  font-weight: bold;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.5);
+  transition: background 0.1s;
+}
+.titlebar-btn:hover { background: #f0e0c0; }
+.titlebar-btn.close { background: #cc4444; color: #fff; border: none; }
+.titlebar-btn.close:hover { background: #ee2222; }
+
+/* メニューバー */
+#postpet-menubar {
+  display: flex;
+  gap: 0;
+  padding: 2px 4px;
+  background: #e8d4a0;
+  border-bottom: 1px solid #b89060;
+  font-size: 0.8rem;
+  color: #3a2a10;
+}
+.menu-item {
+  padding: 2px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.1s;
+}
+.menu-item:hover { background: rgba(0,0,0,0.12); }
+
+/* 本体エリア（サイドバー＋ステージ） */
+#postpet-body {
+  display: flex;
+  flex: 1;
+  min-height: 420px;
+}
+
+/* 左サイドバー */
+#postpet-sidebar {
+  width: 130px;
+  min-width: 130px;
+  background: linear-gradient(180deg, #f5e8cc 0%, #e8d4aa 100%);
+  border-right: 2px solid #b89060;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  box-sizing: border-box;
+}
+.pp-sidebar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: #eeddb0;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6), 1px 1px 0 rgba(0,0,0,0.15);
+  width: 100%;
+}
+.pp-sidebar-btn:hover {
+  background: #f5e8c8;
+  transform: translateY(-1px);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.8), 2px 2px 4px rgba(0,0,0,0.2);
+}
+.pp-sidebar-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 2px 2px 4px rgba(0,0,0,0.15);
+  background: #d4c090;
+}
+.pp-btn-icon { font-size: 1.6rem; line-height: 1; }
+.pp-btn-label { font-size: 0.65rem; color: #4a3010; text-align: center; line-height: 1.2; font-weight: bold; }
+
+/* メインステージ（お部屋） */
+.postpet-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #a8d4e8 url('/img/pets/frog_house.png') center/cover no-repeat;
+  min-height: 400px;
+}
+
+/* ステータスバー */
+#postpet-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, #e8d4a0 0%, #d4b880 100%);
+  border-top: 2px solid #b89060;
+  font-size: 0.85rem;
+  color: #3a2a10;
+  min-height: 28px;
+}
+#postpet-status-icon { font-size: 1rem; }
+#postpet-status-text { font-weight: 500; flex: 1; }
+
+/* ===== PostPet モーダル共通 ===== */
+.pp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.pp-modal-backdrop.hidden { display: none; }
+
+.pp-modal {
+  background: #f5e8cc;
+  border: 3px solid #8b6340;
+  border-radius: 6px;
+  box-shadow: 4px 6px 20px rgba(0,0,0,0.45);
+  min-width: 320px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'MS PGothic', 'ヒラギノ丸ゴ Pro W4', sans-serif;
+}
+.pp-modal-wide { min-width: 480px; }
+.pp-modal-letter { min-width: 400px; }
+
+.pp-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #d4a97a 0%, #b8824a 100%);
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+}
+.pp-modal-close {
+  background: #cc4444;
+  color: #fff;
+  border: none;
+  border-radius: 2px;
+  padding: 2px 8px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.pp-modal-close:hover { background: #ee2222; }
+
+.pp-modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+/* おともだち帳 */
+.pp-friends-actions { margin-bottom: 10px; }
+.pp-action-btn {
+  padding: 6px 14px;
+  background: #eeddb0;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #4a3010;
+  transition: background 0.1s;
+}
+.pp-action-btn:hover { background: #f5e8c8; }
+
+/* リスト共通 */
+.pp-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pp-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #eeddb0;
+  border: 1px solid #c8a870;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-size: 0.85rem;
+  color: #3a2a10;
+}
+.pp-list-item:hover { background: #f5e8c8; }
+
+/* メール一覧 */
+.pp-mail-list .pp-list-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+.pp-mail-sender { font-weight: bold; font-size: 0.85rem; }
+.pp-mail-preview { font-size: 0.8rem; color: #6a5030; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pp-mail-date { font-size: 0.75rem; color: #8a7050; margin-left: auto; }
+.pp-mail-unread .pp-mail-sender::before { content: "📩 "; }
+
+/* メール作成 */
+.pp-write-field { margin-bottom: 12px; }
+.pp-write-field label { display: block; font-size: 0.8rem; color: #4a3010; font-weight: bold; margin-bottom: 4px; }
+.pp-select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  background: #fff8ee;
+  font-size: 0.85rem;
+  color: #3a2a10;
+}
+.pp-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 8px 10px;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  background: #fff8ee;
+  font-size: 0.9rem;
+  color: #3a2a10;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.6;
+}
+.pp-write-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.pp-primary-btn {
+  padding: 8px 20px;
+  background: linear-gradient(180deg, #7ca870 0%, #5a8850 100%);
+  color: #fff;
+  border: 2px solid #3a6030;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 rgba(255,255,255,0.3) inset;
+  transition: all 0.1s;
+}
+.pp-primary-btn:hover { background: linear-gradient(180deg, #8cb880 0%, #6a9860 100%); }
+.pp-secondary-btn {
+  padding: 8px 16px;
+  background: #eeddb0;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #4a3010;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.pp-secondary-btn:hover { background: #f5e8c8; }
+
+/* お手紙本文 */
+.pp-letter-body {
+  background: #fff8ee;
+  border: 1px solid #c8a870;
+  border-radius: 4px;
+  padding: 16px;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: #3a2a10;
+  min-height: 120px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.pp-letter-meta { margin-top: 8px; text-align: right; font-size: 0.78rem; color: #8a7050; }
+
+/* スマホ対応 */
+@media (max-width: 600px) {
+  #chat-container { padding: 0; background: #c8956c; }
+  #postpet-window { border-radius: 0; border: none; width: 100%; min-height: 100vh; }
+  #postpet-body { flex-direction: column; }
+  #postpet-sidebar {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 2px solid #b89060;
+    height: auto;
+    padding: 4px;
+    gap: 4px;
+  }
+  .pp-sidebar-btn { flex: 1 1 calc(20% - 4px); min-width: 56px; padding: 6px 2px; }
+  .pp-btn-icon { font-size: 1.3rem; }
+  .postpet-stage { min-height: 250px; }
+  .pp-modal-wide { min-width: unset; width: 95vw; }
 }
 
 body[data-workspace="chat"] {
-  --primary-color: #6C5CE7; /* Vibrant Purple */
-  --bg-color: #f3f0ff;
+  --primary-color: #6C5CE7;
+  background: linear-gradient(135deg, #d4a574 0%, #c8956c 50%, #b8845a 100%);
 }
 
+/* 旧チャットヘッダー（後方互換のために残す） */
 .chat-header {
   padding: 15px 20px;
   background: rgba(255, 255, 255, 0.3);

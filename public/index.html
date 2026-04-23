@@ -799,38 +799,163 @@
   </div>
 
   <div id="chat-container" style="display: none;">
-    <div class="chat-header">
-      <button id="chat-back-startup-button" class="header-back-btn">スタートに戻る</button>
-      <h1>🕊️ Coral-Pet</h1>
-    </div>
-    <div class="chat-layout">
-      <!-- Left Pane: Room List -->
-      <aside class="chat-sidebar">
-        <div class="chat-sidebar-header">
-          <h2>宛先リスト</h2>
-          <button id="chat-create-room-btn" class="icon-button" title="宛先を追加">➕</button>
-        </div>
-        <ul id="chat-room-list" class="chat-room-list"></ul>
-      </aside>
+    <!-- ===== PostPet ウィンドウ本体 ===== -->
+    <div id="postpet-window">
 
-      <!-- Right Pane: Messages -->
-      <main class="chat-main">
-        <div class="chat-messages-header">
-          <h2 id="chat-current-room-name">手紙を見る対象を選択してください</h2>
-          <button id="chat-invite-btn" class="icon-button hidden" title="宛先に追加">👥+</button>
+      <!-- タイトルバー -->
+      <div id="postpet-titlebar">
+        <img id="postpet-pet-icon" src="/img/pets/frog.png" alt="pet" class="postpet-pet-icon-img">
+        <span id="postpet-title-text">PostPet（カエルの部屋）</span>
+        <div class="postpet-titlebar-buttons">
+          <span class="titlebar-btn minimize">－</span>
+          <span class="titlebar-btn maximize">□</span>
+          <button id="chat-back-startup-button" class="titlebar-btn close" title="スタートへ">×</button>
         </div>
-        <div id="pet-stage" class="bg-sunny pet-stage">
-          <!-- 遊びに来ているペットのキャラクター ここに表示 -->
+      </div>
+
+      <!-- メニューバー -->
+      <div id="postpet-menubar">
+        <span class="menu-item">ファイル(F)</span>
+        <span class="menu-item">世話(T)</span>
+        <span class="menu-item" id="menu-settings">設定(S)</span>
+      </div>
+
+      <!-- 本体レイアウト（サイドバー＋ステージ） -->
+      <div id="postpet-body">
+
+        <!-- 左サイドバー：操作ボタン群 -->
+        <aside id="postpet-sidebar">
+          <button class="pp-sidebar-btn" id="pp-btn-write">
+            <span class="pp-btn-icon">✉️</span>
+            <span class="pp-btn-label">メールを書く</span>
+          </button>
+          <button class="pp-sidebar-btn" id="pp-btn-friends">
+            <span class="pp-btn-icon">📋</span>
+            <span class="pp-btn-label">おともだち帳</span>
+          </button>
+          <button class="pp-sidebar-btn" id="pp-btn-inbox">
+            <span class="pp-btn-icon">📥</span>
+            <span class="pp-btn-label">受信簿</span>
+          </button>
+          <button class="pp-sidebar-btn" id="pp-btn-outbox">
+            <span class="pp-btn-icon">📤</span>
+            <span class="pp-btn-label">送信簿</span>
+          </button>
+          <button class="pp-sidebar-btn" id="pp-btn-check">
+            <span class="pp-btn-icon">🔄</span>
+            <span class="pp-btn-label">メールチェック</span>
+          </button>
+        </aside>
+
+        <!-- メインステージ（お部屋） -->
+        <div id="pet-stage" class="postpet-stage">
           <div id="pet-character-container"></div>
         </div>
-        <div id="chat-messages" class="chat-messages">
-          <!-- Messages will be appended here -->
+
+      </div><!-- /#postpet-body -->
+
+      <!-- ステータスバー -->
+      <div id="postpet-statusbar">
+        <span id="postpet-status-icon">🐸</span>
+        <span id="postpet-status-text">ケロケロ鳴いています。</span>
+      </div>
+
+    </div><!-- /#postpet-window -->
+
+    <!-- 非表示の互換要素（JSが参照するため残す） -->
+    <div id="chat-messages" style="display:none;"></div>
+    <form id="chat-input-form" style="display:none;">
+      <input type="text" id="chat-message-input" autocomplete="off">
+      <button type="submit" id="chat-send-btn"></button>
+    </form>
+    <ul id="chat-room-list" style="display:none;"></ul>
+    <h2 id="chat-current-room-name" style="display:none;"></h2>
+    <button id="chat-create-room-btn" style="display:none;"></button>
+    <button id="chat-invite-btn" style="display:none;"></button>
+
+  </div><!-- /#chat-container -->
+
+  <!-- ===== PostPet モーダル群 ===== -->
+
+  <!-- おともだち帳モーダル -->
+  <div id="pp-friends-modal-backdrop" class="pp-modal-backdrop hidden">
+    <div class="pp-modal">
+      <div class="pp-modal-header">
+        <span>📋 おともだち帳</span>
+        <button class="pp-modal-close" data-close="pp-friends-modal-backdrop">×</button>
+      </div>
+      <div class="pp-modal-body">
+        <div class="pp-friends-actions">
+          <button id="pp-create-room-btn" class="pp-action-btn">➕ 新しいおともだちを追加</button>
         </div>
-        <form id="chat-input-form" class="chat-input-area hidden">
-          <input type="text" id="chat-message-input" placeholder="便箋に書く..." autocomplete="off">
-          <button type="submit" id="chat-send-btn">ペットに託す</button>
-        </form>
-      </main>
+        <ul id="pp-friends-list" class="pp-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メールを書くモーダル -->
+  <div id="pp-write-modal-backdrop" class="pp-modal-backdrop hidden">
+    <div class="pp-modal pp-modal-wide">
+      <div class="pp-modal-header">
+        <span>✉️ メールを書く</span>
+        <button class="pp-modal-close" data-close="pp-write-modal-backdrop">×</button>
+      </div>
+      <div class="pp-modal-body">
+        <div class="pp-write-field">
+          <label>宛先：</label>
+          <select id="pp-write-to" class="pp-select"></select>
+        </div>
+        <div class="pp-write-field">
+          <label>本文：</label>
+          <textarea id="pp-write-body" class="pp-textarea" placeholder="お手紙を書いてね..."></textarea>
+        </div>
+        <div class="pp-write-actions">
+          <button id="pp-send-btn" class="pp-primary-btn">🐾 ペットに託す</button>
+          <button class="pp-modal-close pp-secondary-btn" data-close="pp-write-modal-backdrop">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 受信簿モーダル -->
+  <div id="pp-inbox-modal-backdrop" class="pp-modal-backdrop hidden">
+    <div class="pp-modal pp-modal-wide">
+      <div class="pp-modal-header">
+        <span>📥 受信簿</span>
+        <button class="pp-modal-close" data-close="pp-inbox-modal-backdrop">×</button>
+      </div>
+      <div class="pp-modal-body">
+        <ul id="pp-inbox-list" class="pp-list pp-mail-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 送信簿モーダル -->
+  <div id="pp-outbox-modal-backdrop" class="pp-modal-backdrop hidden">
+    <div class="pp-modal pp-modal-wide">
+      <div class="pp-modal-header">
+        <span>📤 送信簿</span>
+        <button class="pp-modal-close" data-close="pp-outbox-modal-backdrop">×</button>
+      </div>
+      <div class="pp-modal-body">
+        <ul id="pp-outbox-list" class="pp-list pp-mail-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メール開封モーダル -->
+  <div id="pp-letter-modal-backdrop" class="pp-modal-backdrop hidden">
+    <div class="pp-modal pp-modal-letter">
+      <div class="pp-modal-header">
+        <span id="pp-letter-from">📨 お手紙</span>
+        <button class="pp-modal-close" data-close="pp-letter-modal-backdrop">×</button>
+      </div>
+      <div class="pp-modal-body">
+        <div id="pp-letter-body" class="pp-letter-body"></div>
+        <div class="pp-letter-meta">
+          <span id="pp-letter-date"></span>
+        </div>
+      </div>
     </div>
   </div>
 

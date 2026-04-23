@@ -838,7 +838,7 @@ async function enterChatWorkspace() {
 
     if (chatInputForm) chatInputForm.classList.add('hidden');
 
-    listenChatRooms();
+    initPostPetUI(currentSelectedPet);
     // チャット画面を開いた際にも通知許可を確認
     requestNotificationPermission(currentUserId);
   } else {
@@ -3081,9 +3081,10 @@ if (chatPetSelect) {
   chatPetSelect.addEventListener('change', async (e) => {
     const newPet = e.target.value;
     currentSelectedPet = newPet;
-    // チャット画面が開いている場合は、ステージのペットを即座に更新する
+    // チャット画面が開いている場合は、ステージのペットと部屋の背景を即座に更新する
     if (chatContainer && chatContainer.style.display !== 'none') {
       spawnPetOnStage(newPet, 'master');
+      updateRoomBackground(newPet);
     }
     // currentUserId が null の場合（スタートアップ画面）でも auth.currentUser から取得して保存
     const saveUserId = currentUserId || auth.currentUser?.uid;
@@ -7148,4 +7149,429 @@ async function sendChatMessage(text) {
     console.error('Error sending message:', err);
     Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: '送信失敗', showConfirmButton: false, timer: 1500 });
   }
+}
+
+// =========================================================================
+// Phase 4: PostPet メーラー UI ロジック
+// =========================================================================
+
+// ----- ペットのつぶやき辞書 -----
+const PET_STATUS_MESSAGES = {
+  frog: [
+    'ケロケロ鳴いています。',
+    'マスターの作業を見守っています。',
+    'おなかが空きました（空想）。',
+    '睡蓮の葉っぱでひと休み中です。',
+    '虫を発見しました！',
+    '今日もいい天気ですね（池の中から）。',
+    'ジャンプの練習をしています。',
+    '雨が降りそうな予感がします。',
+    'マスターに会いたいです。',
+    '池がきれいで最高です！',
+  ],
+  turtle: [
+    'ヒレを振っています。',
+    'マスターの作業を見守っています。',
+    '海の底でゆっくりしています。',
+    'クラゲと仲良くなりました。',
+    '100年くらい泳ぎ続けられます。',
+    'サンゴ礁が美しいです。',
+    'お手紙を運ぶのが好きです。',
+    '沖縄の海に行きたいな。',
+    'マスターのことを思い出しました。',
+    'ゆっくり、でも確実に進んでいます。',
+  ],
+  manta: [
+    '優雅に泳いでいます。',
+    '沖縄に行きたいな。',
+    'マスターの作業を見守っています。',
+    '海の広さが好きです。',
+    'プランクトンを食べました。',
+    '深海まで潜ってきました。',
+    '水面近くが光ってきれい！',
+    'マスターに手紙を運びたいです。',
+    'もっと遠くへ飛んでいきたい。',
+    '仲間を探しています。',
+  ],
+};
+
+// ペットのアイコン絵文字
+const PET_STATUS_ICONS = {
+  frog: '🐸',
+  turtle: '🐢',
+  manta: '🪸',
+};
+
+// ペットのお部屋タイトルと背景画像
+const PET_ROOM_CONFIG = {
+  frog:   { title: 'PostPet（カエルの部屋）',    bg: '/img/pets/frog_house.png',   icon: '/img/pets/frog.png' },
+  turtle: { title: 'PostPet（ウミガメの部屋）', bg: '/img/pets/turtle_house.png', icon: '/img/pets/turtle.png' },
+  manta:  { title: 'PostPet（マンタの部屋）',   bg: '/img/pets/manta_house.png',  icon: '/img/pets/manta.png' },
+};
+
+// ----- ステータスバー更新 -----
+let statusInterval = null;
+
+function updateStatusBar(petType) {
+  const messages = PET_STATUS_MESSAGES[petType] || PET_STATUS_MESSAGES['frog'];
+  const icon = PET_STATUS_ICONS[petType] || '🐾';
+  const statusText = document.getElementById('postpet-status-text');
+  const statusIcon = document.getElementById('postpet-status-icon');
+  if (!statusText || !statusIcon) return;
+
+  function setRandom() {
+    const msg = messages[Math.floor(Math.random() * messages.length)];
+    statusText.textContent = msg;
+    statusIcon.textContent = icon;
+  }
+  setRandom();
+  if (statusInterval) clearInterval(statusInterval);
+  statusInterval = setInterval(setRandom, 8000);
+}
+
+// ----- 背景・タイトル切り替え -----
+function updateRoomBackground(petType) {
+  const cfg = PET_ROOM_CONFIG[petType] || PET_ROOM_CONFIG['frog'];
+  const stage = document.getElementById('pet-stage');
+  const titleEl = document.getElementById('postpet-title-text');
+  const iconEl = document.getElementById('postpet-pet-icon');
+
+  if (stage) stage.style.backgroundImage = `url('${cfg.bg}')`;
+  if (titleEl) titleEl.textContent = cfg.title;
+  if (iconEl) { iconEl.src = cfg.icon; }
+  updateStatusBar(petType);
+}
+
+// ----- モーダル開閉 -----
+function openPPModal(backdropId) {
+  const el = document.getElementById(backdropId);
+  if (el) el.classList.remove('hidden');
+}
+function closePPModal(backdropId) {
+  const el = document.getElementById(backdropId);
+  if (el) el.classList.add('hidden');
+}
+
+// モーダルの×ボタンをまとめて処理
+document.querySelectorAll('.pp-modal-close').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetId = btn.dataset.close;
+    if (targetId) closePPModal(targetId);
+  });
+});
+
+// バックドロップクリックで閉じる
+document.querySelectorAll('.pp-modal-backdrop').forEach(backdrop => {
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) backdrop.classList.add('hidden');
+  });
+});
+
+// ----- おともだち帳 -----
+function openFriendsModal() {
+  const listEl = document.getElementById('pp-friends-list');
+  if (!listEl || !chatRoomsCache) return;
+  listEl.innerHTML = '';
+  if (chatRoomsCache.length === 0) {
+    listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">まだおともだちがいません</li>';
+    return;
+  }
+  chatRoomsCache.forEach(room => {
+    const li = document.createElement('li');
+    li.className = 'pp-list-item';
+    li.innerHTML = `<span>💬</span><span>${room.name}</span>`;
+    li.addEventListener('click', () => {
+      currentChatRoomId = room.id;
+      currentChatRoom = room;
+      closePPModal('pp-friends-modal-backdrop');
+      // メールを書くモーダルを自動で開く
+      openWriteMailModal();
+    });
+    listEl.appendChild(li);
+  });
+  openPPModal('pp-friends-modal-backdrop');
+}
+
+// ----- おともだち追加ボタン -----
+const ppCreateRoomBtn = document.getElementById('pp-create-room-btn');
+if (ppCreateRoomBtn) {
+  ppCreateRoomBtn.addEventListener('click', async () => {
+    closePPModal('pp-friends-modal-backdrop');
+    await createChatRoom();
+    openFriendsModal();
+  });
+}
+
+// ----- メールを書く -----
+let chatRoomsCache = [];
+
+function openWriteMailModal() {
+  const select = document.getElementById('pp-write-to');
+  const body = document.getElementById('pp-write-body');
+  if (!select) return;
+  select.innerHTML = '';
+  if (chatRoomsCache.length === 0) {
+    select.innerHTML = '<option value="">おともだちがいません（まず追加してね）</option>';
+  } else {
+    chatRoomsCache.forEach(room => {
+      const opt = document.createElement('option');
+      opt.value = room.id;
+      opt.textContent = room.name;
+      if (currentChatRoomId && room.id === currentChatRoomId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+  if (body) body.value = '';
+  openPPModal('pp-write-modal-backdrop');
+}
+
+// 送信ボタン
+const ppSendBtn = document.getElementById('pp-send-btn');
+if (ppSendBtn) {
+  ppSendBtn.addEventListener('click', async () => {
+    const select = document.getElementById('pp-write-to');
+    const body = document.getElementById('pp-write-body');
+    const roomId = select ? select.value : null;
+    const text = body ? body.value.trim() : '';
+
+    if (!roomId) { alert('宛先を選んでください。'); return; }
+    if (!text) { alert('本文を書いてください。'); return; }
+    if (!currentUserId || !lastKnownAuthUser) { alert('ログインが必要です。'); return; }
+
+    const senderName = (lastKnownAuthUser.email || 'User').split('@')[0];
+
+    try {
+      // 選択したルームIDをセット
+      currentChatRoomId = roomId;
+      await addDoc(collection(db, 'chat_messages'), {
+        roomId,
+        text,
+        senderId: currentUserId,
+        senderName,
+        senderPet: currentSelectedPet,
+        createdAt: serverTimestamp()
+      });
+
+      closePPModal('pp-write-modal-backdrop');
+      triggerPetDepart();
+      updateStatusBar(currentSelectedPet);
+
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '🐾 ペットが出発しました！', showConfirmButton: false, timer: 2500 });
+    } catch (err) {
+      console.error('送信エラー:', err);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: '送信失敗', showConfirmButton: false, timer: 1500 });
+    }
+  });
+}
+
+// ----- ペット退場アニメーション -----
+function triggerPetDepart() {
+  const container = document.getElementById('pet-character-container');
+  if (!container) return;
+  const masterPet = container.querySelector('.pet-character.master');
+  if (!masterPet) return;
+
+  const stage = document.getElementById('pet-stage');
+  const stageW = stage ? stage.clientWidth : 600;
+
+  // state-move に切り替えて右端へ移動
+  masterPet.classList.remove('state-idle');
+  masterPet.classList.add('state-move');
+  masterPet.style.setProperty('--pet-scale', 'scaleX(1)');
+  masterPet.style.transition = 'left 1.5s ease-in, opacity 0.5s ease 1.2s';
+  masterPet.style.left = `${stageW + 50}px`;
+  masterPet.style.opacity = '0';
+
+  // 退場後に再召喚
+  setTimeout(() => {
+    masterPet.remove();
+    if (petIntervals['master']) {
+      clearInterval(petIntervals['master']);
+      delete petIntervals['master'];
+    }
+    setTimeout(() => {
+      spawnPetOnStage(currentSelectedPet || 'frog', 'master');
+      const statusText = document.getElementById('postpet-status-text');
+      const icon = PET_STATUS_ICONS[currentSelectedPet] || '🐾';
+      if (statusText) statusText.textContent = 'お手紙を届けにいっています...';
+      const statusIcon = document.getElementById('postpet-status-icon');
+      if (statusIcon) statusIcon.textContent = icon;
+      setTimeout(() => updateStatusBar(currentSelectedPet), 5000);
+    }, 3000);
+  }, 2000);
+}
+
+// ----- 受信簿 -----
+async function openInboxModal() {
+  const listEl = document.getElementById('pp-inbox-list');
+  if (!listEl || !currentUserId) return;
+  listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込み中...</li>';
+  openPPModal('pp-inbox-modal-backdrop');
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'chat_messages'),
+      where('senderId', '!=', currentUserId),
+      orderBy('senderId'),
+      orderBy('createdAt', 'desc')
+    ));
+
+    listEl.innerHTML = '';
+    if (snap.empty) {
+      listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">まだお手紙がありません</li>';
+      return;
+    }
+
+    snap.forEach(docSnap => {
+      const msg = { id: docSnap.id, ...docSnap.data() };
+      // 自分のメッセージは除外（念のため）
+      if (msg.senderId === currentUserId) return;
+      const isUnread = !msg.openedBy || !msg.openedBy.includes(currentUserId);
+      const dateStr = msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleDateString('ja-JP') : '';
+      const li = document.createElement('li');
+      li.className = `pp-list-item${isUnread ? ' pp-mail-unread' : ''}`;
+      li.innerHTML = `
+        <div class="pp-mail-sender">${msg.senderName || '不明'}</div>
+        <div class="pp-mail-preview">${msg.text}</div>
+        <div class="pp-mail-date">${dateStr}</div>
+      `;
+      li.addEventListener('click', () => openLetterModal(msg));
+      listEl.appendChild(li);
+    });
+  } catch (err) {
+    console.error('受信簿取得エラー:', err);
+    listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込みに失敗しました</li>';
+  }
+}
+
+// ----- 送信簿 -----
+async function openOutboxModal() {
+  const listEl = document.getElementById('pp-outbox-list');
+  if (!listEl || !currentUserId) return;
+  listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込み中...</li>';
+  openPPModal('pp-outbox-modal-backdrop');
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'chat_messages'),
+      where('senderId', '==', currentUserId),
+      orderBy('createdAt', 'desc')
+    ));
+
+    listEl.innerHTML = '';
+    if (snap.empty) {
+      listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">まだ送ったお手紙がありません</li>';
+      return;
+    }
+
+    snap.forEach(docSnap => {
+      const msg = { id: docSnap.id, ...docSnap.data() };
+      const dateStr = msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleDateString('ja-JP') : '';
+      const li = document.createElement('li');
+      li.className = 'pp-list-item';
+      li.innerHTML = `
+        <div class="pp-mail-sender">To: ${msg.roomId ? '📬 送信済み' : '?'}</div>
+        <div class="pp-mail-preview">${msg.text}</div>
+        <div class="pp-mail-date">${dateStr}</div>
+      `;
+      li.addEventListener('click', () => openLetterModal(msg, true));
+      listEl.appendChild(li);
+    });
+  } catch (err) {
+    console.error('送信簿取得エラー:', err);
+    listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込みに失敗しました</li>';
+  }
+}
+
+// ----- お手紙開封モーダル -----
+async function openLetterModal(msg, isSent = false) {
+  const fromEl = document.getElementById('pp-letter-from');
+  const bodyEl = document.getElementById('pp-letter-body');
+  const dateEl = document.getElementById('pp-letter-date');
+  if (!fromEl || !bodyEl) return;
+
+  fromEl.textContent = isSent
+    ? `📤 送信済みお手紙（${msg.senderName || '自分'}から）`
+    : `📨 ${msg.senderName || '不明'} からのお手紙`;
+  bodyEl.textContent = msg.text;
+  dateEl.textContent = msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleString('ja-JP') : '';
+
+  openPPModal('pp-letter-modal-backdrop');
+
+  // 未読マーク解除
+  if (!isSent && msg.id && (!msg.openedBy || !msg.openedBy.includes(currentUserId))) {
+    try {
+      await updateDoc(doc(db, 'chat_messages', msg.id), { openedBy: arrayUnion(currentUserId) });
+      // ゲストペットを登場させる
+      if (msg.senderPet) spawnPetOnStage(msg.senderPet, 'guest');
+    } catch (e) { console.error('既読更新エラー:', e); }
+  }
+}
+
+// ----- メールチェック（未読件数バッジ更新） -----
+async function checkNewMail() {
+  if (!currentUserId) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'chat_messages'),
+      where('senderId', '!=', currentUserId),
+      orderBy('senderId')
+    ));
+    let unreadCount = 0;
+    snap.forEach(d => {
+      const data = d.data();
+      if (!data.openedBy || !data.openedBy.includes(currentUserId)) unreadCount++;
+    });
+    const statusIcon = document.getElementById('postpet-status-icon');
+    const statusText = document.getElementById('postpet-status-text');
+    if (unreadCount > 0 && statusText) {
+      statusText.textContent = `郵便が届いています！（${unreadCount}件）`;
+      if (statusIcon) statusIcon.textContent = '📬';
+      if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
+    } else {
+      updateStatusBar(currentSelectedPet);
+    }
+  } catch (e) { console.error('メールチェックエラー:', e); }
+}
+
+// ----- サイドバーボタンのイベント登録 -----
+document.getElementById('pp-btn-write')?.addEventListener('click', openWriteMailModal);
+document.getElementById('pp-btn-friends')?.addEventListener('click', openFriendsModal);
+document.getElementById('pp-btn-inbox')?.addEventListener('click', openInboxModal);
+document.getElementById('pp-btn-outbox')?.addEventListener('click', openOutboxModal);
+document.getElementById('pp-btn-check')?.addEventListener('click', () => {
+  checkNewMail();
+  Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🔄 メールチェック中...', showConfirmButton: false, timer: 1500 });
+});
+
+// ----- 設定(S)メニュー → 設定モーダルを開く -----
+document.getElementById('menu-settings')?.addEventListener('click', () => {
+  const btn = document.getElementById('open-settings-button');
+  if (btn) btn.click();
+});
+
+// ----- チャット画面を開くときの初期化 -----
+// listenChatRooms 関数を拡張してキャッシュを更新する
+const _origListenChatRooms = listenChatRooms;
+function listenChatRoomsWithCache() {
+  if (!currentUserId) return;
+  const q = query(
+    collection(db, 'chat_rooms'),
+    where('members', 'array-contains', currentUserId),
+    orderBy('createdAt', 'desc')
+  );
+  chatRoomsUnsubscribe = onSnapshot(q, (snapshot) => {
+    chatRoomsCache = [];
+    snapshot.forEach(d => { chatRoomsCache.push({ id: d.id, ...d.data() }); });
+    // 旧UIのroom listも互換のために更新
+    if (chatRoomList) chatRoomList.innerHTML = '';
+  });
+}
+
+// PostPet画面オープン時の処理（既存の openChatContainer 的な呼び出し部分から呼ばれる想定）
+function initPostPetUI(petType) {
+  updateRoomBackground(petType || currentSelectedPet || 'frog');
+  spawnPetOnStage(petType || currentSelectedPet || 'frog', 'master');
+  listenChatRoomsWithCache();
+  checkNewMail();
 }
