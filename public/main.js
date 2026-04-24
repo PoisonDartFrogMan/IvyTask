@@ -7340,6 +7340,25 @@ if (ppSendBtn) {
 
     const senderName = (lastKnownAuthUser.email || 'User').split('@')[0];
 
+    // 選択中のルームから「相手のUID」を特定する
+    const selectedRoom = chatRoomsCache.find(r => r.id === roomId);
+    const members = selectedRoom?.members || [];
+    const recipientId = members.find(uid => uid !== currentUserId) || null;
+
+    // 相手の名前を取得（ルーム名をフォールバックとして使用）
+    let recipientName = selectedRoom?.name || '不明';
+    if (recipientId) {
+      try {
+        const profileSnap = await getDocs(query(
+          collection(db, 'user_profiles'),
+          where('uid', '==', recipientId)
+        ));
+        if (!profileSnap.empty) {
+          recipientName = profileSnap.docs[0].data().email?.split('@')[0] || recipientName;
+        }
+      } catch (e) { /* フォールバックのままでOK */ }
+    }
+
     try {
       // 選択したルームIDをセット
       currentChatRoomId = roomId;
@@ -7349,6 +7368,8 @@ if (ppSendBtn) {
         senderId: currentUserId,
         senderName,
         senderPet: currentSelectedPet,
+        recipientId,       // ← 宛先ユーザーUID（「自分宛て」フィルタに使用）
+        recipientName,     // ← 宛先ユーザー名（送信簿の表示に使用）
         createdAt: serverTimestamp()
       });
 
@@ -7442,20 +7463,18 @@ async function openInboxModal(sortOrder) {
   openPPModal('pp-inbox-modal-backdrop');
 
   try {
-    // 名前順の場合はFirestoreクエリでは取得してからJS側でソート
+    // 「自分宛て（recipientId == 自分）」かつ「自分が送ってない」で厳密に絞り込む
     let snap;
     if (currentSort === 'name') {
       snap = await getDocs(query(
         collection(db, 'chat_messages'),
-        where('senderId', '!=', currentUserId),
-        orderBy('senderId')
+        where('recipientId', '==', currentUserId)
       ));
     } else {
       const dir = currentSort === 'asc' ? 'asc' : 'desc';
       snap = await getDocs(query(
         collection(db, 'chat_messages'),
-        where('senderId', '!=', currentUserId),
-        orderBy('senderId'),
+        where('recipientId', '==', currentUserId),
         orderBy('createdAt', dir)
       ));
     }
@@ -7463,6 +7482,7 @@ async function openInboxModal(sortOrder) {
     let msgs = [];
     snap.forEach(docSnap => {
       const msg = { id: docSnap.id, ...docSnap.data() };
+      // 念のため自分が送ったものは除外
       if (msg.senderId === currentUserId) return;
       msgs.push(msg);
     });
@@ -7533,11 +7553,13 @@ async function openOutboxModal(sortOrder) {
     snap.forEach(docSnap => {
       const msg = { id: docSnap.id, ...docSnap.data() };
       const dateStr = msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleDateString('ja-JP') : '';
+      // 宛先名：recipientName があれば使う、なければルームIDで代替
+      const toLabel = msg.recipientName ? `📬 To: ${msg.recipientName}` : (msg.roomId ? '📬 送信済み' : '?');
       const li = document.createElement('li');
       li.className = 'pp-list-item';
       li.innerHTML = `
         <div class="pp-mail-info">
-          <div class="pp-mail-sender">To: ${msg.roomId ? '📬 送信済み' : '?'}</div>
+          <div class="pp-mail-sender">${toLabel}</div>
           <div class="pp-mail-preview">${msg.text}</div>
           <div class="pp-mail-date">${dateStr}</div>
         </div>
@@ -7588,8 +7610,7 @@ async function checkNewMail() {
   try {
     const snap = await getDocs(query(
       collection(db, 'chat_messages'),
-      where('senderId', '!=', currentUserId),
-      orderBy('senderId')
+      where('recipientId', '==', currentUserId)  // 自分宛てのみチェック
     ));
     let unreadCount = 0;
     snap.forEach(d => {
