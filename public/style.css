@@ -4514,6 +4514,64 @@ body.diary-mode .memo-link {
 }
 .pp-action-btn:hover { background: #f5e8c8; }
 
+/* おともだちアイテム */
+.pp-friend-item { align-items: center; gap: 8px; }
+.pp-friend-info { flex: 1; min-width: 0; }
+.pp-friend-name { font-weight: bold; font-size: 0.85rem; color: #3a2010; }
+.pp-friend-email { font-size: 0.75rem; color: #8a7050; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-friends-empty { flex-direction: column; gap: 4px; line-height: 1.6; color: #8a7050; font-size: 0.85rem; }
+.pp-friend-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* おともだちアクションボタン（小）*/
+.pp-action-btn-sm {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 3px 5px;
+  line-height: 1;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.pp-list-item:hover .pp-action-btn-sm { opacity: 0.85; }
+.pp-action-btn-sm:hover { opacity: 1 !important; background: #f5e8c8; border-color: #b89060; transform: scale(1.1); }
+.pp-action-btn-sm:active { transform: scale(0.95); }
+.pp-danger-sm:hover { background: #ffe0e0 !important; border-color: #e57373 !important; }
+
+/* メール作成：宛先ラッパー */
+.pp-write-to-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pp-write-to-or {
+  font-size: 0.75rem;
+  color: #8a7050;
+  text-align: center;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+/* 直接入力テキストボックス */
+.pp-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 2px solid #b89060;
+  border-radius: 4px;
+  background: #fff8ee;
+  font-size: 0.85rem;
+  color: #3a2a10;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.pp-input:focus {
+  outline: none;
+  border-color: #7ca870;
+  box-shadow: 0 0 0 2px rgba(124,168,112,0.2);
+}
+
 /* リスト共通 */
 .pp-list {
   list-style: none;

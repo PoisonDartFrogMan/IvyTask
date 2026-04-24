@@ -830,7 +830,7 @@
             <span class="pp-btn-label">メールを書く</span>
           </button>
           <button class="pp-sidebar-btn" id="pp-btn-friends">
-            <span class="pp-btn-icon">📋</span>
+            <span class="pp-btn-icon">📓</span>
             <span class="pp-btn-label">おともだち帳</span>
           </button>
           <button class="pp-sidebar-btn" id="pp-btn-inbox">
@@ -879,14 +879,14 @@
 
   <!-- おともだち帳モーダル -->
   <div id="pp-friends-modal-backdrop" class="pp-modal-backdrop hidden">
-    <div class="pp-modal">
+    <div class="pp-modal pp-modal-wide">
       <div class="pp-modal-header">
-        <span>📋 おともだち帳</span>
+        <span>📓 おともだち帳（アドレス帳）</span>
         <button class="pp-modal-close" data-close="pp-friends-modal-backdrop">×</button>
       </div>
       <div class="pp-modal-body">
         <div class="pp-friends-actions">
-          <button id="pp-create-room-btn" class="pp-action-btn">➕ 新しいおともだちを追加</button>
+          <button id="pp-add-friend-btn" class="pp-action-btn">➕ 新しいおともだちを追加</button>
         </div>
         <ul id="pp-friends-list" class="pp-list"></ul>
       </div>
@@ -903,7 +903,13 @@
       <div class="pp-modal-body">
         <div class="pp-write-field">
           <label>宛先：</label>
-          <select id="pp-write-to" class="pp-select"></select>
+          <div class="pp-write-to-wrapper">
+            <select id="pp-write-to" class="pp-select">
+              <option value="">――おともだち帳から選ぶ――</option>
+            </select>
+            <span class="pp-write-to-or">または</span>
+            <input type="email" id="pp-write-to-direct" class="pp-input" placeholder="メールアドレスを直接入力..." autocomplete="off">
+          </div>
         </div>
         <div class="pp-write-field">
           <label>本文：</label>

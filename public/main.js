@@ -7267,116 +7267,335 @@ document.querySelectorAll('.pp-modal-backdrop').forEach(backdrop => {
   });
 });
 
-// ----- おともだち帳 -----
-function openFriendsModal() {
+// ===== おともだち帳（アドレス帳）=====
+// Firestore コレクション: pp_contacts / { userId, displayName, email, createdAt }
+
+// ---- アドレス帳を読み込んでリスト表示 ----
+async function openFriendsModal() {
+  if (!currentUserId) return;
   const listEl = document.getElementById('pp-friends-list');
-  if (!listEl || !chatRoomsCache) return;
-  listEl.innerHTML = '';
-  if (chatRoomsCache.length === 0) {
-    listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">まだおともだちがいません</li>';
-    return;
-  }
-  chatRoomsCache.forEach(room => {
-    const li = document.createElement('li');
-    li.className = 'pp-list-item';
-    li.innerHTML = `<span>💬</span><span>${room.name}</span>`;
-    li.addEventListener('click', () => {
-      currentChatRoomId = room.id;
-      currentChatRoom = room;
-      closePPModal('pp-friends-modal-backdrop');
-      // メールを書くモーダルを自動で開く
-      openWriteMailModal();
-    });
-    listEl.appendChild(li);
-  });
+  if (!listEl) return;
+  listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込み中...</li>';
   openPPModal('pp-friends-modal-backdrop');
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'pp_contacts'),
+      where('userId', '==', currentUserId),
+      orderBy('displayName', 'asc')
+    ));
+
+    listEl.innerHTML = '';
+    if (snap.empty) {
+      listEl.innerHTML = '<li class="pp-list-item pp-friends-empty" style="cursor:default;">📭 まだおともだちがいません<br><small>上のボタンから追加してね！</small></li>';
+      // セレクトも更新
+      renderFriendsSelect([]);
+      return;
+    }
+
+    const contacts = [];
+    snap.forEach(d => contacts.push({ id: d.id, ...d.data() }));
+    renderFriendsSelect(contacts);
+
+    contacts.forEach(contact => {
+      const li = document.createElement('li');
+      li.className = 'pp-list-item pp-friend-item';
+      li.innerHTML = `
+        <div class="pp-friend-info" style="flex:1; cursor:pointer;">
+          <div class="pp-friend-name">👤 ${contact.displayName || '（名前なし）'}</div>
+          <div class="pp-friend-email">${contact.email || ''}</div>
+        </div>
+        <div class="pp-friend-actions">
+          <button class="pp-friend-mail-btn pp-action-btn-sm" title="お手紙を書く">✉️</button>
+          <button class="pp-friend-edit-btn pp-action-btn-sm" title="修正">✏️</button>
+          <button class="pp-friend-del-btn pp-action-btn-sm pp-danger-sm" title="削除">🗑️</button>
+        </div>
+      `;
+
+      // ✉️ このおともだちにメール
+      li.querySelector('.pp-friend-mail-btn').addEventListener('click', () => {
+        closePPModal('pp-friends-modal-backdrop');
+        openWriteMailModal(contact);
+      });
+
+      // ✏️ 修正
+      li.querySelector('.pp-friend-edit-btn').addEventListener('click', () => {
+        editContact(contact);
+      });
+
+      // 🗑️ 削除
+      li.querySelector('.pp-friend-del-btn').addEventListener('click', () => {
+        deleteContact(contact);
+      });
+
+      // 行クリックでもメール
+      li.querySelector('.pp-friend-info').addEventListener('click', () => {
+        closePPModal('pp-friends-modal-backdrop');
+        openWriteMailModal(contact);
+      });
+
+      listEl.appendChild(li);
+    });
+  } catch (err) {
+    console.error('アドレス帳取得エラー:', err);
+    listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込みに失敗しました</li>';
+  }
 }
 
-// ----- おともだち追加ボタン -----
-const ppCreateRoomBtn = document.getElementById('pp-create-room-btn');
-if (ppCreateRoomBtn) {
-  ppCreateRoomBtn.addEventListener('click', async () => {
-    closePPModal('pp-friends-modal-backdrop');
-    await createChatRoom();
-    openFriendsModal();
+// ---- セレクトボックスにおともだちを反映 ----
+function renderFriendsSelect(contacts) {
+  const select = document.getElementById('pp-write-to');
+  if (!select) return;
+  select.innerHTML = '<option value="">――おともだち帳から選ぶ――</option>';
+  contacts.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `${c.displayName || c.email} ＜${c.email}＞`;
+    opt.dataset.email = c.email || '';
+    opt.dataset.name = c.displayName || '';
+    select.appendChild(opt);
   });
 }
+
+// ---- おともだちを追加 ----
+async function addContact() {
+  const { value: form } = await Swal.fire({
+    title: '➕ おともだちを追加',
+    html: `
+      <input id="swal-contact-name" class="swal2-input" placeholder="表示名（ニックネーム）" autocomplete="off">
+      <input id="swal-contact-email" class="swal2-input" type="email" placeholder="メールアドレス（必須）" autocomplete="off">
+    `,
+    showCancelButton: true,
+    confirmButtonText: '追加する',
+    cancelButtonText: 'キャンセル',
+    confirmButtonColor: '#7ca870',
+    focusConfirm: false,
+    preConfirm: () => {
+      const name = document.getElementById('swal-contact-name').value.trim();
+      const email = document.getElementById('swal-contact-email').value.trim().toLowerCase();
+      if (!email) { Swal.showValidationMessage('メールアドレスは必須です'); return false; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Swal.showValidationMessage('正しいメールアドレスを入力してください'); return false; }
+      return { name, email };
+    }
+  });
+  if (!form) return;
+
+  try {
+    await addDoc(collection(db, 'pp_contacts'), {
+      userId: currentUserId,
+      displayName: form.name || form.email.split('@')[0],
+      email: form.email,
+      createdAt: serverTimestamp()
+    });
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'おともだちを追加しました！', timer: 1500, showConfirmButton: false });
+    await openFriendsModal();
+  } catch (err) {
+    console.error('おともだち追加エラー:', err);
+    Swal.fire('エラー', '追加に失敗しました。', 'error');
+  }
+}
+
+// ---- おともだちを修正 ----
+async function editContact(contact) {
+  const { value: form } = await Swal.fire({
+    title: '✏️ おともだち情報を修正',
+    html: `
+      <input id="swal-contact-name" class="swal2-input" placeholder="表示名" value="${contact.displayName || ''}" autocomplete="off">
+      <input id="swal-contact-email" class="swal2-input" type="email" placeholder="メールアドレス" value="${contact.email || ''}" autocomplete="off">
+    `,
+    showCancelButton: true,
+    confirmButtonText: '保存',
+    cancelButtonText: 'キャンセル',
+    confirmButtonColor: '#7ca870',
+    focusConfirm: false,
+    preConfirm: () => {
+      const name = document.getElementById('swal-contact-name').value.trim();
+      const email = document.getElementById('swal-contact-email').value.trim().toLowerCase();
+      if (!email) { Swal.showValidationMessage('メールアドレスは必須です'); return false; }
+      return { name, email };
+    }
+  });
+  if (!form) return;
+
+  try {
+    await updateDoc(doc(db, 'pp_contacts', contact.id), {
+      displayName: form.name || form.email.split('@')[0],
+      email: form.email
+    });
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '情報を更新しました', timer: 1200, showConfirmButton: false });
+    await openFriendsModal();
+  } catch (err) {
+    console.error('修正エラー:', err);
+    Swal.fire('エラー', '更新に失敗しました。', 'error');
+  }
+}
+
+// ---- おともだちを削除 ----
+async function deleteContact(contact) {
+  const res = await Swal.fire({
+    title: `🗑️ ${contact.displayName || contact.email} を削除しますか？`,
+    text: 'アドレス帳から消えます。お手紙は残ります。',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e57373',
+    cancelButtonColor: '#aaa',
+    confirmButtonText: '削除する',
+    cancelButtonText: 'やめとく'
+  });
+  if (!res.isConfirmed) return;
+
+  try {
+    await deleteDoc(doc(db, 'pp_contacts', contact.id));
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '削除しました', timer: 1200, showConfirmButton: false });
+    await openFriendsModal();
+  } catch (err) {
+    console.error('削除エラー:', err);
+    Swal.fire('エラー', '削除に失敗しました。', 'error');
+  }
+}
+
+// ---- おともだち追加ボタン ----
+document.getElementById('pp-add-friend-btn')?.addEventListener('click', addContact);
 
 // ----- メールを書く -----
 let chatRoomsCache = [];
 
-function openWriteMailModal() {
+// contact オブジェクトを渡すと宛先を事前選択する
+async function openWriteMailModal(preselectedContact = null) {
   const select = document.getElementById('pp-write-to');
+  const directInput = document.getElementById('pp-write-to-direct');
   const body = document.getElementById('pp-write-body');
-  if (!select) return;
-  select.innerHTML = '';
-  if (chatRoomsCache.length === 0) {
-    select.innerHTML = '<option value="">おともだちがいません（まず追加してね）</option>';
-  } else {
-    chatRoomsCache.forEach(room => {
-      const opt = document.createElement('option');
-      opt.value = room.id;
-      opt.textContent = room.name;
-      if (currentChatRoomId && room.id === currentChatRoomId) opt.selected = true;
-      select.appendChild(opt);
-    });
-  }
+
+  // アドレス帳をセレクトに反映
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'pp_contacts'),
+      where('userId', '==', currentUserId),
+      orderBy('displayName', 'asc')
+    ));
+    const contacts = [];
+    snap.forEach(d => contacts.push({ id: d.id, ...d.data() }));
+    renderFriendsSelect(contacts);
+
+    // 事前選択
+    if (preselectedContact && select) {
+      select.value = preselectedContact.id;
+    }
+  } catch (e) { /* セレクト更新失敗は無視 */ }
+
+  if (directInput) directInput.value = '';
   if (body) body.value = '';
   openPPModal('pp-write-modal-backdrop');
 }
+
+// セレクト変更したら直接入力をクリア（排他制御）
+document.getElementById('pp-write-to')?.addEventListener('change', () => {
+  const direct = document.getElementById('pp-write-to-direct');
+  if (direct) direct.value = '';
+});
+document.getElementById('pp-write-to-direct')?.addEventListener('input', () => {
+  const select = document.getElementById('pp-write-to');
+  if (select) select.value = '';
+});
 
 // 送信ボタン
 const ppSendBtn = document.getElementById('pp-send-btn');
 if (ppSendBtn) {
   ppSendBtn.addEventListener('click', async () => {
     const select = document.getElementById('pp-write-to');
+    const directInput = document.getElementById('pp-write-to-direct');
     const body = document.getElementById('pp-write-body');
-    const roomId = select ? select.value : null;
     const text = body ? body.value.trim() : '';
 
-    if (!roomId) { alert('宛先を選んでください。'); return; }
+    const selectedContactId = select ? select.value : '';
+    const directEmail = directInput ? directInput.value.trim().toLowerCase() : '';
+
+    // どちらも未入力チェック
+    if (!selectedContactId && !directEmail) {
+      Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: '宛先を選ぶか、メールアドレスを入力してね', timer: 2000, showConfirmButton: false });
+      return;
+    }
     if (!text) { alert('本文を書いてください。'); return; }
     if (!currentUserId || !lastKnownAuthUser) { alert('ログインが必要です。'); return; }
 
     const senderName = (lastKnownAuthUser.email || 'User').split('@')[0];
+    let recipientEmail = directEmail;
+    let recipientName = '';
+    let recipientId = null;
 
-    // 選択中のルームから「相手のUID」を特定する
-    const selectedRoom = chatRoomsCache.find(r => r.id === roomId);
-    const members = selectedRoom?.members || [];
-    const recipientId = members.find(uid => uid !== currentUserId) || null;
+    // セレクトから選んだ場合：pp_contacts から情報取得
+    if (selectedContactId) {
+      try {
+        const contactDoc = await getDoc(doc(db, 'pp_contacts', selectedContactId));
+        if (contactDoc.exists()) {
+          const c = contactDoc.data();
+          recipientEmail = c.email || '';
+          recipientName = c.displayName || recipientEmail.split('@')[0];
+        }
+      } catch (e) { /* フォールバック */ }
+    } else {
+      // 直接入力の場合：表示名はemailのユーザー名部分
+      recipientName = directEmail.split('@')[0];
+    }
 
-    // 相手の名前を取得（ルーム名をフォールバックとして使用）
-    let recipientName = selectedRoom?.name || '不明';
-    if (recipientId) {
+    // user_profiles からUID検索（メールアドレスで引く）
+    if (recipientEmail) {
       try {
         const profileSnap = await getDocs(query(
           collection(db, 'user_profiles'),
-          where('uid', '==', recipientId)
+          where('email', '==', recipientEmail)
         ));
         if (!profileSnap.empty) {
-          recipientName = profileSnap.docs[0].data().email?.split('@')[0] || recipientName;
+          recipientId = profileSnap.docs[0].data().uid || null;
+          if (!recipientName) recipientName = profileSnap.docs[0].data().email?.split('@')[0];
         }
-      } catch (e) { /* フォールバックのままでOK */ }
+      } catch (e) { /* recipientId は null のまま */ }
+    }
+
+    // 直接入力かつアドレス帳にない場合 → 追加提案
+    if (directEmail && !selectedContactId) {
+      const existsInBook = Array.from(document.getElementById('pp-write-to')?.options || [])
+        .some(opt => opt.dataset?.email === directEmail);
+      if (!existsInBook) {
+        const addRes = await Swal.fire({
+          title: '📋 アドレス帳に追加しますか？',
+          text: `${directEmail} をおともだち帳に追加すると次回から選べるよ！`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '追加する',
+          cancelButtonText: 'このまま送るだけ',
+          confirmButtonColor: '#7ca870'
+        });
+        if (addRes.isConfirmed) {
+          try {
+            await addDoc(collection(db, 'pp_contacts'), {
+              userId: currentUserId,
+              displayName: recipientEmail.split('@')[0],
+              email: recipientEmail,
+              createdAt: serverTimestamp()
+            });
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'おともだちに追加しました！', timer: 1500, showConfirmButton: false });
+          } catch (e) { /* 追加失敗は無視して送信続行 */ }
+        }
+      }
     }
 
     try {
-      // 選択したルームIDをセット
-      currentChatRoomId = roomId;
       await addDoc(collection(db, 'chat_messages'), {
-        roomId,
+        roomId: null,            // chat_rooms 非依存
         text,
         senderId: currentUserId,
         senderName,
         senderPet: currentSelectedPet,
-        recipientId,       // ← 宛先ユーザーUID（「自分宛て」フィルタに使用）
-        recipientName,     // ← 宛先ユーザー名（送信簿の表示に使用）
+        recipientId,             // ← 宛先UID（受信簿フィルタに使用）
+        recipientEmail,          // ← 宛先メールアドレス
+        recipientName,           // ← 宛先表示名（送信簿に表示）
         createdAt: serverTimestamp()
       });
 
       closePPModal('pp-write-modal-backdrop');
       triggerPetDepart();
       updateStatusBar(currentSelectedPet);
-
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '🐾 ペットが出発しました！', showConfirmButton: false, timer: 2500 });
     } catch (err) {
       console.error('送信エラー:', err);
