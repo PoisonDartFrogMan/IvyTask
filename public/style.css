@@ -4539,11 +4539,79 @@ body.diary-mode .memo-link {
 .pp-list-item:hover { background: #f5e8c8; }
 
 /* メール一覧 */
-.pp-mail-list .pp-list-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+.pp-mail-list .pp-list-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+}
+.pp-mail-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0; /* flex子のはみ出し防止 */
+  cursor: pointer;
+}
 .pp-mail-sender { font-weight: bold; font-size: 0.85rem; }
-.pp-mail-preview { font-size: 0.8rem; color: #6a5030; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.pp-mail-date { font-size: 0.75rem; color: #8a7050; margin-left: auto; }
+.pp-mail-preview {
+  font-size: 0.8rem;
+  color: #6a5030;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.pp-mail-date { font-size: 0.75rem; color: #8a7050; }
 .pp-mail-unread .pp-mail-sender::before { content: "📩 "; }
+
+/* 削除ボタン */
+.pp-delete-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.pp-list-item:hover .pp-delete-btn {
+  opacity: 0.8;
+}
+.pp-delete-btn:hover {
+  opacity: 1 !important;
+  background: #ffe0e0;
+  border-color: #e57373;
+  transform: scale(1.15);
+}
+.pp-delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* ソートセレクト */
+.pp-modal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pp-sort-select {
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+.pp-sort-select option {
+  background: #f5e8cc;
+  color: #3a2a10;
+}
 
 /* メール作成 */
 .pp-write-field { margin-bottom: 12px; }

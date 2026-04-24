@@ -922,7 +922,14 @@
     <div class="pp-modal pp-modal-wide">
       <div class="pp-modal-header">
         <span>📥 受信簿</span>
-        <button class="pp-modal-close" data-close="pp-inbox-modal-backdrop">×</button>
+        <div class="pp-modal-header-right">
+          <select id="pp-inbox-sort" class="pp-sort-select">
+            <option value="desc">新しい順 ▼</option>
+            <option value="asc">古い順 ▲</option>
+            <option value="name">お名前順 🔤</option>
+          </select>
+          <button class="pp-modal-close" data-close="pp-inbox-modal-backdrop">×</button>
+        </div>
       </div>
       <div class="pp-modal-body">
         <ul id="pp-inbox-list" class="pp-list pp-mail-list"></ul>
@@ -935,7 +942,13 @@
     <div class="pp-modal pp-modal-wide">
       <div class="pp-modal-header">
         <span>📤 送信簿</span>
-        <button class="pp-modal-close" data-close="pp-outbox-modal-backdrop">×</button>
+        <div class="pp-modal-header-right">
+          <select id="pp-outbox-sort" class="pp-sort-select">
+            <option value="desc">新しい順 ▼</option>
+            <option value="asc">古い順 ▲</option>
+          </select>
+          <button class="pp-modal-close" data-close="pp-outbox-modal-backdrop">×</button>
+        </div>
       </div>
       <div class="pp-modal-body">
         <ul id="pp-outbox-list" class="pp-list pp-mail-list"></ul>

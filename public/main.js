@@ -7401,41 +7401,103 @@ function triggerPetDepart() {
   }, 2000);
 }
 
+// ----- メール削除 -----
+async function deleteMessage(messageId, refreshCallback) {
+  const confirmed = await Swal.fire({
+    title: '🗑️ このお手紙を処分しますか？',
+    text: '削除すると元に戻せません。',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e57373',
+    cancelButtonColor: '#aaa',
+    confirmButtonText: 'ポイッ！',
+    cancelButtonText: 'やめとく'
+  });
+  if (!confirmed.isConfirmed) return;
+
+  try {
+    await deleteDoc(doc(db, 'chat_messages', messageId));
+    const statusText = document.getElementById('postpet-status-text');
+    const statusIcon = document.getElementById('postpet-status-icon');
+    if (statusText) statusText.textContent = 'お手紙を処分しました 🗑️';
+    if (statusIcon) statusIcon.textContent = '🗑️';
+    setTimeout(() => updateStatusBar(currentSelectedPet), 3000);
+    // リストを即座に再読み込み
+    if (typeof refreshCallback === 'function') await refreshCallback();
+  } catch (err) {
+    console.error('削除エラー:', err);
+    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: '削除に失敗しました', timer: 2000, showConfirmButton: false });
+  }
+}
+
 // ----- 受信簿 -----
-async function openInboxModal() {
+async function openInboxModal(sortOrder) {
+  // sortOrderが未指定の場合はセレクトボックスの値を優先、なければデフォルト
+  const sortSelect = document.getElementById('pp-inbox-sort');
+  const currentSort = sortOrder || (sortSelect ? sortSelect.value : 'desc');
+
   const listEl = document.getElementById('pp-inbox-list');
   if (!listEl || !currentUserId) return;
   listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込み中...</li>';
   openPPModal('pp-inbox-modal-backdrop');
 
   try {
-    const snap = await getDocs(query(
-      collection(db, 'chat_messages'),
-      where('senderId', '!=', currentUserId),
-      orderBy('senderId'),
-      orderBy('createdAt', 'desc')
-    ));
+    // 名前順の場合はFirestoreクエリでは取得してからJS側でソート
+    let snap;
+    if (currentSort === 'name') {
+      snap = await getDocs(query(
+        collection(db, 'chat_messages'),
+        where('senderId', '!=', currentUserId),
+        orderBy('senderId')
+      ));
+    } else {
+      const dir = currentSort === 'asc' ? 'asc' : 'desc';
+      snap = await getDocs(query(
+        collection(db, 'chat_messages'),
+        where('senderId', '!=', currentUserId),
+        orderBy('senderId'),
+        orderBy('createdAt', dir)
+      ));
+    }
+
+    let msgs = [];
+    snap.forEach(docSnap => {
+      const msg = { id: docSnap.id, ...docSnap.data() };
+      if (msg.senderId === currentUserId) return;
+      msgs.push(msg);
+    });
+
+    // 名前順の場合はJS側でソート
+    if (currentSort === 'name') {
+      msgs.sort((a, b) => (a.senderName || '').localeCompare(b.senderName || '', 'ja'));
+    }
 
     listEl.innerHTML = '';
-    if (snap.empty) {
+    if (msgs.length === 0) {
       listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">まだお手紙がありません</li>';
       return;
     }
 
-    snap.forEach(docSnap => {
-      const msg = { id: docSnap.id, ...docSnap.data() };
-      // 自分のメッセージは除外（念のため）
-      if (msg.senderId === currentUserId) return;
+    msgs.forEach(msg => {
       const isUnread = !msg.openedBy || !msg.openedBy.includes(currentUserId);
       const dateStr = msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleDateString('ja-JP') : '';
       const li = document.createElement('li');
       li.className = `pp-list-item${isUnread ? ' pp-mail-unread' : ''}`;
       li.innerHTML = `
-        <div class="pp-mail-sender">${msg.senderName || '不明'}</div>
-        <div class="pp-mail-preview">${msg.text}</div>
-        <div class="pp-mail-date">${dateStr}</div>
+        <div class="pp-mail-info">
+          <div class="pp-mail-sender">${msg.senderName || '不明'}</div>
+          <div class="pp-mail-preview">${msg.text}</div>
+          <div class="pp-mail-date">${dateStr}</div>
+        </div>
+        <button class="pp-delete-btn" title="このお手紙を削除" data-id="${msg.id}">🗑️</button>
       `;
-      li.addEventListener('click', () => openLetterModal(msg));
+      // 削除ボタン
+      li.querySelector('.pp-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteMessage(msg.id, () => openInboxModal());
+      });
+      // 本文クリックで開封
+      li.querySelector('.pp-mail-info').addEventListener('click', () => openLetterModal(msg));
       listEl.appendChild(li);
     });
   } catch (err) {
@@ -7445,17 +7507,21 @@ async function openInboxModal() {
 }
 
 // ----- 送信簿 -----
-async function openOutboxModal() {
+async function openOutboxModal(sortOrder) {
+  const sortSelect = document.getElementById('pp-outbox-sort');
+  const currentSort = sortOrder || (sortSelect ? sortSelect.value : 'desc');
+
   const listEl = document.getElementById('pp-outbox-list');
   if (!listEl || !currentUserId) return;
   listEl.innerHTML = '<li class="pp-list-item" style="cursor:default;">読み込み中...</li>';
   openPPModal('pp-outbox-modal-backdrop');
 
   try {
+    const dir = currentSort === 'asc' ? 'asc' : 'desc';
     const snap = await getDocs(query(
       collection(db, 'chat_messages'),
       where('senderId', '==', currentUserId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', dir)
     ));
 
     listEl.innerHTML = '';
@@ -7470,11 +7536,19 @@ async function openOutboxModal() {
       const li = document.createElement('li');
       li.className = 'pp-list-item';
       li.innerHTML = `
-        <div class="pp-mail-sender">To: ${msg.roomId ? '📬 送信済み' : '?'}</div>
-        <div class="pp-mail-preview">${msg.text}</div>
-        <div class="pp-mail-date">${dateStr}</div>
+        <div class="pp-mail-info">
+          <div class="pp-mail-sender">To: ${msg.roomId ? '📬 送信済み' : '?'}</div>
+          <div class="pp-mail-preview">${msg.text}</div>
+          <div class="pp-mail-date">${dateStr}</div>
+        </div>
+        <button class="pp-delete-btn" title="このお手紙を削除" data-id="${msg.id}">🗑️</button>
       `;
-      li.addEventListener('click', () => openLetterModal(msg, true));
+      // 削除ボタン
+      li.querySelector('.pp-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteMessage(msg.id, () => openOutboxModal());
+      });
+      li.querySelector('.pp-mail-info').addEventListener('click', () => openLetterModal(msg, true));
       listEl.appendChild(li);
     });
   } catch (err) {
@@ -7543,6 +7617,10 @@ document.getElementById('pp-btn-check')?.addEventListener('click', () => {
   checkNewMail();
   Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: '🔄 メールチェック中...', showConfirmButton: false, timer: 1500 });
 });
+
+// ----- ソートセレクト変更でリスト再読み込み -----
+document.getElementById('pp-inbox-sort')?.addEventListener('change', () => openInboxModal());
+document.getElementById('pp-outbox-sort')?.addEventListener('change', () => openOutboxModal());
 
 // ----- 設定(S)メニュー → 設定モーダルを開く -----
 document.getElementById('menu-settings')?.addEventListener('click', () => {
