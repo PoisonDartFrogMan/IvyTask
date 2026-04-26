@@ -5229,6 +5229,7 @@ body[data-workspace="chat"] {
   width: 128px;  /* 待機時の幅 */
   height: 128px; /* 待機時の高さ */
   background-image: url('/img/pets/clownfish_idle.png');
+  background-repeat: no-repeat;
   background-size: 896px 128px; /* 128 * 7 */
   animation: clownfish-idle-anim 1.4s steps(7) infinite, clownfish-float 3.0s ease-in-out infinite;
 }
@@ -5238,6 +5239,7 @@ body[data-workspace="chat"] {
   width: 160px;  /* お手紙分、少し横長になる設定 */
   height: 128px;
   background-image: url('/img/pets/clownfish_move.png');
+  background-repeat: no-repeat;
   background-size: 640px 128px; /* 160 * 4 */
   animation: clownfish-move-anim 0.8s steps(4) infinite;
 }

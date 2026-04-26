@@ -7041,14 +7041,15 @@ function spawnPetOnStage(petType, role = 'guest') {
   // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
   const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish');
   const petEl = document.createElement(isSprite ? 'div' : 'img');
+  petEl.alt = petType;
+  petEl.className = `pet-character ${role} ${petType}`;
+  petEl.dataset.type = petType;
+  
   if (isSprite) {
     petEl.classList.add('state-idle');
   } else {
     petEl.src = `/img/pets/${petType}.png`;
   }
-  petEl.alt = petType;
-  petEl.className = `pet-character ${role} ${petType}`;
-  petEl.dataset.type = petType;
   
   container.appendChild(petEl);
   
@@ -7101,8 +7102,8 @@ function spawnPetOnStage(petType, role = 'guest') {
         randomY = Math.max(20, Math.floor(Math.random() * (curH * 0.6)));
       }
       
-      // カメさん・カエルさん・マンタさんの場合、向きとアニメーションの切り替え
-      if (petType === 'turtle' || petType === 'frog' || petType === 'manta') {
+      // カメさん・カエルさん・マンタさん・クマノミさんの場合、向きとアニメーションの切り替え
+      if (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish') {
         const isFlipped = randomX < currentX;
         petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
         
@@ -7253,7 +7254,11 @@ function updateRoomBackground(petType) {
   const titleEl = document.getElementById('postpet-title-text');
   const iconEl = document.getElementById('postpet-pet-icon');
 
-  if (stage) stage.style.backgroundImage = `url('${cfg.bg}')`;
+  if (stage) {
+    stage.style.backgroundImage = `url('${cfg.bg}')`;
+    // 既存のstage-クラスを削除して新しいペットのクラスを付与
+    stage.className = `postpet-stage ${petType}`;
+  }
   if (titleEl) titleEl.textContent = cfg.title;
   if (iconEl) { iconEl.src = cfg.icon; }
   updateStatusBar(petType);
