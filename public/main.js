@@ -7039,7 +7039,7 @@ function spawnPetOnStage(petType, role = 'guest') {
   }
   
   // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
-  const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish');
+  const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish' || petType === 'penguin');
   const petEl = document.createElement(isSprite ? 'div' : 'img');
   petEl.alt = petType;
   petEl.className = `pet-character ${role} ${petType}`;
@@ -7091,6 +7091,9 @@ function spawnPetOnStage(petType, role = 'guest') {
       } else if (petType === 'clownfish') {
         petWidth = 160;
         petHeight = 128;
+      } else if (petType === 'penguin') {
+        petWidth = 128;
+        petHeight = 128;
       }
 
       const currentX = parseInt(petEl.style.left) || 0;
@@ -7102,8 +7105,8 @@ function spawnPetOnStage(petType, role = 'guest') {
         randomY = Math.max(20, Math.floor(Math.random() * (curH * 0.6)));
       }
       
-      // カメさん・カエルさん・マンタさん・クマノミさんの場合、向きとアニメーションの切り替え
-      if (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish') {
+      // カメさん・カエルさん・マンタさん・クマノミさん・ペンギンさんの場合、向きとアニメーションの切り替え
+      if (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish' || petType === 'penguin') {
         const isFlipped = randomX < currentX;
         petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
         
@@ -7209,6 +7212,18 @@ const PET_STATUS_MESSAGES = {
     'マスター、お疲れ様です🐠',
     'ひれをパタパタさせて泳いでいます。',
   ],
+  penguin: [
+    "氷の上はひんやりしてて気持ちいいケロ！",
+    "お腹ですべって移動したいなぁ。",
+    "お手紙、凍らないように大事に運ぶよ！",
+    "あ、シロクマさんはいないみたいだね。",
+    "氷の海に飛び込んでお魚を探してきます。",
+    "マスターの応援で、心がポカポカします。",
+    "みんなで一緒に行進したいな。",
+    "ペンギン歩きでゆっくりお届けします。",
+    "さむいのは平気！むしろ大好き！",
+    "氷の上でちょっとお昼寝..."
+  ],
 };
 
 // ペットのアイコン絵文字
@@ -7217,6 +7232,7 @@ const PET_STATUS_ICONS = {
   turtle: '🐢',
   manta: '🪸',
   clownfish: '🐠',
+  penguin: '🐧',
 };
 
 // ペットのお部屋タイトルと背景画像
@@ -7225,6 +7241,7 @@ const PET_ROOM_CONFIG = {
   turtle: { title: 'PostPet（ウミガメの部屋）', bg: '/img/pets/turtle_house.png', icon: '/img/pets/turtle.png' },
   manta:  { title: 'PostPet（マンタの部屋）',   bg: '/img/pets/manta_house.png',  icon: '/img/pets/manta.png' },
   clownfish: { title: 'PostPet（クマノミの部屋）', bg: '/img/stages/clownfish_stage.png', icon: '/img/pets/clownfish.png' },
+  penguin: { title: 'ペンギンの氷のお部屋', bg: '/img/stages/penguin_stage.png', icon: '/img/pets/penguin.png' },
 };
 
 // ----- ステータスバー更新 -----
