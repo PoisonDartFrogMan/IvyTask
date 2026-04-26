@@ -5216,6 +5216,54 @@ body[data-workspace="chat"] {
   50% { transform: var(--pet-scale) translateY(-15px); }
   100% { transform: var(--pet-scale) translateY(0px); }
 }
+
+/* クマノミ：基本設定（共通） */
+.pet-character.clownfish {
+  image-rendering: pixelated;
+  position: absolute;
+  transition: left 1.5s ease-in-out, top 1.5s ease-in-out;
+}
+
+/* 待機アニメーション：7コマ */
+.pet-character.clownfish.state-idle {
+  width: 128px;  /* 待機時の幅 */
+  height: 128px; /* 待機時の高さ */
+  background-image: url('/img/pets/clownfish_idle.png');
+  background-size: 896px 128px; /* 128 * 7 */
+  animation: clownfish-idle-anim 1.4s steps(7) infinite, clownfish-float 3.0s ease-in-out infinite;
+}
+
+/* 移動アニメーション：4コマ */
+.pet-character.clownfish.state-move {
+  width: 160px;  /* お手紙分、少し横長になる設定 */
+  height: 128px;
+  background-image: url('/img/pets/clownfish_move.png');
+  background-size: 640px 128px; /* 160 * 4 */
+  animation: clownfish-move-anim 0.8s steps(4) infinite;
+}
+
+/* Keyframes */
+@keyframes clownfish-idle-anim {
+  from { background-position: 0 0; }
+  to { background-position: -896px 0; }
+}
+
+@keyframes clownfish-move-anim {
+  from { background-position: 0 0; }
+  to { background-position: -640px 0; }
+}
+
+/* 水中ゆらゆら */
+@keyframes clownfish-float {
+  0%, 100% { transform: var(--pet-scale) translateY(0) rotate(0deg); }
+  50% { transform: var(--pet-scale) translateY(-8px) rotate(3deg); }
+}
+
+/* お部屋背景 */
+.postpet-stage.clownfish {
+  background-image: url('/img/stages/clownfish_stage.png');
+  background-size: cover;
+}
 /* スマホ向けレスポンシブ（チャット・ペット画面） */
 @media (max-width: 768px) {
   .chat-layout {

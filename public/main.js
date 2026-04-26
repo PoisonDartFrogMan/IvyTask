@@ -7039,7 +7039,7 @@ function spawnPetOnStage(petType, role = 'guest') {
   }
   
   // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
-  const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta');
+  const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish');
   const petEl = document.createElement(isSprite ? 'div' : 'img');
   if (isSprite) {
     petEl.classList.add('state-idle');
@@ -7086,6 +7086,9 @@ function spawnPetOnStage(petType, role = 'guest') {
         petHeight = 156;
       } else if (petType === 'manta') {
         petWidth = 128;
+        petHeight = 128;
+      } else if (petType === 'clownfish') {
+        petWidth = 160;
         petHeight = 128;
       }
 
@@ -7193,6 +7196,18 @@ const PET_STATUS_MESSAGES = {
     'もっと遠くへ飛んでいきたい。',
     '仲間を探しています。',
   ],
+  clownfish: [
+    'イソギンチャクの中でかくれんぼしています。',
+    'マスターの作業を見守っています。',
+    'サンゴのまわりを泳いでいます。',
+    'お手紙、大切に運びますね。',
+    '泡と一緒にダンスしています。',
+    'おなかが空いたのでプランクトンを探し中。',
+    '海の中は今日も静かできれいです。',
+    'イソギンチャクの触手がふわふわして気持ちいい！',
+    'マスター、お疲れ様です🐠',
+    'ひれをパタパタさせて泳いでいます。',
+  ],
 };
 
 // ペットのアイコン絵文字
@@ -7200,6 +7215,7 @@ const PET_STATUS_ICONS = {
   frog: '🐸',
   turtle: '🐢',
   manta: '🪸',
+  clownfish: '🐠',
 };
 
 // ペットのお部屋タイトルと背景画像
@@ -7207,6 +7223,7 @@ const PET_ROOM_CONFIG = {
   frog:   { title: 'PostPet（カエルの部屋）',    bg: '/img/pets/frog_house.png',   icon: '/img/pets/frog.png' },
   turtle: { title: 'PostPet（ウミガメの部屋）', bg: '/img/pets/turtle_house.png', icon: '/img/pets/turtle.png' },
   manta:  { title: 'PostPet（マンタの部屋）',   bg: '/img/pets/manta_house.png',  icon: '/img/pets/manta.png' },
+  clownfish: { title: 'PostPet（クマノミの部屋）', bg: '/img/stages/clownfish_stage.png', icon: '/img/pets/clownfish.png' },
 };
 
 // ----- ステータスバー更新 -----
