@@ -5267,40 +5267,49 @@ body[data-workspace="chat"] {
   background-size: cover;
 }
 
-/* ペンギン：基本設定 */
+/* ペンギン：完全再構築版 */
 .pet-character.penguin {
-    width: 128px;
-    height: 128px;
+    width: 120px;
+    height: 162px;
     image-rendering: pixelated;
     position: absolute;
+    /* 位置移動のCSS遷移のみを定義 */
     transition: left 1.5s ease-in-out, top 1.5s ease-in-out;
 }
 
-/* 待機：8コマ */
+/* 待機：8コマ（実寸2080×351 → 6/13スケール: 120×162px/コマ） */
 .pet-character.penguin.state-idle {
     background-image: url('/img/pets/penguin_idle.png');
     background-repeat: no-repeat;
-    background-size: 1024px 128px;
-    animation: penguin-idle-anim 1.6s steps(8) infinite, penguin-float 3.0s ease-in-out infinite;
+    background-size: 960px 162px; /* 120px × 8コマ */
+    animation-name: penguin-idle-anim, penguin-float;
+    animation-duration: 1.6s, 3.0s;
+    animation-timing-function: steps(8, end), ease-in-out;
+    animation-iteration-count: infinite, infinite;
 }
 
-/* 移動：4コマ */
+/* 移動：4コマ（実寸1932×568 → 幅120px基準: 120×141px/コマ） */
 .pet-character.penguin.state-move {
     background-image: url('/img/pets/penguin_move.png');
     background-repeat: no-repeat;
-    background-size: 512px 128px;
-    animation: penguin-move-anim 0.6s steps(4) infinite;
+    background-size: 480px 141px; /* 120px × 4コマ */
+    background-position: 0 21px; /* 162pxコンテナ内で下寄せ (162-141=21px) */
+    animation-name: penguin-move-anim;
+    animation-duration: 0.6s;
+    animation-timing-function: steps(4, end);
+    animation-iteration-count: infinite;
 }
 
-/* Keyframes */
+/* 待機アニメーション（2080px実寸 → 960px表示、8コマ分） */
 @keyframes penguin-idle-anim {
     from { background-position: 0 0; }
-    to { background-position: -1024px 0; }
+    to { background-position: -960px 0; }
 }
 
+/* 移動アニメーション（1932px実寸 → 480px表示、4コマ分、Y=21px固定） */
 @keyframes penguin-move-anim {
-    from { background-position: 0 0; }
-    to { background-position: -512px 0; }
+    from { background-position: 0 21px; }
+    to { background-position: -480px 21px; }
 }
 
 /* ペンギン専用：ひんやり浮遊 */

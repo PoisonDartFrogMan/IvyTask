@@ -7092,8 +7092,8 @@ function spawnPetOnStage(petType, role = 'guest') {
         petWidth = 160;
         petHeight = 128;
       } else if (petType === 'penguin') {
-        petWidth = 128;
-        petHeight = 128;
+        petWidth = 120;
+        petHeight = 162;
       }
 
       const currentX = parseInt(petEl.style.left) || 0;
