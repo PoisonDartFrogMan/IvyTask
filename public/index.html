@@ -61,6 +61,11 @@
           <span class="option-label">🕊️ Coral-Pet</span>
           <span class="option-desc">ペットがメッセージを届けます</span>
         </button>
+        <!-- Coral-Voice AI Button (マスター限定 - JSで表示制御) -->
+        <button id="start-voice-button" class="startup-option hidden">
+          <span class="option-label">🎙️ Coral-Voice AI</span>
+          <span class="option-desc">会議を文字起こし・議事録作成</span>
+        </button>
       </div>
       <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
     </div>
@@ -874,6 +879,99 @@
     <button id="chat-invite-btn" style="display:none;"></button>
 
   </div><!-- /#chat-container -->
+
+  <!-- ===== Coral-Voice AI モーダル ===== -->
+  <div id="voice-modal-backdrop" class="pp-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="voice-modal-title">
+    <div id="voice-modal" class="voice-modal">
+
+      <!-- ヘッダー -->
+      <div class="voice-modal-header">
+        <div class="voice-modal-title-group">
+          <span class="voice-modal-icon">🎙️</span>
+          <h2 id="voice-modal-title" class="voice-modal-title">Coral-Voice AI</h2>
+          <span class="voice-modal-badge">MASTER ONLY</span>
+        </div>
+        <button id="voice-modal-close" class="voice-close-btn" aria-label="閉じる">×</button>
+      </div>
+
+      <!-- モード選択 -->
+      <div class="voice-mode-selector">
+        <button id="voice-mode-normal" class="voice-mode-btn active" data-mode="normal">
+          <span class="voice-mode-emoji">🐸</span>
+          <span class="voice-mode-name">ルカくんモード</span>
+          <span class="voice-mode-desc">短いメモ・単一ファイル</span>
+        </button>
+        <button id="voice-mode-long" class="voice-mode-btn" data-mode="long">
+          <span class="voice-mode-emoji">🐳</span>
+          <span class="voice-mode-name">ホイスくんモード</span>
+          <span class="voice-mode-desc">最大2時間の長時間録音</span>
+        </button>
+      </div>
+
+      <!-- 録音エリア -->
+      <div class="voice-record-area">
+
+        <!-- キャラクターアニメーション -->
+        <div id="voice-character" class="voice-character idle">
+          <div class="voice-char-emoji" id="voice-char-emoji">🐸</div>
+          <!-- 泡アニメーション（解析中） -->
+          <div class="voice-bubbles" id="voice-bubbles">
+            <span class="bubble"></span>
+            <span class="bubble"></span>
+            <span class="bubble"></span>
+            <span class="bubble"></span>
+            <span class="bubble"></span>
+          </div>
+        </div>
+
+        <!-- ステータステキスト -->
+        <div id="voice-status" class="voice-status">録音ボタンを押してスタート</div>
+
+        <!-- 録音時間 -->
+        <div id="voice-timer" class="voice-timer">00:00</div>
+
+        <!-- コントロールボタン -->
+        <div class="voice-controls">
+          <button id="voice-record-btn" class="voice-btn record">
+            <span class="voice-btn-icon">🔴</span>
+            <span>録音開始</span>
+          </button>
+          <button id="voice-stop-btn" class="voice-btn stop hidden">
+            <span class="voice-btn-icon">⏹️</span>
+            <span>停止して解析</span>
+          </button>
+        </div>
+
+        <!-- ファイルアップロード（代替手段） -->
+        <div class="voice-upload-area">
+          <label for="voice-file-input" class="voice-upload-label">
+            📁 音声ファイルを直接アップロード
+          </label>
+          <input type="file" id="voice-file-input" accept="audio/*,video/webm,video/mp4" class="hidden">
+        </div>
+
+      </div>
+
+      <!-- 結果エリア -->
+      <div id="voice-result-area" class="voice-result-area hidden">
+        <div class="voice-result-header">
+          <h3 class="voice-result-title">📝 文字起こし結果</h3>
+          <div class="voice-result-actions">
+            <button id="voice-copy-btn" class="voice-action-btn">
+              📋 コピー
+            </button>
+            <button id="voice-insert-btn" class="voice-action-btn primary">
+              ✉️ メール本文に挿入
+            </button>
+          </div>
+        </div>
+        <textarea id="voice-result-text" class="voice-result-text" placeholder="文字起こしされたテキストがここに表示されます..."></textarea>
+        <div id="voice-chunk-info" class="voice-chunk-info"></div>
+      </div>
+
+    </div>
+  </div>
+
 
   <!-- ===== PostPet モーダル群 ===== -->
 

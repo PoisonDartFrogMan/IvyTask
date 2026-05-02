@@ -15,6 +15,9 @@ import {
   getMessaging, getToken
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import {
+  getFunctions, httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import {
   initializeRecurringTasks,
   setRecurringTaskUser,
   refreshTodayRecurringTasks,
@@ -41,6 +44,7 @@ const db = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 const messaging = getMessaging(app);
+const functions = getFunctions(app, 'asia-northeast1');
 setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
 
 // マスターUID（特権ユーザー）
@@ -239,6 +243,25 @@ let currentChatRoom = null;
 let chatRoomsUnsubscribe = null;
 let chatMessagesUnsubscribe = null;
 let currentSelectedPet = 'turtle';
+
+// Coral-Voice AI Elements
+const startVoiceButton = document.getElementById('start-voice-button');
+const voiceModalBackdrop = document.getElementById('voice-modal-backdrop');
+const voiceModalClose = document.getElementById('voice-modal-close');
+const voiceModeNormal = document.getElementById('voice-mode-normal');
+const voiceModeLong = document.getElementById('voice-mode-long');
+const voiceCharacter = document.getElementById('voice-character');
+const voiceCharEmoji = document.getElementById('voice-char-emoji');
+const voiceStatus = document.getElementById('voice-status');
+const voiceTimer = document.getElementById('voice-timer');
+const voiceRecordBtn = document.getElementById('voice-record-btn');
+const voiceStopBtn = document.getElementById('voice-stop-btn');
+const voiceFileInput = document.getElementById('voice-file-input');
+const voiceResultArea = document.getElementById('voice-result-area');
+const voiceResultText = document.getElementById('voice-result-text');
+const voiceCopyBtn = document.getElementById('voice-copy-btn');
+const voiceInsertBtn = document.getElementById('voice-insert-btn');
+const voiceChunkInfo = document.getElementById('voice-chunk-info');
 
 
 // Archive Workspace Elements
@@ -854,8 +877,10 @@ onAuthStateChanged(auth, async (user) => {
   const startDbBtn = document.getElementById('start-database-button');
   if (user && user.uid === MASTER_UID) {
     if (startDbBtn) startDbBtn.classList.remove('hidden');
+    if (startVoiceButton) startVoiceButton.classList.remove('hidden');
   } else {
     if (startDbBtn) startDbBtn.classList.add('hidden');
+    if (startVoiceButton) startVoiceButton.classList.add('hidden');
   }
 
   // user_profiles に保存 & 保留中の招待を処理
@@ -7915,3 +7940,290 @@ function initPostPetUI(petType) {
   listenChatRoomsWithCache();
   checkNewMail();
 }
+
+// ==========================================================
+// ===== Coral-Voice AI（文字起こし機能）==================
+// ==========================================================
+
+(function() {
+  // ---- 状態管理 ----
+  let voiceMode = 'normal';
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordingTimerInterval = null;
+  let recordingStartTime = 0;
+  let isRecording = false;
+
+  // ---- キャラ定義 ----
+  const CHAR_EMOJI = {
+    normal: { idle: '🐸', recording: '🐸', analyzing: '🐸' },
+    long:   { idle: '🐳', recording: '🐳', analyzing: '🐳' },
+  };
+
+  // ---- 長時間モード上限（2時間） ----
+  const MAX_RECORDING_MS = 2 * 60 * 60 * 1000;
+
+  function setCharState(state) {
+    if (!voiceCharacter || !voiceCharEmoji) return;
+    voiceCharacter.className = `voice-character ${state}`;
+    voiceCharEmoji.textContent = CHAR_EMOJI[voiceMode]?.[state] || '🐸';
+  }
+
+  function setStatus(text) {
+    if (voiceStatus) voiceStatus.textContent = text;
+  }
+
+  function updateTimer() {
+    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    if (voiceTimer) {
+      voiceTimer.textContent = h > 0
+        ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+  }
+
+  function resetVoiceModal() {
+    isRecording = false;
+    recordedChunks = [];
+    if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
+    if (voiceTimer) voiceTimer.textContent = '00:00';
+    if (voiceRecordBtn) voiceRecordBtn.classList.remove('hidden');
+    if (voiceStopBtn) voiceStopBtn.classList.add('hidden');
+    if (voiceResultArea) voiceResultArea.classList.add('hidden');
+    if (voiceResultText) voiceResultText.value = '';
+    if (voiceChunkInfo) voiceChunkInfo.textContent = '';
+    setCharState('idle');
+    setStatus('録音ボタンを押してスタート');
+  }
+
+  function openVoiceModal() {
+    if (!voiceModalBackdrop) return;
+    resetVoiceModal();
+    voiceModalBackdrop.classList.remove('hidden');
+  }
+
+  function closeVoiceModal() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+    resetVoiceModal();
+    if (voiceModalBackdrop) voiceModalBackdrop.classList.add('hidden');
+  }
+
+  function switchMode(mode) {
+    voiceMode = mode;
+    [voiceModeNormal, voiceModeLong].forEach(btn => {
+      if (!btn) return;
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    setCharState('idle');
+  }
+
+  if (voiceModeNormal) voiceModeNormal.addEventListener('click', () => switchMode('normal'));
+  if (voiceModeLong)   voiceModeLong.addEventListener('click',   () => switchMode('long'));
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      Swal.fire('エラー', 'このブラウザは録音に対応していません。', 'error');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunks = [];
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : 'audio/mp4';
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        processRecording();
+      };
+
+      if (voiceMode === 'long') {
+        setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            setStatus('⏰ 2時間制限に達しました。自動停止します...');
+            mediaRecorder.stop();
+          }
+        }, MAX_RECORDING_MS);
+      }
+
+      mediaRecorder.start(1000);
+      isRecording = true;
+      recordingStartTime = Date.now();
+      recordingTimerInterval = setInterval(updateTimer, 1000);
+
+      setCharState('recording');
+      setStatus('🔴 録音中... 終わったら「停止して解析」を押してください');
+      if (voiceRecordBtn) { voiceRecordBtn.classList.add('hidden'); }
+      if (voiceStopBtn) voiceStopBtn.classList.remove('hidden');
+
+    } catch (err) {
+      console.error('マイクエラー:', err);
+      Swal.fire('マイクアクセスエラー', 'マイクへのアクセスが拒否されました。ブラウザの設定を確認してください。', 'error');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
+      if (voiceStopBtn) voiceStopBtn.classList.add('hidden');
+      setCharState('analyzing');
+      setStatus('🌊 解析中... ポコポコ🫧');
+      mediaRecorder.stop();
+    }
+  }
+
+  async function processRecording() {
+    if (recordedChunks.length === 0) {
+      setStatus('録音データがありません。');
+      resetVoiceModal();
+      return;
+    }
+    const mimeType = recordedChunks[0]?.type || 'audio/webm';
+    const blob = new Blob(recordedChunks, { type: mimeType });
+    await uploadAndTranscribe(blob, mimeType);
+  }
+
+  async function uploadAndTranscribe(blob, mimeType) {
+    if (!currentUserId || currentUserId !== MASTER_UID) {
+      Swal.fire('エラー', 'マスターのみ使用できます。', 'error');
+      resetVoiceModal();
+      return;
+    }
+
+    setCharState('analyzing');
+    setStatus('🌊 音声をアップロード中...');
+
+    const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
+    const filename = `voice_temp/${currentUserId}/${Date.now()}${ext}`;
+    const fileRef = storageRef(storage, filename);
+
+    try {
+      await uploadBytes(fileRef, blob, { contentType: mimeType });
+      setStatus('🫧 Whisper AIで文字起こし中... しばらくお待ちください');
+
+      const transcribeAudio = httpsCallable(functions, 'transcribeAudio');
+      const result = await transcribeAudio({
+        storagePath: filename,
+        mimeType: mimeType,
+        language: 'ja',
+      });
+
+      const { text, chunkCount } = result.data;
+
+      if (voiceResultText) voiceResultText.value = text || '（文字起こし結果が空です）';
+      if (voiceChunkInfo) {
+        voiceChunkInfo.textContent = chunkCount > 1
+          ? `🔀 ${chunkCount} チャンクに分割して処理しました`
+          : '✅ 単一ファイルで処理しました';
+      }
+      if (voiceResultArea) voiceResultArea.classList.remove('hidden');
+
+      setCharState('idle');
+      setStatus('✨ 文字起こし完了！');
+      if (voiceTimer) voiceTimer.textContent = '完了';
+
+    } catch (err) {
+      console.error('文字起こしエラー:', err);
+      setCharState('idle');
+      setStatus('❌ エラーが発生しました');
+      Swal.fire({
+        title: '文字起こしエラー',
+        text: err.message || '不明なエラーが発生しました。',
+        icon: 'error',
+      });
+      try { await deleteObject(fileRef); } catch (_) {}
+    } finally {
+      isRecording = false;
+      if (voiceRecordBtn) voiceRecordBtn.classList.remove('hidden');
+      if (voiceStopBtn) voiceStopBtn.classList.add('hidden');
+    }
+  }
+
+  if (voiceFileInput) {
+    voiceFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      voiceFileInput.value = '';
+      const maxSize = 500 * 1024 * 1024;
+      if (file.size > maxSize) {
+        Swal.fire('ファイルが大きすぎます', '500MB以下の音声ファイルを選択してください。', 'warning');
+        return;
+      }
+      setCharState('analyzing');
+      setStatus(`🫧 "${file.name}" をアップロード中...`);
+      await uploadAndTranscribe(file, file.type || 'audio/webm');
+    });
+  }
+
+  if (voiceCopyBtn) {
+    voiceCopyBtn.addEventListener('click', async () => {
+      const text = voiceResultText?.value || '';
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '📋 クリップボードにコピーしました！', showConfirmButton: false, timer: 1800 });
+      } catch {
+        Swal.fire('コピー失敗', 'クリップボードへのアクセスが拒否されました。', 'error');
+      }
+    });
+  }
+
+  if (voiceInsertBtn) {
+    voiceInsertBtn.addEventListener('click', () => {
+      const text = voiceResultText?.value || '';
+      if (!text) return;
+
+      const writeBody = document.getElementById('pp-write-body');
+      if (writeBody) {
+        const existing = writeBody.value;
+        writeBody.value = existing ? `${existing}\n\n${text}` : text;
+        closeVoiceModal();
+        const writeModal = document.getElementById('pp-write-modal-backdrop');
+        if (writeModal) writeModal.classList.remove('hidden');
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '✉️ メール本文に挿入しました！', showConfirmButton: false, timer: 1800 });
+      } else {
+        navigator.clipboard.writeText(text).then(() => {
+          Swal.fire({
+            toast: true, position: 'top-end', icon: 'info',
+            title: '📋 クリップボードにコピーしました！',
+            html: 'Coral-Pet画面を開いてメール本文に貼り付けてください',
+            showConfirmButton: false, timer: 2800
+          });
+        });
+      }
+    });
+  }
+
+  if (voiceRecordBtn) voiceRecordBtn.addEventListener('click', startRecording);
+  if (voiceStopBtn)   voiceStopBtn.addEventListener('click', stopRecording);
+  if (voiceModalClose) voiceModalClose.addEventListener('click', closeVoiceModal);
+
+  if (voiceModalBackdrop) {
+    voiceModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === voiceModalBackdrop) closeVoiceModal();
+    });
+  }
+
+  if (startVoiceButton) {
+    startVoiceButton.addEventListener('click', () => {
+      if (!currentUserId || currentUserId !== MASTER_UID) {
+        Swal.fire('アクセス拒否', 'この機能はマスターのみ使用できます。', 'error');
+        return;
+      }
+      openVoiceModal();
+    });
+  }
+
+})();
