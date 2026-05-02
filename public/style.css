@@ -5626,9 +5626,6 @@ body[data-workspace="chat"] {
   font-size: 1.1rem;
 }
 
-/* ファイルアップロード */
-.voice-upload-area {
-  text-align: center;
 }
 
 .voice-upload-label {
@@ -5741,3 +5738,47 @@ body[data-workspace="chat"] {
   text-align: right;
 }
 
+/* ☀️ スリープ防止インジケーター */
+.voice-wake-lock-indicator {
+  position: absolute;
+  top: -10px;
+  right: -20px;
+  background: rgba(255, 235, 59, 0.2);
+  border: 1px solid rgba(255, 235, 59, 0.5);
+  color: #fdd835;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(255, 235, 59, 0.2);
+  animation: pulse-wake-lock 2s infinite alternate;
+  z-index: 10;
+}
+
+@keyframes pulse-wake-lock {
+  from { opacity: 0.7; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 235, 59, 0.4); }
+}
+
+/* アーカイブ入力 */
+.voice-archive-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-archive-title-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: white;
+  font-size: 0.85rem;
+  width: 200px;
+}
+
+.voice-archive-title-input:focus {
+  outline: none;
+  border-color: #63b3ed;
+  background: rgba(255, 255, 255, 0.1);
+}

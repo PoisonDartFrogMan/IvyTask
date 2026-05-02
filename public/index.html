@@ -914,6 +914,8 @@
         <!-- キャラクターアニメーション -->
         <div id="voice-character" class="voice-character idle">
           <div class="voice-char-emoji" id="voice-char-emoji">🐸</div>
+          <!-- ☀️ スリープ防止インジケーター -->
+          <div id="voice-wake-lock-indicator" class="voice-wake-lock-indicator hidden" title="スリープ防止機能が有効です">☀️ 目ぱっちり</div>
           <!-- 泡アニメーション（解析中） -->
           <div class="voice-bubbles" id="voice-bubbles">
             <span class="bubble"></span>
@@ -927,8 +929,14 @@
         <!-- ステータステキスト -->
         <div id="voice-status" class="voice-status">録音ボタンを押してスタート</div>
 
+        <!-- 会議名入力（自動保存用） -->
+        <div class="voice-archive-input-group" style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 8px;">
+          <label for="voice-archive-title" style="font-size: 0.8rem; color: rgba(255,255,255,0.6);">会議名・メモ（任意）</label>
+          <input type="text" id="voice-archive-title" class="voice-archive-title-input" placeholder="例：月例ミーティング" autocomplete="off">
+        </div>
+
         <!-- 録音時間 -->
-        <div id="voice-timer" class="voice-timer">00:00</div>
+        <div id="voice-timer" class="voice-timer" style="margin-top: 8px;">00:00</div>
 
         <!-- コントロールボタン -->
         <div class="voice-controls">
@@ -960,7 +968,7 @@
             <button id="voice-copy-btn" class="voice-action-btn">
               📋 コピー
             </button>
-            <button id="voice-insert-btn" class="voice-action-btn primary">
+            <button id="voice-insert-btn" class="voice-action-btn">
               ✉️ メール本文に挿入
             </button>
           </div>

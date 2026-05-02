@@ -64,6 +64,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
     }
 
+    // voice_archives (マスターUIDのみアクセス可能)
+    match /voice_archives/{archiveId} {
+      allow read, write: if request.auth != null && request.auth.uid == "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
+    }
+
     // recurring_tasks
     match /recurring_tasks/{taskId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;

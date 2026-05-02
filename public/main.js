@@ -7953,7 +7953,31 @@ function initPostPetUI(petType) {
   let recordingTimerInterval = null;
   let recordingStartTime = 0;
   let isRecording = false;
+  let wakeLock = null;
 
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        const indicator = document.getElementById('voice-wake-lock-indicator');
+        if (indicator) indicator.classList.remove('hidden');
+        wakeLock.addEventListener('release', () => {
+          if (indicator) indicator.classList.add('hidden');
+        });
+      }
+    } catch (err) {
+      console.warn('Wake Lock error:', err);
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock !== null) {
+      wakeLock.release().catch(console.warn);
+      wakeLock = null;
+    }
+    const indicator = document.getElementById('voice-wake-lock-indicator');
+    if (indicator) indicator.classList.add('hidden');
+  }
   // ---- キャラ定義 ----
   const CHAR_EMOJI = {
     normal: { idle: '🐸', recording: '🐸', analyzing: '🐸' },
@@ -7987,6 +8011,7 @@ function initPostPetUI(petType) {
 
   function resetVoiceModal() {
     isRecording = false;
+    releaseWakeLock();
     recordedChunks = [];
     if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
     if (voiceTimer) voiceTimer.textContent = '00:00';
@@ -8060,6 +8085,7 @@ function initPostPetUI(petType) {
 
       mediaRecorder.start(1000);
       isRecording = true;
+      requestWakeLock();
       recordingStartTime = Date.now();
       recordingTimerInterval = setInterval(updateTimer, 1000);
 
@@ -8077,6 +8103,7 @@ function initPostPetUI(petType) {
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
+      releaseWakeLock();
       if (voiceStopBtn) voiceStopBtn.classList.add('hidden');
       setCharState('analyzing');
       setStatus('🌊 解析中... ポコポコ🫧');
@@ -8124,6 +8151,31 @@ function initPostPetUI(petType) {
       });
 
       const { text, chunkCount } = result.data;
+
+      // 3. Firestoreへの自動保存＆Storage削除の一連のPromiseチェーンを完結
+      try {
+        const titleInput = document.getElementById('voice-archive-title');
+        const title = (titleInput && titleInput.value.trim()) ? titleInput.value.trim() : '名称未設定の会議';
+        
+        setStatus('💾 Firestoreにアーカイブを保存中...');
+        await addDoc(collection(db, 'voice_archives'), {
+          createdAt: serverTimestamp(),
+          title: title,
+          content: text,
+          speakerSegments: []
+        });
+
+        setStatus('🧹 一時ファイルをクリーンアップ中...');
+        try {
+          await deleteObject(fileRef);
+        } catch (delErr) {
+          // Functions側で既に削除済みの場合等
+          console.log('Storage cleanup skipped or already deleted.', delErr);
+        }
+      } catch (saveErr) {
+        console.error('Firestore save error:', saveErr);
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'アーカイブ保存に失敗しました', showConfirmButton: false, timer: 3000 });
+      }
 
       if (voiceResultText) voiceResultText.value = text || '（文字起こし結果が空です）';
       if (voiceChunkInfo) {
