@@ -5868,3 +5868,8 @@ body[data-workspace="chat"] {
   font-size: 0.75rem;
   color: rgba(255,255,255,0.5);
 }
+
+/* モーダル表示時のSwalプロンプトのZ-index修正 */
+.swal2-container {
+  z-index: 9999 !important;
+}
