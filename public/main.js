@@ -8096,11 +8096,14 @@ function initPostPetUI(petType) {
   }
 
   async function uploadAndTranscribe(blob, mimeType) {
-    if (!currentUserId || currentUserId !== MASTER_UID) {
+    const uid = currentUserId || lastKnownAuthUser?.uid;
+    if (!uid || uid !== MASTER_UID) {
       Swal.fire('エラー', 'マスターのみ使用できます。', 'error');
       resetVoiceModal();
       return;
     }
+    // currentUserId を確実にセット
+    currentUserId = uid;
 
     setCharState('analyzing');
     setStatus('🌊 音声をアップロード中...');
@@ -8218,10 +8221,15 @@ function initPostPetUI(petType) {
 
   if (startVoiceButton) {
     startVoiceButton.addEventListener('click', () => {
-      if (!currentUserId || currentUserId !== MASTER_UID) {
+      // スタートアップ画面では currentUserId が未設定の場合があるため
+      // lastKnownAuthUser を fallback として使用する
+      const uid = currentUserId || lastKnownAuthUser?.uid;
+      if (!uid || uid !== MASTER_UID) {
         Swal.fire('アクセス拒否', 'この機能はマスターのみ使用できます。', 'error');
         return;
       }
+      // 以降の処理で currentUserId を使うため確実にセットしておく
+      currentUserId = uid;
       openVoiceModal();
     });
   }
