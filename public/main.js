@@ -8371,11 +8371,47 @@ function initPostPetUI(petType) {
         const dateStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString('ja-JP') : '不明な日時';
         const li = document.createElement('li');
         li.className = 'voice-archive-item';
+        
         li.innerHTML = `
-          <div class="voice-archive-item-title">${data.title || '無題'}</div>
-          <div class="voice-archive-item-date">${dateStr}</div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+            <div style="flex: 1; min-width: 0; padding-right: 8px;">
+              <div class="voice-archive-item-title">${data.title || '無題'}</div>
+              <div class="voice-archive-item-date">${dateStr}</div>
+            </div>
+            <button class="voice-action-btn edit-title-btn" style="padding: 6px; font-size: 0.9rem; flex-shrink: 0;" aria-label="名前の変更">🐚</button>
+          </div>
         `;
-        // ontouchend と onclick の両方で開けるようにしてスマホ対応を強化
+        
+        const editBtn = li.querySelector('.edit-title-btn');
+        editBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          
+          const { value: newTitle } = await Swal.fire({
+            title: 'アーカイブ名の変更',
+            input: 'text',
+            inputValue: data.title || '',
+            showCancelButton: true,
+            confirmButtonText: '保存',
+            cancelButtonText: 'キャンセル',
+            inputValidator: (val) => {
+              if (!val.trim()) return '名前を入力してくださいっす！';
+            }
+          });
+          
+          if (newTitle && newTitle.trim() !== data.title) {
+            try {
+              await updateDoc(doc(db, 'voice_archives', data.id), { title: newTitle.trim() });
+              Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '名前を変更したっす！', showConfirmButton: false, timer: 1500 });
+              loadArchives(); // 即座に再読み込みして反映
+            } catch (err) {
+              console.error('Title update error:', err);
+              Swal.fire('エラー', '名前の変更に失敗しました', 'error');
+            }
+          }
+        });
+
+        // 項目全体タップで詳細を開く
         li.addEventListener('click', (e) => {
           e.preventDefault();
           openArchiveDetail(data.id, data, dateStr);
