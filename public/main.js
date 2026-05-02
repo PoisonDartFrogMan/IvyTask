@@ -7971,19 +7971,37 @@ function initPostPetUI(petType) {
   let recordingStartTime = 0;
   let isRecording = false;
   let wakeLock = null;
+  let silentAudio = null;
+
+  // 最も短い1サンプルの無音WAV
+  const silentWavBase64 = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
         const indicator = document.getElementById('voice-wake-lock-indicator');
-        if (indicator) indicator.classList.remove('hidden');
+        if (indicator) {
+          indicator.textContent = '☀️ 全力稼働中（スリープ防止有効）';
+          indicator.classList.remove('hidden');
+        }
         wakeLock.addEventListener('release', () => {
           if (indicator) indicator.classList.add('hidden');
         });
+      } else {
+        throw new Error('Wake Lock API not supported');
       }
     } catch (err) {
       console.warn('Wake Lock error:', err);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'warning',
+        title: '画面を閉じないで！',
+        text: 'スリープ防止が使えない環境っす。録音中は画面を消さないでほしいっす！',
+        showConfirmButton: true,
+        timer: 6000
+      });
     }
   }
 
@@ -7994,6 +8012,22 @@ function initPostPetUI(petType) {
     }
     const indicator = document.getElementById('voice-wake-lock-indicator');
     if (indicator) indicator.classList.add('hidden');
+  }
+
+  function startSilentAudioHack() {
+    if (!silentAudio) {
+      silentAudio = new Audio(silentWavBase64);
+      silentAudio.loop = true;
+      silentAudio.volume = 0.01;
+    }
+    silentAudio.play().catch(e => console.warn('Silent audio hack failed:', e));
+  }
+
+  function stopSilentAudioHack() {
+    if (silentAudio) {
+      silentAudio.pause();
+      silentAudio.currentTime = 0;
+    }
   }
   // ---- キャラ定義 ----
   const CHAR_EMOJI = {
@@ -8029,6 +8063,7 @@ function initPostPetUI(petType) {
   function resetVoiceModal() {
     isRecording = false;
     releaseWakeLock();
+    stopSilentAudioHack();
     recordedChunks = [];
     if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
     if (voiceTimer) voiceTimer.textContent = '00:00';
@@ -8103,6 +8138,7 @@ function initPostPetUI(petType) {
       mediaRecorder.start(1000);
       isRecording = true;
       requestWakeLock();
+      startSilentAudioHack();
       recordingStartTime = Date.now();
       recordingTimerInterval = setInterval(updateTimer, 1000);
 
@@ -8121,6 +8157,7 @@ function initPostPetUI(petType) {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       if (recordingTimerInterval) { clearInterval(recordingTimerInterval); recordingTimerInterval = null; }
       releaseWakeLock();
+      stopSilentAudioHack();
       if (voiceStopBtn) voiceStopBtn.classList.add('hidden');
       setCharState('analyzing');
       setStatus('🌊 解析中... ポコポコ🫧');
