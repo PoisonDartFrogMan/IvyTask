@@ -8303,4 +8303,122 @@ function initPostPetUI(petType) {
     });
   }
 
+  // --- アーカイブ機能のロジック ---
+  const voiceArchiveModalBackdrop = document.getElementById('voice-archive-modal-backdrop');
+  const voiceArchiveCloseBtn = document.getElementById('voice-archive-close-btn');
+  const voiceArchiveList = document.getElementById('voice-archive-list');
+  const voiceArchiveListView = document.getElementById('voice-archive-list-view');
+  const voiceArchiveDetailView = document.getElementById('voice-archive-detail-view');
+  const voiceArchiveBackBtn = document.getElementById('voice-archive-back-btn');
+  const voiceOpenArchivesBtn = document.getElementById('voice-open-archives-btn');
+
+  let currentArchiveId = null;
+
+  async function loadArchives() {
+    if (!voiceArchiveList) return;
+    voiceArchiveList.innerHTML = '<li style="color: rgba(255,255,255,0.6); text-align: center;">読み込み中...</li>';
+    try {
+      const q = query(collection(db, 'voice_archives'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      voiceArchiveList.innerHTML = '';
+      if (snap.empty) {
+        voiceArchiveList.innerHTML = '<li style="color: rgba(255,255,255,0.6); text-align: center;">保存されたアーカイブはありません。</li>';
+        return;
+      }
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const dateStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString('ja-JP') : '不明な日時';
+        const li = document.createElement('li');
+        li.className = 'voice-archive-item';
+        li.innerHTML = `
+          <div class="voice-archive-item-title">${data.title || '無題'}</div>
+          <div class="voice-archive-item-date">${dateStr}</div>
+        `;
+        li.addEventListener('click', () => openArchiveDetail(docSnap.id, data, dateStr));
+        voiceArchiveList.appendChild(li);
+      });
+    } catch (err) {
+      console.error('Archives load error:', err);
+      voiceArchiveList.innerHTML = '<li style="color: rgba(255,255,255,0.6); text-align: center;">読み込みに失敗しました。</li>';
+    }
+  }
+
+  function openArchiveDetail(id, data, dateStr) {
+    currentArchiveId = id;
+    document.getElementById('voice-archive-detail-title').textContent = data.title || '無題';
+    document.getElementById('voice-archive-detail-date').textContent = dateStr;
+    document.getElementById('voice-archive-detail-content').value = data.content || '';
+    
+    voiceArchiveListView.classList.add('hidden');
+    voiceArchiveDetailView.classList.remove('hidden');
+  }
+
+  if (voiceOpenArchivesBtn) {
+    voiceOpenArchivesBtn.addEventListener('click', () => {
+      closeVoiceModal(); // 録音モーダルは閉じる
+      if (voiceArchiveModalBackdrop) {
+        voiceArchiveModalBackdrop.classList.remove('hidden');
+        voiceArchiveListView.classList.remove('hidden');
+        voiceArchiveDetailView.classList.add('hidden');
+        loadArchives();
+      }
+    });
+  }
+
+  if (voiceArchiveCloseBtn) {
+    voiceArchiveCloseBtn.addEventListener('click', () => {
+      voiceArchiveModalBackdrop.classList.add('hidden');
+    });
+  }
+  
+  if (voiceArchiveBackBtn) {
+    voiceArchiveBackBtn.addEventListener('click', () => {
+      voiceArchiveListView.classList.remove('hidden');
+      voiceArchiveDetailView.classList.add('hidden');
+      currentArchiveId = null;
+    });
+  }
+
+  document.getElementById('voice-archive-detail-copy-btn')?.addEventListener('click', async () => {
+    const text = document.getElementById('voice-archive-detail-content').value;
+    if (text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '📋 コピーしました', showConfirmButton: false, timer: 1800 });
+      } catch (err) {}
+    }
+  });
+
+  document.getElementById('voice-archive-detail-delete-btn')?.addEventListener('click', async () => {
+    if (!currentArchiveId) return;
+    const res = await Swal.fire({
+      title: '削除しますか？',
+      text: 'このアーカイブは元に戻せません。',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '削除',
+      cancelButtonText: 'キャンセル',
+      confirmButtonColor: '#ff6b6b'
+    });
+    if (res.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, 'voice_archives', currentArchiveId));
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '削除しました', showConfirmButton: false, timer: 1800 });
+        voiceArchiveListView.classList.remove('hidden');
+        voiceArchiveDetailView.classList.add('hidden');
+        currentArchiveId = null;
+        loadArchives();
+      } catch (err) {
+        Swal.fire('エラー', '削除に失敗しました', 'error');
+      }
+    }
+  });
+
+  // --- タブ切り替え時のWake Lock復帰対策 ---
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isRecording) {
+      requestWakeLock();
+    }
+  });
+
 })();

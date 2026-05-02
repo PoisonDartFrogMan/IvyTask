@@ -5842,3 +5842,29 @@ body[data-workspace="chat"] {
   border-color: #63b3ed;
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* アーカイブ一覧アイテム */
+.voice-archive-item {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.voice-archive-item:hover {
+  background: rgba(99,179,237,0.1);
+  border-color: rgba(99,179,237,0.3);
+}
+
+.voice-archive-item-title {
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.voice-archive-item-date {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+}

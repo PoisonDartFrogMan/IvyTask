@@ -890,6 +890,9 @@
           <span class="voice-modal-icon">🎙️</span>
           <h2 id="voice-modal-title" class="voice-modal-title">Coral-Voice AI</h2>
           <span class="voice-modal-badge">MASTER ONLY</span>
+          <button id="voice-open-archives-btn" class="voice-action-btn" style="margin-left: 10px; font-size: 0.75rem;">
+            📂 過去の録音を見る
+          </button>
         </div>
         <button id="voice-modal-close" class="voice-close-btn" aria-label="閉じる">×</button>
       </div>
@@ -980,6 +983,37 @@
     </div>
   </div>
 
+  <!-- ===== Coral-Voice アーカイブ一覧モーダル ===== -->
+  <div id="voice-archive-modal-backdrop" class="pp-modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="voice-modal" style="max-height: 80vh; display: flex; flex-direction: column;">
+      <div class="voice-modal-header">
+        <div class="voice-modal-title-group">
+          <span class="voice-modal-icon">📂</span>
+          <h2 class="voice-modal-title">録音アーカイブ</h2>
+        </div>
+        <button id="voice-archive-close-btn" class="voice-close-btn">×</button>
+      </div>
+      
+      <!-- アーカイブ一覧 -->
+      <div id="voice-archive-list-view" style="overflow-y: auto; flex: 1; padding: 16px;">
+        <ul id="voice-archive-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+          <li style="color: rgba(255,255,255,0.6); text-align: center;">読み込み中...</li>
+        </ul>
+      </div>
+
+      <!-- アーカイブ詳細（初期は非表示） -->
+      <div id="voice-archive-detail-view" class="hidden" style="display: flex; flex-direction: column; flex: 1; padding: 16px; gap: 12px;">
+        <button id="voice-archive-back-btn" class="voice-action-btn" style="align-self: flex-start;">◀ 一覧に戻る</button>
+        <h3 id="voice-archive-detail-title" style="margin: 0; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;">タイトル</h3>
+        <span id="voice-archive-detail-date" style="font-size: 0.8rem; color: rgba(255,255,255,0.6);"></span>
+        <textarea id="voice-archive-detail-content" class="voice-result-text" style="flex: 1; min-height: 200px;" readonly></textarea>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="voice-archive-detail-copy-btn" class="voice-action-btn">📋 コピー</button>
+          <button id="voice-archive-detail-delete-btn" class="voice-action-btn" style="color: #ff6b6b; border-color: rgba(255,107,107,0.3);">🗑️ 削除</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== PostPet モーダル群 ===== -->
 
