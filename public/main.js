@@ -8031,7 +8031,7 @@ function initPostPetUI(petType) {
   }
   // ---- キャラ定義 ----
   const CHAR_EMOJI = {
-    normal: { idle: '🐸', recording: '🐸', analyzing: '🐸' },
+    normal: { idle: '🐬', recording: '🐬', analyzing: '🐬' },
     long:   { idle: '🐳', recording: '🐳', analyzing: '🐳' },
   };
 
@@ -8216,6 +8216,7 @@ function initPostPetUI(petType) {
           createdAt: serverTimestamp(),
           title: title,
           content: text,
+          userId: currentUserId,
           speakerSegments: []
         });
 
@@ -8355,15 +8356,18 @@ function initPostPetUI(petType) {
     if (!voiceArchiveList) return;
     voiceArchiveList.innerHTML = '<li style="color: rgba(255,255,255,0.6); text-align: center;">読み込み中...</li>';
     try {
-      const q = query(collection(db, 'voice_archives'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'voice_archives'), where('userId', '==', currentUserId));
       const snap = await getDocs(q);
       voiceArchiveList.innerHTML = '';
       if (snap.empty) {
         voiceArchiveList.innerHTML = '<li style="color: rgba(255,255,255,0.6); text-align: center;">保存されたアーカイブはありません。</li>';
         return;
       }
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
+      const docs = [];
+      snap.forEach(docSnap => docs.push({ id: docSnap.id, ...docSnap.data() }));
+      docs.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+
+      docs.forEach(data => {
         const dateStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString('ja-JP') : '不明な日時';
         const li = document.createElement('li');
         li.className = 'voice-archive-item';
@@ -8371,7 +8375,11 @@ function initPostPetUI(petType) {
           <div class="voice-archive-item-title">${data.title || '無題'}</div>
           <div class="voice-archive-item-date">${dateStr}</div>
         `;
-        li.addEventListener('click', () => openArchiveDetail(docSnap.id, data, dateStr));
+        // ontouchend と onclick の両方で開けるようにしてスマホ対応を強化
+        li.addEventListener('click', (e) => {
+          e.preventDefault();
+          openArchiveDetail(data.id, data, dateStr);
+        });
         voiceArchiveList.appendChild(li);
       });
     } catch (err) {

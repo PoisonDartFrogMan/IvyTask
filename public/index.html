@@ -890,7 +890,7 @@
           <span class="voice-modal-icon">🎙️</span>
           <h2 id="voice-modal-title" class="voice-modal-title">Coral-Voice AI</h2>
           <span class="voice-modal-badge">MASTER ONLY</span>
-          <button id="voice-open-archives-btn" class="voice-action-btn" style="margin-left: 10px; font-size: 0.75rem;">
+          <button id="voice-open-archives-btn" class="voice-action-btn" style="margin-left: 10px; font-size: 0.75rem; position: relative; z-index: 10; padding: 8px 12px; cursor: pointer;">
             📂 過去の録音を見る
           </button>
         </div>
@@ -900,7 +900,7 @@
       <!-- モード選択 -->
       <div class="voice-mode-selector">
         <button id="voice-mode-normal" class="voice-mode-btn active" data-mode="normal">
-          <span class="voice-mode-emoji">🐸</span>
+          <span class="voice-mode-emoji">🐬</span>
           <span class="voice-mode-name">ルカくんモード</span>
           <span class="voice-mode-desc">短いメモ・単一ファイル</span>
         </button>
@@ -916,7 +916,7 @@
 
         <!-- キャラクターアニメーション -->
         <div id="voice-character" class="voice-character idle">
-          <div class="voice-char-emoji" id="voice-char-emoji">🐸</div>
+          <div class="voice-char-emoji" id="voice-char-emoji">🐬</div>
           <!-- ☀️ スリープ防止インジケーター -->
           <div id="voice-wake-lock-indicator" class="voice-wake-lock-indicator hidden" title="スリープ防止機能が有効です">☀️ 目ぱっちり</div>
           <!-- 泡アニメーション（解析中） -->
@@ -984,14 +984,14 @@
   </div>
 
   <!-- ===== Coral-Voice アーカイブ一覧モーダル ===== -->
-  <div id="voice-archive-modal-backdrop" class="pp-modal-backdrop hidden" role="dialog" aria-modal="true">
-    <div class="voice-modal" style="max-height: 80vh; display: flex; flex-direction: column;">
+  <div id="voice-archive-modal-backdrop" class="pp-modal-backdrop hidden" role="dialog" aria-modal="true" style="z-index: 2000;">
+    <div class="voice-modal" style="max-height: 90vh; height: 90vh; display: flex; flex-direction: column; width: 95vw; max-width: 600px; padding-bottom: 20px;">
       <div class="voice-modal-header">
         <div class="voice-modal-title-group">
           <span class="voice-modal-icon">📂</span>
           <h2 class="voice-modal-title">録音アーカイブ</h2>
         </div>
-        <button id="voice-archive-close-btn" class="voice-close-btn">×</button>
+        <button id="voice-archive-close-btn" class="voice-close-btn" style="padding: 12px; font-size: 1.5rem; line-height: 1;">×</button>
       </div>
       
       <!-- アーカイブ一覧 -->
