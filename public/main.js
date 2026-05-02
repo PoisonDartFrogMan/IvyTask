@@ -8031,8 +8031,8 @@ function initPostPetUI(petType) {
   }
   // ---- キャラ定義 ----
   const CHAR_EMOJI = {
-    normal: { idle: '🐬', recording: '🐬', analyzing: '🐬' },
-    long:   { idle: '🐳', recording: '🐳', analyzing: '🐳' },
+    normal: { idle: '🐬', recording: '🐬', analyzing: '🐬', complete: '🐬' },
+    long:   { idle: '🐳', recording: '🐳', analyzing: '🐳', complete: '🐳' },
   };
 
   // ---- 長時間モード上限（2時間） ----
@@ -8040,8 +8040,36 @@ function initPostPetUI(petType) {
 
   function setCharState(state) {
     if (!voiceCharacter || !voiceCharEmoji) return;
-    voiceCharacter.className = `voice-character ${state}`;
-    voiceCharEmoji.textContent = CHAR_EMOJI[voiceMode]?.[state] || '🐸';
+    const modeClass = voiceMode === 'normal' ? 'is-short-mode' : 'is-long-mode';
+    voiceCharacter.className = `voice-character ${state} ${modeClass}`;
+    voiceCharEmoji.textContent = CHAR_EMOJI[voiceMode]?.[state] || '🐬';
+
+    // ホイスくん・ルカくんの潜水/遊泳演出
+    const bubblesContainer = document.getElementById('voice-bubbles');
+    if (state === 'analyzing') {
+      if (window._textBubbleInterval) clearInterval(window._textBubbleInterval);
+      const BUBBLE_TEXTS = voiceMode === 'normal'
+        ? ['♪', '♫', '♬', '♩', '🫧', '✨', '🐬'] // ルカくんは音符
+        : ['あ', 'い', 'A', 'I', '議', '事', '録', '音', '声', '🐳', '📝', '✨', '🫧', '💭']; // ホイスくんは文字
+      window._textBubbleInterval = setInterval(() => {
+        if (!bubblesContainer) return;
+        const span = document.createElement('span');
+        span.className = 'text-bubble-particle';
+        span.textContent = BUBBLE_TEXTS[Math.floor(Math.random() * BUBBLE_TEXTS.length)];
+        span.style.left = Math.random() * 80 + 10 + '%';
+        span.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+        bubblesContainer.appendChild(span);
+        setTimeout(() => span.remove(), 3000);
+      }, 350);
+    } else {
+      if (window._textBubbleInterval) {
+        clearInterval(window._textBubbleInterval);
+        window._textBubbleInterval = null;
+      }
+      if (bubblesContainer) {
+        bubblesContainer.querySelectorAll('.text-bubble-particle').forEach(el => el.remove());
+      }
+    }
   }
 
   function setStatus(text) {
@@ -8240,7 +8268,7 @@ function initPostPetUI(petType) {
       }
       if (voiceResultArea) voiceResultArea.classList.remove('hidden');
 
-      setCharState('idle');
+      setCharState('complete');
       setStatus('✨ 文字起こし完了！');
       if (voiceTimer) voiceTimer.textContent = '完了';
 
@@ -8274,6 +8302,57 @@ function initPostPetUI(petType) {
       setCharState('analyzing');
       setStatus(`🫧 "${file.name}" をアップロード中...`);
       await uploadAndTranscribe(file, file.type || 'audio/webm');
+    });
+  }
+
+  const voiceSummarizeBtn = document.getElementById('voice-summarize-btn');
+  if (voiceSummarizeBtn) {
+    voiceSummarizeBtn.addEventListener('click', async () => {
+      const text = voiceResultText?.value || '';
+      if (!text) return;
+      
+      const { value: summaryMode } = await Swal.fire({
+        title: '要約モードを選択',
+        text: '目的に合わせてジェミ子が要約するっす！',
+        input: 'radio',
+        inputOptions: {
+          standard: '📝 通常要約（決定事項・NextAction）',
+          topic: '📋 トピック別（議題ごとの整理）'
+        },
+        inputValidator: (value) => {
+          if (!value) return 'モードを選んでほしいっす！';
+        },
+        showCancelButton: true,
+        confirmButtonText: '要約スタート',
+        cancelButtonText: 'キャンセル'
+      });
+
+      if (!summaryMode) return;
+
+      const promptTemplate = summaryMode === 'standard'
+        ? `以下の内容を簡潔に要約し、重要な決定事項とネクストアクションを箇条書きでまとめてください：\n\n${text}`
+        : `以下の会話を議題（トピック）ごとに分類し、それぞれのセクションで何が話されたかを見出し付きで整理してください。誰が何を提案したか明確にすること。\n※人事・労務等での利用を想定し、デリケートな話題や感情的なニュアンスも適切に拾ってください。\n\n${text}`;
+      
+      voiceSummarizeBtn.disabled = true;
+      const originalText = voiceSummarizeBtn.innerHTML;
+      voiceSummarizeBtn.innerHTML = '✨ ジェミ子考え中...';
+      
+      try {
+        const summarizeText = httpsCallable(functions, 'summarizeText');
+        const res = await summarizeText({ text: text, promptTemplate: promptTemplate });
+        
+        // 要約結果をテキストエリアの先頭に追記
+        const modeLabel = summaryMode === 'standard' ? '通常要約' : 'トピック別要約';
+        voiceResultText.value = `【ジェミ子の${modeLabel}】\n${res.data.summary}\n\n---\n\n${text}`;
+        
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '要約完了っす！', showConfirmButton: false, timer: 2000 });
+      } catch (err) {
+        console.error('Gemini error:', err);
+        Swal.fire('要約エラー', 'ジェミ子の呼び出しに失敗したっす...', 'error');
+      } finally {
+        voiceSummarizeBtn.disabled = false;
+        voiceSummarizeBtn.innerHTML = originalText;
+      }
     });
   }
 

@@ -5873,3 +5873,56 @@ body[data-workspace="chat"] {
 .swal2-container {
   z-index: 9999 !important;
 }
+
+/* 文字の泡パーティクル演出 */
+.text-bubble-particle {
+  position: absolute;
+  bottom: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 0 5px rgba(99,179,237,0.8);
+  animation: floatTextUp linear forwards;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes floatTextUp {
+  0% { transform: translateY(20px) scale(0.5) rotate(-10deg); opacity: 0; }
+  20% { opacity: 1; transform: translateY(-20px) scale(1.1) rotate(5deg); }
+  80% { opacity: 0.8; transform: translateY(-100px) scale(1) rotate(-5deg); }
+  100% { transform: translateY(-150px) scale(1.2) rotate(10deg); opacity: 0; }
+}
+
+/* ルカくん（イルカ）の躍動アニメーション：録音中 */
+.voice-character.recording.is-short-mode .voice-char-emoji {
+  animation: dolphinJump 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes dolphinJump {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(-15deg); }
+  100% { transform: translateY(5px) rotate(10deg); }
+}
+
+/* ルカくん（イルカ）の遊泳アニメーション：解析中 */
+.voice-character.analyzing.is-short-mode .voice-char-emoji {
+  animation: dolphinSwimCircle 3s linear infinite;
+}
+
+@keyframes dolphinSwimCircle {
+  0% { transform: rotate(0deg) translateX(15px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(15px) rotate(-360deg); }
+}
+
+/* ルカくん（イルカ）の完了アニメーション（高くジャンプして着水） */
+.voice-character.complete.is-short-mode .voice-char-emoji {
+  animation: dolphinSplash 1s ease-out forwards;
+}
+
+@keyframes dolphinSplash {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-40px) scale(1.2) rotate(-20deg); }
+  80% { transform: translateY(10px) scale(0.9) rotate(10deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); }
+}

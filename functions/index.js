@@ -241,3 +241,38 @@ exports.transcribeAudio = onCall(
     };
   }
 );
+
+// ========== 新規: ジェミ子（実際はOpenAI）による要約機能 ==========
+exports.summarizeText = onCall(
+  { secrets: [openaiApiKey], timeoutSeconds: 120, memory: "256MiB" },
+  async (request) => {
+    // ===== 認証・権限チェック =====
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "ログインが必要です。");
+    }
+    if (request.auth.uid !== MASTER_UID) {
+      throw new HttpsError("permission-denied", "この機能はマスターのみ使用できます。");
+    }
+
+    const { text, promptTemplate } = request.data;
+    if (!text) {
+      throw new HttpsError("invalid-argument", "要約対象のテキストが必要です。");
+    }
+
+    try {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: openaiApiKey.value() });
+      
+      const prompt = promptTemplate || `以下の内容を議事録として要点を分かりやすくまとめてください：\n\n${text}`;
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // 高速・安価な要約用モデル
+        messages: [{ role: "user", content: prompt }],
+      });
+      
+      return { summary: response.choices[0].message.content };
+    } catch (err) {
+      console.error("要約API エラー:", err);
+      throw new HttpsError("internal", `要約処理に失敗しました: ${err.message}`);
+    }
+  }
+);
