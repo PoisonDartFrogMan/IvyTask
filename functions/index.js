@@ -3,7 +3,6 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { Readable } = require("stream");
 const path = require("path");
 
 admin.initializeApp();
@@ -18,7 +17,8 @@ const openaiApiKey = defineSecret("OPENAI_API_KEY");
 const MASTER_UID = "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
 
 // Whisper APIの最大ファイルサイズ（25MB）
-const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
+// Whisper APIの実質的な上限（25MB公称だが multipart overhead 分を引いた安全値）
+const WHISPER_MAX_BYTES = 24 * 1024 * 1024; // 24MB
 
 // ========== 既存: ペット通知 ==========
 exports.sendPetNotification = onDocumentCreated("chat_messages/{messageId}", async (event) => {
@@ -105,31 +105,76 @@ exports.sendPetNotification = onDocumentCreated("chat_messages/{messageId}", asy
 
 // ========== 新規: Coral-Voice AI 文字起こし ==========
 
+
 /**
- * Buffer を指定バイト数ずつ分割する
+ * MIME タイプから適切な拡張子を返す
  */
-function splitBuffer(buffer, chunkSize) {
-  const chunks = [];
-  let offset = 0;
-  while (offset < buffer.length) {
-    chunks.push(buffer.slice(offset, offset + chunkSize));
-    offset += chunkSize;
-  }
-  return chunks;
+function mimeToExt(mimeType, fallback = ".webm") {
+  if (!mimeType) return fallback;
+  if (mimeType.includes("m4a"))  return ".m4a";
+  if (mimeType.includes("mp4"))  return ".mp4";
+  if (mimeType.includes("mp3") || mimeType.includes("mpeg")) return ".mp3";
+  if (mimeType.includes("wav"))  return ".wav";
+  if (mimeType.includes("ogg"))  return ".ogg";
+  if (mimeType.includes("flac")) return ".flac";
+  return fallback;
 }
 
 /**
- * Buffer から Node.js Readable ストリームを生成し
- * Blob 相当のオブジェクトを返す（openai SDK の File 互換）
+ * バッファの先頭バイト（マジックバイト）から実際の音声フォーマットを検出する
+ * ブラウザが file.type を正しく返さない場合（m4a など）に備えた信頼性の高い検出
  */
-function bufferToFile(buffer, filename, mimeType) {
-  // openai SDK v4 は File オブジェクト（Web API）か Readable を受け付ける
-  // Node.js 環境では Readable を使う
-  const readable = Readable.from(buffer);
-  readable.path = filename; // openai SDK がファイル名を読む
-  readable.headers = { "content-type": mimeType };
-  return readable;
+function detectAudioFormat(buffer) {
+  if (!buffer || buffer.length < 12) return null;
+
+  // WebM: 1A 45 DF A3
+  if (buffer[0] === 0x1A && buffer[1] === 0x45 &&
+      buffer[2] === 0xDF && buffer[3] === 0xA3) {
+    return { ext: ".webm", mime: "audio/webm" };
+  }
+
+  // RIFF/WAV: 52 49 46 46
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 &&
+      buffer[2] === 0x46 && buffer[3] === 0x46) {
+    return { ext: ".wav", mime: "audio/wav" };
+  }
+
+  // MP3 ID3タグ付き: 49 44 33
+  if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) {
+    return { ext: ".mp3", mime: "audio/mpeg" };
+  }
+
+  // MP3 sync word: FF Ex / FF Fx
+  if (buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0) {
+    return { ext: ".mp3", mime: "audio/mpeg" };
+  }
+
+  // FLAC: 66 4C 61 43
+  if (buffer[0] === 0x66 && buffer[1] === 0x4C &&
+      buffer[2] === 0x61 && buffer[3] === 0x43) {
+    return { ext: ".flac", mime: "audio/flac" };
+  }
+
+  // OGG: 4F 67 67 53
+  if (buffer[0] === 0x4F && buffer[1] === 0x67 &&
+      buffer[2] === 0x67 && buffer[3] === 0x53) {
+    return { ext: ".ogg", mime: "audio/ogg" };
+  }
+
+  // M4A / MP4: MPEG-4コンテナは offset 4 に "ftyp" ボックスを持つ
+  if (buffer[4] === 0x66 && buffer[5] === 0x74 &&
+      buffer[6] === 0x79 && buffer[7] === 0x70) {
+    // brand (bytes 8-11) で M4A か一般 MP4 かを区別
+    const brand = buffer.slice(8, 12).toString("ascii");
+    if (/M4A |m4a |M4P |f4a /i.test(brand)) {
+      return { ext: ".m4a", mime: "audio/x-m4a" };
+    }
+    return { ext: ".mp4", mime: "audio/mp4" };
+  }
+
+  return null;
 }
+
 
 /**
  * Cloud Functions: transcribeAudio
@@ -173,51 +218,101 @@ exports.transcribeAudio = onCall(
     const { default: OpenAI } = await import("openai");
     const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
+    // /tmp への書き出しユーティリティ
+    const fs = require("fs");
+    const os = require("os");
+
+    // マジックバイトでフォーマット自動検出（ブラウザのMIMEタイプより確実）
+    const detected = detectAudioFormat(audioBuffer);
+    const ext = detected ? detected.ext : mimeToExt(mimeType);
+    console.log(`フォーマット検出: ${detected ? detected.ext + " (" + detected.mime + ")" : "不明 → " + mimeToExt(mimeType) + " (MIMEより)"}`);
+
+
+    const ffmpeg = require("fluent-ffmpeg");
+    const ffmpegPath = require("ffmpeg-static");
+    ffmpeg.setFfmpegPath(ffmpegPath);
+
+    /**
+     * Whisper API に送信
+     */
+    async function callWhisper(stream) {
+      const response = await openai.audio.transcriptions.create({
+        model: "whisper-1",
+        file: stream,
+        language: language,
+      });
+      return response.text || "";
+    }
+
     let transcribedText = "";
+    let chunkCount = 1;
 
     try {
       if (audioBuffer.length <= WHISPER_MAX_BYTES) {
         // ===== 通常モード: 直接送信 =====
         console.log("通常モード: 直接 Whisper API へ送信");
-        const audioFile = bufferToFile(audioBuffer, path.basename(storagePath), mimeType);
-        const response = await openai.audio.transcriptions.create({
-          model: "whisper-1",
-          file: audioFile,
-          language: language,
-        });
-        transcribedText = response.text || "";
+        const tmpPath = path.join(os.tmpdir(), `audio_${Date.now()}${ext}`);
+        fs.writeFileSync(tmpPath, audioBuffer);
+        try {
+          transcribedText = await callWhisper(fs.createReadStream(tmpPath));
+        } finally {
+          try { fs.unlinkSync(tmpPath); } catch (_) {}
+        }
       } else {
-        // ===== 長時間モード: チャンク分割 + 並列処理 =====
-        console.log(`長時間モード: ${Math.ceil(audioBuffer.length / WHISPER_MAX_BYTES)} チャンクに分割`);
-        const chunks = splitBuffer(audioBuffer, WHISPER_MAX_BYTES);
-        const ext = path.extname(storagePath) || ".webm";
+        // ===== 長時間モード: ffmpeg で正しく分割 & 圧縮 =====
+        console.log("長時間モード: ffmpegで分割・圧縮を開始");
+        const inputPath = path.join(os.tmpdir(), `input_${Date.now()}${ext}`);
+        fs.writeFileSync(inputPath, audioBuffer);
+        
+        const outputPrefix = `chunk_${Date.now()}_`;
+        const outputPattern = path.join(os.tmpdir(), `${outputPrefix}%03d.mp3`);
 
-        // 並列で Whisper API にリクエスト（最大 5 並列に制限）
-        const CONCURRENCY = 5;
-        const results = new Array(chunks.length).fill("");
+        await new Promise((resolve, reject) => {
+          ffmpeg(inputPath)
+            .outputOptions([
+              "-f segment",
+              "-segment_time 1200", // 20分（1200秒）ごとに分割。64kbpsなら20分で約10MB
+              "-c:a libmp3lame",
+              "-b:a 64k",
+              "-ac 1",
+              "-ar 16000"
+            ])
+            .output(outputPattern)
+            .on("end", resolve)
+            .on("error", reject)
+            .run();
+        });
 
-        for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-          const batch = chunks.slice(i, i + CONCURRENCY);
-          const batchPromises = batch.map(async (chunk, batchIdx) => {
+        // 生成されたチャンクファイルを取得
+        const files = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(outputPrefix) && f.endsWith(".mp3")).sort();
+        chunkCount = files.length;
+        console.log(`分割完了: ${chunkCount} 個のMP3ファイルが生成されました`);
+
+        const CONCURRENCY = 3;
+        const results = new Array(chunkCount).fill("");
+
+        for (let i = 0; i < chunkCount; i += CONCURRENCY) {
+          const batch = files.slice(i, i + CONCURRENCY);
+          const batchPromises = batch.map(async (filename, batchIdx) => {
             const chunkIdx = i + batchIdx;
-            const chunkFilename = `chunk_${chunkIdx}${ext}`;
-            console.log(`チャンク ${chunkIdx + 1}/${chunks.length} を処理中 (${chunk.length} bytes)`);
-            const audioFile = bufferToFile(chunk, chunkFilename, mimeType);
-            const response = await openai.audio.transcriptions.create({
-              model: "whisper-1",
-              file: audioFile,
-              language: language,
-            });
-            return { idx: chunkIdx, text: response.text || "" };
+            const chunkPath = path.join(os.tmpdir(), filename);
+            const stats = fs.statSync(chunkPath);
+            console.log(`チャンク ${chunkIdx + 1}/${chunkCount} を処理中 (${stats.size} bytes)`);
+            
+            try {
+              const text = await callWhisper(fs.createReadStream(chunkPath));
+              return { idx: chunkIdx, text };
+            } finally {
+              try { fs.unlinkSync(chunkPath); } catch (_) {}
+            }
           });
 
           const batchResults = await Promise.all(batchPromises);
-          batchResults.forEach(({ idx, text }) => {
-            results[idx] = text;
-          });
+          batchResults.forEach(({ idx, text }) => { results[idx] = text; });
         }
 
         transcribedText = results.join("\n\n");
+        try { fs.unlinkSync(inputPath); } catch (_) {} // 元の一時ファイルも削除
       }
     } catch (err) {
       console.error("Whisper API エラー:", err);
@@ -228,17 +323,11 @@ exports.transcribeAudio = onCall(
         await file.delete();
         console.log(`一時ファイルを削除しました: ${storagePath}`);
       } catch (deleteErr) {
-        // 削除失敗は致命的ではないので警告のみ
         console.warn(`一時ファイルの削除に失敗しました: ${storagePath}`, deleteErr);
       }
     }
 
-    return {
-      text: transcribedText,
-      chunkCount: audioBuffer.length > WHISPER_MAX_BYTES
-        ? Math.ceil(audioBuffer.length / WHISPER_MAX_BYTES)
-        : 1,
-    };
+    return { text: transcribedText, chunkCount };
   }
 );
 

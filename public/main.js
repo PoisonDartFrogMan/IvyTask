@@ -8217,7 +8217,9 @@ function initPostPetUI(petType) {
     setCharState('analyzing');
     setStatus('🌊 音声をアップロード中...');
 
-    const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
+    const ext = mimeType.includes('m4a') ? '.m4a'
+              : mimeType.includes('mp4')  ? '.mp4'
+              : '.webm';
     const filename = `voice_temp/${currentUserId}/${Date.now()}${ext}`;
     const fileRef = storageRef(storage, filename);
 
@@ -8225,7 +8227,7 @@ function initPostPetUI(petType) {
       await uploadBytes(fileRef, blob, { contentType: mimeType });
       setStatus('🫧 Whisper AIで文字起こし中... しばらくお待ちください');
 
-      const transcribeAudio = httpsCallable(functions, 'transcribeAudio');
+      const transcribeAudio = httpsCallable(functions, 'transcribeAudio', { timeout: 540000 });
       const result = await transcribeAudio({
         storagePath: filename,
         mimeType: mimeType,
