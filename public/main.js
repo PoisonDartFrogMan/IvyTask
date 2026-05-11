@@ -8657,7 +8657,8 @@ updateLiveClock();
 // --- Google Calendar 連携 ---
 // TODO: マスター！Google Cloud Consoleで作成した「ウェブアプリケーション」のクライアントIDを入れてね！
 // 作成先: https://console.cloud.google.com/apis/credentials
-const CLIENT_ID = '470602099850-1rjtegaefbk75hf9a9ika3mahubgsvpo.apps.googleusercontent.com';
+const RAW_CLIENT_ID = '470602099850-1rjtegaefbk75hf9a9ika3mahubgsvpo.apps.googleusercontent.com';
+const CLIENT_ID = RAW_CLIENT_ID.trim(); // 余計なスペースを徹底排除
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
 function initGoogleAuth() {
@@ -8674,6 +8675,12 @@ async function addGoogleAccount() {
   const tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
+    error_callback: (err) => {
+      console.error('Google Auth Error Callback:', err);
+      if (err.error === 'invalid_client') {
+        Swal.fire('認証失敗', 'クライアントIDが正しくないか、承認済みのJavaScript生成元（Origin）が未登録のようです。', 'error');
+      }
+    },
     callback: async (response) => {
       if (response.error !== undefined) throw response;
 
