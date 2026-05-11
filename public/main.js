@@ -8732,12 +8732,18 @@ window.removeGoogleAccount = (idx) => {
 
 async function fetchEventsFromAllAccounts() {
   allEvents = [];
-  const now = new Date().toISOString();
-  const maxResults = 3;
+  const now = new Date();
+  const timeMin = now.toISOString();
+  
+  // 明日の23:59:59までを範囲にする
+  const tomorrowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59);
+  const timeMax = tomorrowEnd.toISOString();
+  
+  const maxResults = 5; // 少し多めに取得
 
   const promises = googleAccounts.map(async (acc) => {
     try {
-      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`, {
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`, {
         headers: { Authorization: `Bearer ${acc.token}` }
       });
       if (res.status === 401) {
@@ -8761,8 +8767,8 @@ async function fetchEventsFromAllAccounts() {
 
   const results = await Promise.all(promises);
   allEvents = results.flat().sort((a, b) => {
-    const startA = a.start.dateTime || a.start.date;
-    const startB = b.start.dateTime || b.start.date;
+    const startA = a.start?.dateTime || a.start?.date || '';
+    const startB = b.start?.dateTime || b.start?.date || '';
     return new Date(startA) - new Date(startB);
   });
 
@@ -8774,15 +8780,25 @@ function renderAgenda() {
   statusAgendaListEl.innerHTML = '';
 
   if (allEvents.length === 0) {
-    statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近の予定はありません</div>';
+    statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近48時間の予定はありません</div>';
     return;
   }
 
-  allEvents.slice(0, 3).forEach(event => {
-    const startTime = event.start.dateTime ? new Date(event.start.dateTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '終日';
+  const now = new Date();
+  const todayDate = now.getDate();
+
+  allEvents.slice(0, 5).forEach(event => {
+    const eventStart = new Date(event.start.dateTime || event.start.date);
+    const isTomorrow = eventStart.getDate() !== todayDate;
+    
+    const startTime = event.start.dateTime 
+      ? eventStart.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) 
+      : '終日';
+
     const item = document.createElement('div');
-    item.className = 'agenda-item';
+    item.className = `agenda-item ${isTomorrow ? 'is-tomorrow' : 'is-today'}`;
     item.innerHTML = `
+      <div class="agenda-date-label">${isTomorrow ? '明日' : '今日'}</div>
       <div class="agenda-time">${startTime}</div>
       <div class="agenda-account-dot" style="background-color: ${event.accountColor}"></div>
       <div class="agenda-text">${event.summary}</div>
