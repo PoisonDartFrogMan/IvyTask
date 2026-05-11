@@ -919,6 +919,8 @@ onAuthStateChanged(auth, async (user) => {
     enterArchiveWorkspace();
   } else if (workspaceSelection === 'chat') {
     enterChatWorkspace();
+  } else if (workspaceSelection === 'calendar') {
+    enterCalendarWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -8584,3 +8586,238 @@ function initPostPetUI(petType) {
   });
 
 })();
+
+// ==========================================================
+// ===== Phase 8: Live Status Bar & Calendar Logic =========
+// ==========================================================
+
+const calendarWorkspace = document.getElementById('calendar-workspace');
+const calendarBackStartupButton = document.getElementById('calendar-back-startup-button');
+const statusDateEl = document.getElementById('status-date');
+const statusDayEl = document.getElementById('status-day');
+const statusTimeEl = document.getElementById('status-time');
+const statusMessageEl = document.getElementById('status-message');
+const statusAgendaListEl = document.getElementById('status-agenda-list');
+const openCalendarSettingsBtn = document.getElementById('open-calendar-settings');
+const calendarSettingsModalBackdrop = document.getElementById('calendar-settings-modal-backdrop');
+const closeCalendarSettingsBtn = document.getElementById('close-calendar-settings');
+const addGoogleAccountBtn = document.getElementById('add-google-account-button');
+const googleAccountListEl = document.getElementById('google-account-list');
+const statusDecoCharacter = document.getElementById('status-deco-character');
+
+let googleAccounts = JSON.parse(localStorage.getItem('ivy_google_accounts') || '[]');
+let allEvents = [];
+
+// --- リアルタイム時計 ---
+function updateLiveClock() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const date = now.getDate();
+  const day = now.getDay();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  
+  const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+  const dayLabel = `(${dayLabels[day]})`;
+  
+  if (statusDateEl) statusDateEl.textContent = `${year}年${month}月${date}日`;
+  if (statusDayEl) {
+    statusDayEl.textContent = dayLabel;
+    statusDayEl.classList.toggle('is-holiday-sun', day === 0);
+    statusDayEl.classList.toggle('is-holiday-wed', day === 3);
+  }
+  if (statusTimeEl) statusTimeEl.textContent = `${hours}:${minutes}`;
+
+  // お休みモード & 背景色 (水曜・日曜)
+  const bar = document.getElementById('live-status-bar');
+  if (day === 0 || day === 3) {
+    if (statusMessageEl) statusMessageEl.textContent = '今日はオフだね！リラックスしてケロ〜 🐸';
+    if (bar) bar.classList.add('off-day-bg');
+  } else {
+    if (statusMessageEl) statusMessageEl.textContent = '';
+    if (bar) bar.classList.remove('off-day-bg');
+  }
+
+  // 誕生日演出 (例: 5月11日がマスターの誕生日とする)
+  const isBirthday = (month === 5 && date === 11);
+  if (isBirthday) {
+    if (statusMessageEl) statusMessageEl.textContent = 'マスター、お誕生日おめでとうケロ！🎉';
+    if (statusDecoCharacter) {
+      statusDecoCharacter.classList.remove('hidden');
+      statusDecoCharacter.innerHTML = '🐸🎉🐧'; // カエルとペンギン
+      statusDecoCharacter.classList.add('celebration-burst');
+    }
+  }
+}
+
+setInterval(updateLiveClock, 60000);
+updateLiveClock();
+
+// --- Google Calendar 連携 ---
+const CLIENT_ID = '470602099850-e7o0g4h2j3g4h5i6j7k8l9m0n1o2p3q.apps.googleusercontent.com'; // 仮
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+
+function initGoogleAuth() {
+  // 実際の実装ではクライアントIDが必要ですが、UI/ロジックを優先して構築します
+  if (typeof google === 'undefined') return;
+}
+
+async function addGoogleAccount() {
+  if (typeof google === 'undefined') {
+    Swal.fire('エラー', 'Google APIを読み込み中です。', 'error');
+    return;
+  }
+
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (response) => {
+      if (response.error !== undefined) throw response;
+      
+      // ユーザー情報の取得 (簡易版)
+      const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${response.access_token}` }
+      }).then(r => r.json());
+
+      const newAccount = {
+        email: userInfo.email,
+        token: response.access_token,
+        expires: Date.now() + (response.expires_in * 1000),
+        color: `#${Math.floor(Math.random()*16777215).toString(16)}` // ランダムなアカウントカラー
+      };
+
+      googleAccounts = googleAccounts.filter(a => a.email !== newAccount.email);
+      googleAccounts.push(newAccount);
+      localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+      
+      renderGoogleAccounts();
+      fetchEventsFromAllAccounts();
+      Swal.fire('連携成功', `${newAccount.email} を追加しました！`, 'success');
+    },
+  });
+
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function renderGoogleAccounts() {
+  if (!googleAccountListEl) return;
+  googleAccountListEl.innerHTML = '';
+  googleAccounts.forEach((acc, idx) => {
+    const li = document.createElement('li');
+    li.className = 'google-account-item';
+    li.innerHTML = `
+      <span><span style="color:${acc.color}">●</span> ${acc.email}</span>
+      <button class="danger small" onclick="removeGoogleAccount(${idx})">削除</button>
+    `;
+    googleAccountListEl.appendChild(li);
+  });
+}
+
+window.removeGoogleAccount = (idx) => {
+  googleAccounts.splice(idx, 1);
+  localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+  renderGoogleAccounts();
+  fetchEventsFromAllAccounts();
+};
+
+async function fetchEventsFromAllAccounts() {
+  allEvents = [];
+  const now = new Date().toISOString();
+  const maxResults = 3;
+
+  const promises = googleAccounts.map(async (acc) => {
+    try {
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`, {
+        headers: { Authorization: `Bearer ${acc.token}` }
+      });
+      if (res.status === 401) {
+        // トークン切れ
+        return [];
+      }
+      const data = await res.json();
+      return (data.items || []).map(item => ({
+        ...item,
+        accountEmail: acc.email,
+        accountColor: acc.color
+      }));
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const results = await Promise.all(promises);
+  allEvents = results.flat().sort((a, b) => {
+    const startA = a.start.dateTime || a.start.date;
+    const startB = b.start.dateTime || b.start.date;
+    return new Date(startA) - new Date(startB);
+  });
+
+  renderAgenda();
+}
+
+function renderAgenda() {
+  if (!statusAgendaListEl) return;
+  statusAgendaListEl.innerHTML = '';
+  
+  if (allEvents.length === 0) {
+    statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近の予定はありません</div>';
+    return;
+  }
+
+  allEvents.slice(0, 3).forEach(event => {
+    const startTime = event.start.dateTime ? new Date(event.start.dateTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '終日';
+    const item = document.createElement('div');
+    item.className = 'agenda-item';
+    item.innerHTML = `
+      <div class="agenda-time">${startTime}</div>
+      <div class="agenda-account-dot" style="background-color: ${event.accountColor}"></div>
+      <div class="agenda-text">${event.summary}</div>
+    `;
+    statusAgendaListEl.appendChild(item);
+  });
+}
+
+// --- ワークスペース遷移 ---
+function enterCalendarWorkspace() {
+  workspaceSelection = 'calendar';
+  localStorage.setItem('ivy_workspace_selection', 'calendar');
+  document.body.dataset.workspace = 'calendar';
+  
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (calendarWorkspace) calendarWorkspace.classList.remove('hidden');
+}
+
+// --- イベントリスナー ---
+if (document.getElementById('status-clock-trigger')) {
+  document.getElementById('status-clock-trigger').addEventListener('click', enterCalendarWorkspace);
+}
+if (document.getElementById('status-agenda-trigger')) {
+  document.getElementById('status-agenda-trigger').addEventListener('click', enterCalendarWorkspace);
+}
+if (calendarBackStartupButton) {
+  calendarBackStartupButton.addEventListener('click', () => {
+    showStartupScreen();
+    calendarWorkspace.classList.add('hidden');
+  });
+}
+if (openCalendarSettingsBtn) {
+  openCalendarSettingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    calendarSettingsModalBackdrop.classList.remove('hidden');
+    renderGoogleAccounts();
+  });
+}
+if (closeCalendarSettingsBtn) {
+  closeCalendarSettingsBtn.addEventListener('click', () => {
+    calendarSettingsModalBackdrop.classList.add('hidden');
+  });
+}
+if (addGoogleAccountBtn) {
+  addGoogleAccountBtn.addEventListener('click', addGoogleAccount);
+}
+
+// 初期ロード
+renderGoogleAccounts();
+fetchEventsFromAllAccounts();
+

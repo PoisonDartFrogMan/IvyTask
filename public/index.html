@@ -16,6 +16,8 @@
   <link rel="apple-touch-icon" href="/icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module"></script>
+  <!-- Google API for Calendar -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -68,6 +70,76 @@
         </button>
       </div>
       <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
+    </div>
+
+    <!-- Live Status Bar (Phase 8 Footer Widget) -->
+    <div id="live-status-bar" class="live-status-bar">
+      <div class="status-left clock-area" id="status-clock-trigger">
+        <div class="clock-date-row">
+          <span id="status-date">2026年5月11日</span>
+          <span id="status-day" class="day-label">(月)</span>
+        </div>
+        <div id="status-time" class="status-time">19:50</div>
+        <div id="status-message" class="status-message"></div>
+      </div>
+      
+      <div class="status-divider"></div>
+
+      <div class="status-right agenda-area" id="status-agenda-trigger">
+        <div class="agenda-header">
+          <span class="agenda-title">Upcoming Agenda</span>
+          <button id="open-calendar-settings" class="icon-button small-gear" title="カレンダー設定">⚙️</button>
+        </div>
+        <div id="status-agenda-list" class="agenda-list">
+          <div class="agenda-empty">予定を読み込み中...</div>
+        </div>
+      </div>
+      
+      <!-- Character Decoration (Flash Idea) -->
+      <div id="status-deco-character" class="status-deco-character hidden"></div>
+    </div>
+  </div>
+
+  <!-- ===== Calendar Workspace (Phase 8) ===== -->
+  <div id="calendar-workspace" class="hidden">
+    <div class="calendar-header">
+      <div class="header-left">
+        <button id="calendar-back-startup-button" class="header-back-btn">スタートに戻る</button>
+        <h1 class="calendar-view-title">Calendar</h1>
+      </div>
+      <div class="header-right">
+        <button id="calendar-prev-month" class="icon-button">◀</button>
+        <h2 id="calendar-month-year">2026年5月</h2>
+        <button id="calendar-next-month" class="icon-button">▶</button>
+      </div>
+    </div>
+    <div id="calendar-grid-container" class="calendar-grid-container">
+      <!-- Calendar grid will be injected here -->
+    </div>
+  </div>
+
+  <!-- Calendar Settings Modal -->
+  <div id="calendar-settings-modal-backdrop" class="hidden">
+    <div id="calendar-settings-modal" class="settings-modal">
+      <h2>カレンダー設定</h2>
+      <div class="settings-section">
+        <h3>Googleアカウント連携</h3>
+        <p class="settings-help">複数のGoogleアカウントを追加して、予定を統合表示できます。</p>
+        <ul id="google-account-list" class="google-account-list">
+          <!-- Accounts will be listed here -->
+        </ul>
+        <button id="add-google-account-button" class="primary">+ アカウントを追加</button>
+      </div>
+      <div class="settings-section">
+        <h3>表示設定</h3>
+        <label class="checkbox-row">
+          <input type="checkbox" id="calendar-show-holidays" checked>
+          <span>祝日を表示する</span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="close-calendar-settings" type="button">閉じる</button>
+      </div>
     </div>
   </div>
 
