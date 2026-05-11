@@ -659,14 +659,14 @@ async function requestNotificationPermission(userId) {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       console.log('Notification permission granted.');
-      
+
       // サービスワーカーの登録を明示的に行う
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       console.log('Service Worker registered with scope:', registration.scope);
 
-      const token = await getToken(messaging, { 
+      const token = await getToken(messaging, {
         vapidKey: VAPID_KEY,
-        serviceWorkerRegistration: registration 
+        serviceWorkerRegistration: registration
       });
 
       if (token) {
@@ -832,7 +832,7 @@ async function enterChatWorkspace() {
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
-  
+
   if (chatContainer) {
     chatContainer.classList.remove('hidden');
     chatContainer.style.display = 'flex';
@@ -844,7 +844,7 @@ async function enterChatWorkspace() {
     if (!currentUserId) return;
 
     await handleSignedIn(lastKnownAuthUser);
-    
+
     // Unsubscribe from previous chat rooms if any
     if (chatRoomsUnsubscribe) {
       chatRoomsUnsubscribe();
@@ -941,7 +941,7 @@ async function handleSignedIn(user) {
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
-  
+
   if (currentUserId === MASTER_UID) {
     if (chatPetSelect && !chatPetSelect.querySelector('option[value="frog"]')) {
       const frogOption = document.createElement('option');
@@ -950,14 +950,14 @@ async function handleSignedIn(user) {
       chatPetSelect.appendChild(frogOption);
     }
   }
-  
+
   const userRef = doc(db, 'users', currentUserId);
   try {
     const docSnap = await getDoc(userRef);
     // 既存のpetType互換のため両方チェック、今後はselectedPetに統一
     const data = docSnap.exists() ? docSnap.data() : {};
     const loadedPet = data.selectedPet || data.petType;
-    
+
     // loadedPet が未設定でもFirestoreへturtleの強制書き込みはしない（変数のみデフォルト）
     currentSelectedPet = loadedPet || 'turtle';
     if (chatPetSelect) {
@@ -3085,7 +3085,7 @@ if (startChatButton) {
   startChatButton.addEventListener('click', () => { enterChatWorkspace(); });
 }
 if (chatBackStartupButton) {
-  chatBackStartupButton.addEventListener('click', () => { 
+  chatBackStartupButton.addEventListener('click', () => {
     if (chatRoomsUnsubscribe) {
       chatRoomsUnsubscribe();
       chatRoomsUnsubscribe = null;
@@ -3094,7 +3094,7 @@ if (chatBackStartupButton) {
       chatMessagesUnsubscribe();
       chatMessagesUnsubscribe = null;
     }
-    showStartupScreen(); 
+    showStartupScreen();
   });
 }
 if (chatCreateRoomBtn) {
@@ -4632,7 +4632,7 @@ async function shareVaultItem(v) {
 
   try {
     await setDoc(doc(db, 'shared_vault_items', shareKey), shareData);
-    
+
     Swal.fire({
       title: '🔑 共有キー発行',
       html: `
@@ -4683,7 +4683,7 @@ async function importSharedVaultItem() {
 
     if (docSnap.exists()) {
       const data = docSnap.data();
-      
+
       const newData = {
         userId: currentUserId,
         title: data.title,
@@ -6101,7 +6101,7 @@ function updateStorageGauge(usedBytes) {
 
   const fmt = (b) => b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(2)} GB`
     : b >= 1024 ** 2 ? `${(b / 1024 ** 2).toFixed(1)} MB`
-    : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`;
+      : b >= 1024 ? `${(b / 1024).toFixed(0)} KB` : `${b} B`;
 
   label.textContent = usedBytes > 0
     ? `${fmt(usedBytes)} / 5 GB (${pct.toFixed(1)}%)`
@@ -6723,24 +6723,24 @@ function listenChatRooms() {
     where('members', 'array-contains', currentUserId),
     orderBy('createdAt', 'desc')
   );
-  
+
   chatRoomsUnsubscribe = onSnapshot(q, (snapshot) => {
     chatRoomList.innerHTML = '';
     snapshot.forEach(doc => {
       const room = doc.data();
       room.id = doc.id;
-      
+
       const li = document.createElement('li');
       li.className = 'chat-room-item';
       if (room.id === currentChatRoomId) li.classList.add('active');
-      
+
       const icon = document.createElement('span');
       icon.textContent = '💬';
-      
+
       const name = document.createElement('span');
       name.className = 'chat-room-name';
       name.textContent = room.name;
-      
+
       li.append(icon, name);
 
       // Show delete button if current user created the room
@@ -6755,16 +6755,16 @@ function listenChatRooms() {
         delBtn.style.border = 'none';
         delBtn.style.cursor = 'pointer';
         delBtn.style.fontSize = '1.1rem';
-        
+
         delBtn.addEventListener('click', (e) => {
           e.stopPropagation(); // Avoid triggering selectChatRoom
           deleteChatRoom(room.id, room.name);
         });
         li.appendChild(delBtn);
       }
-      
+
       li.addEventListener('click', () => selectChatRoom(room));
-      
+
       chatRoomList.appendChild(li);
     });
   });
@@ -6928,7 +6928,7 @@ async function selectChatRoom(room) {
   if (inviteBtn) {
     inviteBtn.classList.remove('hidden');
   }
-  
+
   // Highlight active room in list
   document.querySelectorAll('.chat-room-item').forEach(el => el.classList.remove('active'));
   const items = Array.from(chatRoomList.children);
@@ -6945,11 +6945,11 @@ function listenChatMessages(roomId) {
   if (chatMessagesUnsubscribe) {
     chatMessagesUnsubscribe();
   }
-  
+
   if (chatMessages) chatMessages.innerHTML = '';
-  
+
   const q = query(collection(db, 'chat_messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
-  
+
   let isInitialLoad = true;
 
   chatMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -6985,10 +6985,10 @@ function listenChatMessages(roomId) {
 function appendChatMessage(msg, isInitialLoad = false) {
   // メッセージをDOMに追加（オーバーレイとしてpet-stageの上に表示）
   if (!chatMessages) return;
-  
+
   const wrapper = document.createElement('div');
   wrapper.className = 'chat-message';
-  
+
   if (msg.senderId === currentUserId) {
     wrapper.classList.add('self');
   } else {
@@ -7001,7 +7001,7 @@ function appendChatMessage(msg, isInitialLoad = false) {
 
   // 未読の他ユーザーからのメッセージは封筒演出
   const isUnreadOther = msg.senderId !== currentUserId && (!msg.openedBy || !msg.openedBy.includes(currentUserId));
-  
+
   if (isUnreadOther) {
     const envelope = document.createElement('div');
     envelope.className = 'message-envelope pet-arrival-animation';
@@ -7029,7 +7029,7 @@ function appendChatMessage(msg, isInitialLoad = false) {
   } else {
     wrapper.appendChild(renderNormalBubble(msg));
   }
-  
+
   chatMessages.appendChild(wrapper);
 
   // 新着メッセージのときだけペットを登場させる（初回ロード時はスキップ）
@@ -7051,12 +7051,12 @@ function spawnPetOnStage(petType, role = 'guest') {
   const container = document.getElementById('pet-character-container');
   const stage = document.getElementById('pet-stage');
   if (!container || !stage) return;
-  
+
   // 既存の同じroleのペットがいれば削除（上書き）
   const existingPet = container.querySelector(`.pet-character.${role}`);
   if (existingPet) {
     if (existingPet.dataset.type === petType) {
-        return; // 同じ種類ならそのまま
+      return; // 同じ種類ならそのまま
     }
     existingPet.remove();
     if (petIntervals[role]) {
@@ -7064,32 +7064,32 @@ function spawnPetOnStage(petType, role = 'guest') {
       delete petIntervals[role];
     }
   }
-  
+
   // カメさん・カエルさんの場合は div (スプライト制御用)、それ以外は img
   const isSprite = (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish' || petType === 'penguin');
   const petEl = document.createElement(isSprite ? 'div' : 'img');
   petEl.alt = petType;
   petEl.className = `pet-character ${role} ${petType}`;
   petEl.dataset.type = petType;
-  
+
   if (isSprite) {
     petEl.classList.add('state-idle');
   } else {
     petEl.src = `/img/pets/${petType}.png`;
   }
-  
+
   container.appendChild(petEl);
-  
+
   requestAnimationFrame(() => {
     const sw = stage.clientWidth || 400;
     const sh = stage.clientHeight || 300;
-    
+
     // 初期配置: 役割によって少しずらす
     let initY = Math.floor(sh * 0.5);
     if (petType === 'manta') {
       initY = Math.floor(sh * 0.25); // マンタは少し高めに配置
     }
-    
+
     if (role === 'master') {
       petEl.style.left = `${Math.floor(sw * 0.3)}px`;
       petEl.style.top = `${initY}px`;
@@ -7097,13 +7097,13 @@ function spawnPetOnStage(petType, role = 'guest') {
       petEl.style.left = `${Math.floor(sw * 0.7)}px`;
       petEl.style.top = `${initY}px`;
     }
-    
+
     // 自律移動アニメーション
     petIntervals[role] = setInterval(() => {
       const curW = stage.clientWidth;
       const curH = stage.clientHeight;
       if (curW === 0 || curH === 0) return;
-      
+
       let petWidth = 120;
       let petHeight = 120;
       if (petType === 'frog') {
@@ -7126,26 +7126,26 @@ function spawnPetOnStage(petType, role = 'guest') {
       const currentX = parseInt(petEl.style.left) || 0;
       const randomX = Math.max(20, Math.floor(Math.random() * (curW - (petWidth + 20))));
       let randomY = Math.max(20, Math.floor(Math.random() * (curH - (petHeight + 20))));
-      
+
       // マンタの場合は常に少し高め（画面の上半分〜少し下）を泳がせる
       if (petType === 'manta') {
         randomY = Math.max(20, Math.floor(Math.random() * (curH * 0.6)));
       }
-      
+
       // カメさん・カエルさん・マンタさん・クマノミさん・ペンギンさんの場合、向きとアニメーションの切り替え
       if (petType === 'turtle' || petType === 'frog' || petType === 'manta' || petType === 'clownfish' || petType === 'penguin') {
         const isFlipped = randomX < currentX;
         petEl.style.setProperty('--pet-scale', isFlipped ? 'scaleX(-1)' : 'scaleX(1)');
-        
+
         petEl.classList.remove('state-idle');
         petEl.classList.add('state-move');
-        
+
         setTimeout(() => {
           petEl.classList.remove('state-move');
           petEl.classList.add('state-idle');
         }, 1000);
       }
-      
+
       petEl.style.left = `${randomX}px`;
       petEl.style.top = `${randomY}px`;
     }, 5000 + Math.random() * 2000); // タイミングをランダムにずらす
@@ -7166,10 +7166,10 @@ async function sendChatMessage(text) {
     return;
   }
   if (chatMessageInput) chatMessageInput.value = '';
-  
+
   const userEmail = lastKnownAuthUser?.email || 'User';
   const senderName = userEmail.split('@')[0];
-  
+
   try {
     await addDoc(collection(db, 'chat_messages'), {
       roomId: currentChatRoomId,
@@ -7264,9 +7264,9 @@ const PET_STATUS_ICONS = {
 
 // ペットのお部屋タイトルと背景画像
 const PET_ROOM_CONFIG = {
-  frog:   { title: 'PostPet（カエルの部屋）',    bg: '/img/pets/frog_house.png',   icon: '/img/pets/frog.png' },
+  frog: { title: 'PostPet（カエルの部屋）', bg: '/img/pets/frog_house.png', icon: '/img/pets/frog.png' },
   turtle: { title: 'PostPet（ウミガメの部屋）', bg: '/img/pets/turtle_house.png', icon: '/img/pets/turtle.png' },
-  manta:  { title: 'PostPet（マンタの部屋）',   bg: '/img/pets/manta_house.png',  icon: '/img/pets/manta.png' },
+  manta: { title: 'PostPet（マンタの部屋）', bg: '/img/pets/manta_house.png', icon: '/img/pets/manta.png' },
   clownfish: { title: 'PostPet（クマノミの部屋）', bg: '/img/stages/clownfish_stage.png', icon: '/img/pets/clownfish.png' },
   penguin: { title: 'ペンギンの氷のお部屋', bg: '/img/stages/penguin_stage.png', icon: '/img/pets/penguin.png' },
 };
@@ -7964,7 +7964,7 @@ function initPostPetUI(petType) {
 // ===== Coral-Voice AI（文字起こし機能）==================
 // ==========================================================
 
-(function() {
+(function () {
   // ---- 状態管理 ----
   let voiceMode = 'normal';
   let mediaRecorder = null;
@@ -8034,7 +8034,7 @@ function initPostPetUI(petType) {
   // ---- キャラ定義 ----
   const CHAR_EMOJI = {
     normal: { idle: '🐬', recording: '🐬', analyzing: '🐬', complete: '🐬' },
-    long:   { idle: '🐳', recording: '🐳', analyzing: '🐳', complete: '🐳' },
+    long: { idle: '🐳', recording: '🐳', analyzing: '🐳', complete: '🐳' },
   };
 
   // ---- 長時間モード上限（2時間） ----
@@ -8085,8 +8085,8 @@ function initPostPetUI(petType) {
     const s = elapsed % 60;
     if (voiceTimer) {
       voiceTimer.textContent = h > 0
-        ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-        : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
   }
 
@@ -8130,7 +8130,7 @@ function initPostPetUI(petType) {
   }
 
   if (voiceModeNormal) voiceModeNormal.addEventListener('click', () => switchMode('normal'));
-  if (voiceModeLong)   voiceModeLong.addEventListener('click',   () => switchMode('long'));
+  if (voiceModeLong) voiceModeLong.addEventListener('click', () => switchMode('long'));
 
   async function startRecording() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -8220,8 +8220,8 @@ function initPostPetUI(petType) {
     setStatus('🌊 音声をアップロード中...');
 
     const ext = mimeType.includes('m4a') ? '.m4a'
-              : mimeType.includes('mp4')  ? '.mp4'
-              : '.webm';
+      : mimeType.includes('mp4') ? '.mp4'
+        : '.webm';
     const filename = `voice_temp/${currentUserId}/${Date.now()}${ext}`;
     const fileRef = storageRef(storage, filename);
 
@@ -8242,7 +8242,7 @@ function initPostPetUI(petType) {
       try {
         const titleInput = document.getElementById('voice-archive-title');
         const title = (titleInput && titleInput.value.trim()) ? titleInput.value.trim() : '名称未設定の会議';
-        
+
         setStatus('💾 Firestoreにアーカイブを保存中...');
         await addDoc(collection(db, 'voice_archives'), {
           createdAt: serverTimestamp(),
@@ -8285,7 +8285,7 @@ function initPostPetUI(petType) {
         text: err.message || '不明なエラーが発生しました。',
         icon: 'error',
       });
-      try { await deleteObject(fileRef); } catch (_) {}
+      try { await deleteObject(fileRef); } catch (_) { }
     } finally {
       isRecording = false;
       if (voiceRecordBtn) voiceRecordBtn.classList.remove('hidden');
@@ -8314,7 +8314,7 @@ function initPostPetUI(petType) {
     voiceSummarizeBtn.addEventListener('click', async () => {
       const text = voiceResultText?.value || '';
       if (!text) return;
-      
+
       const { value: summaryMode } = await Swal.fire({
         title: '要約モードを選択',
         text: '目的に合わせてジェミ子が要約するっす！',
@@ -8336,19 +8336,19 @@ function initPostPetUI(petType) {
       const promptTemplate = summaryMode === 'standard'
         ? `以下の内容を簡潔に要約し、重要な決定事項とネクストアクションを箇条書きでまとめてください：\n\n${text}`
         : `以下の会話を議題（トピック）ごとに分類し、それぞれのセクションで何が話されたかを見出し付きで整理してください。誰が何を提案したか明確にすること。\n※人事・労務等での利用を想定し、デリケートな話題や感情的なニュアンスも適切に拾ってください。\n\n${text}`;
-      
+
       voiceSummarizeBtn.disabled = true;
       const originalText = voiceSummarizeBtn.innerHTML;
       voiceSummarizeBtn.innerHTML = '✨ ジェミ子考え中...';
-      
+
       try {
         const summarizeText = httpsCallable(functions, 'summarizeText');
         const res = await summarizeText({ text: text, promptTemplate: promptTemplate });
-        
+
         // 要約結果をテキストエリアの先頭に追記
         const modeLabel = summaryMode === 'standard' ? '通常要約' : 'トピック別要約';
         voiceResultText.value = `【ジェミ子の${modeLabel}】\n${res.data.summary}\n\n---\n\n${text}`;
-        
+
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '要約完了っす！', showConfirmButton: false, timer: 2000 });
       } catch (err) {
         console.error('Gemini error:', err);
@@ -8400,7 +8400,7 @@ function initPostPetUI(petType) {
   }
 
   if (voiceRecordBtn) voiceRecordBtn.addEventListener('click', startRecording);
-  if (voiceStopBtn)   voiceStopBtn.addEventListener('click', stopRecording);
+  if (voiceStopBtn) voiceStopBtn.addEventListener('click', stopRecording);
   if (voiceModalClose) voiceModalClose.addEventListener('click', closeVoiceModal);
 
   if (voiceModalBackdrop) {
@@ -8454,7 +8454,7 @@ function initPostPetUI(petType) {
         const dateStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString('ja-JP') : '不明な日時';
         const li = document.createElement('li');
         li.className = 'voice-archive-item';
-        
+
         li.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
             <div style="flex: 1; min-width: 0; padding-right: 8px;">
@@ -8464,12 +8464,12 @@ function initPostPetUI(petType) {
             <button class="voice-action-btn edit-title-btn" style="padding: 6px; font-size: 0.9rem; flex-shrink: 0;" aria-label="名前の変更">🐚</button>
           </div>
         `;
-        
+
         const editBtn = li.querySelector('.edit-title-btn');
         editBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
           e.preventDefault();
-          
+
           const { value: newTitle } = await Swal.fire({
             title: 'アーカイブ名の変更',
             input: 'text',
@@ -8481,7 +8481,7 @@ function initPostPetUI(petType) {
               if (!val.trim()) return '名前を入力してくださいっす！';
             }
           });
-          
+
           if (newTitle && newTitle.trim() !== data.title) {
             try {
               await updateDoc(doc(db, 'voice_archives', data.id), { title: newTitle.trim() });
@@ -8512,7 +8512,7 @@ function initPostPetUI(petType) {
     document.getElementById('voice-archive-detail-title').textContent = data.title || '無題';
     document.getElementById('voice-archive-detail-date').textContent = dateStr;
     document.getElementById('voice-archive-detail-content').value = data.content || '';
-    
+
     voiceArchiveListView.classList.add('hidden');
     voiceArchiveDetailView.classList.remove('hidden');
   }
@@ -8534,7 +8534,7 @@ function initPostPetUI(petType) {
       voiceArchiveModalBackdrop.classList.add('hidden');
     });
   }
-  
+
   if (voiceArchiveBackBtn) {
     voiceArchiveBackBtn.addEventListener('click', () => {
       voiceArchiveListView.classList.remove('hidden');
@@ -8549,7 +8549,7 @@ function initPostPetUI(petType) {
       try {
         await navigator.clipboard.writeText(text);
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '📋 コピーしました', showConfirmButton: false, timer: 1800 });
-      } catch (err) {}
+      } catch (err) { }
     }
   });
 
@@ -8617,10 +8617,10 @@ function updateLiveClock() {
   const day = now.getDay();
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
-  
+
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
   const dayLabel = `(${dayLabels[day]})`;
-  
+
   if (statusDateEl) statusDateEl.textContent = `${year}年${month}月${date}日`;
   if (statusDayEl) {
     statusDayEl.textContent = dayLabel;
@@ -8655,7 +8655,9 @@ setInterval(updateLiveClock, 60000);
 updateLiveClock();
 
 // --- Google Calendar 連携 ---
-const CLIENT_ID = '470602099850-e7o0g4h2j3g4h5i6j7k8l9m0n1o2p3q.apps.googleusercontent.com'; // 仮
+// TODO: マスター！Google Cloud Consoleで作成した「ウェブアプリケーション」のクライアントIDを入れてね！
+// 作成先: https://console.cloud.google.com/apis/credentials
+const CLIENT_ID = '470602099850-1rjtegaefbk75hf9a9ika3mahubgsvpo.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
 function initGoogleAuth() {
@@ -8674,7 +8676,7 @@ async function addGoogleAccount() {
     scope: SCOPES,
     callback: async (response) => {
       if (response.error !== undefined) throw response;
-      
+
       // ユーザー情報の取得 (簡易版)
       const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${response.access_token}` }
@@ -8684,13 +8686,13 @@ async function addGoogleAccount() {
         email: userInfo.email,
         token: response.access_token,
         expires: Date.now() + (response.expires_in * 1000),
-        color: `#${Math.floor(Math.random()*16777215).toString(16)}` // ランダムなアカウントカラー
+        color: `#${Math.floor(Math.random() * 16777215).toString(16)}` // ランダムなアカウントカラー
       };
 
       googleAccounts = googleAccounts.filter(a => a.email !== newAccount.email);
       googleAccounts.push(newAccount);
       localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
-      
+
       renderGoogleAccounts();
       fetchEventsFromAllAccounts();
       Swal.fire('連携成功', `${newAccount.email} を追加しました！`, 'success');
@@ -8732,10 +8734,14 @@ async function fetchEventsFromAllAccounts() {
         headers: { Authorization: `Bearer ${acc.token}` }
       });
       if (res.status === 401) {
-        // トークン切れ
-        return [];
+        console.warn('Google Auth Error (401): Token might be expired or client_id is invalid.');
+        return [{ summary: '⚠️ 認証エラー: クライアントIDを確認してケロ', accountColor: '#ff5252' }];
       }
       const data = await res.json();
+      if (data.error) {
+        console.error('Google API Error:', data.error);
+        return [{ summary: `⚠️ APIエラー: ${data.error.message}`, accountColor: '#ff5252' }];
+      }
       return (data.items || []).map(item => ({
         ...item,
         accountEmail: acc.email,
@@ -8759,7 +8765,7 @@ async function fetchEventsFromAllAccounts() {
 function renderAgenda() {
   if (!statusAgendaListEl) return;
   statusAgendaListEl.innerHTML = '';
-  
+
   if (allEvents.length === 0) {
     statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近の予定はありません</div>';
     return;
@@ -8783,7 +8789,7 @@ function enterCalendarWorkspace() {
   workspaceSelection = 'calendar';
   localStorage.setItem('ivy_workspace_selection', 'calendar');
   document.body.dataset.workspace = 'calendar';
-  
+
   if (startupScreen) startupScreen.classList.add('hidden');
   if (calendarWorkspace) calendarWorkspace.classList.remove('hidden');
 }
