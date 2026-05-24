@@ -937,6 +937,10 @@ onAuthStateChanged(auth, async (user) => {
 async function handleSignedIn(user) {
   if (!user || !user.uid) return;
   currentUserId = user.uid;
+
+  // 壁紙設定やスリープ設定などのユーザー設定をロードして全体に適用
+  await loadUserSettings(user.uid);
+
   authContainer.style.display = 'none';
   mainContainer.style.display = workspaceSelection === 'task' ? 'block' : 'none';
   archiveContainer.style.display = 'none';
