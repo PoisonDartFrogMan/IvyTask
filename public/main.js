@@ -710,6 +710,9 @@ function showStartupScreen(showTodoMessage = false) {
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
+
+  currentCalendarDate = new Date();
+  fetchEventsFromAllAccounts();
 }
 
 async function enterTaskWorkspace() {
@@ -8607,6 +8610,21 @@ const statusDecoCharacter = document.getElementById('status-deco-character');
 
 let googleAccounts = JSON.parse(localStorage.getItem('ivy_google_accounts') || '[]');
 let allEvents = [];
+let holidaysData = {};
+
+async function fetchJapaneseHolidays() {
+  try {
+    const res = await fetch('https://holidays-jp.github.io/api/v1/date.json');
+    if (res.ok) {
+      holidaysData = await res.json();
+      if (document.body.dataset.workspace === 'calendar') {
+        renderCalendar();
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch Japanese holidays:', e);
+  }
+}
 
 // --- リアルタイム時計 ---
 function updateLiveClock() {
@@ -8659,11 +8677,65 @@ updateLiveClock();
 // 作成先: https://console.cloud.google.com/apis/credentials
 const RAW_CLIENT_ID = '470602099850-1rjtegaefbk75hf9a9ika3mahubgsvpo.apps.googleusercontent.com';
 const CLIENT_ID = RAW_CLIENT_ID.trim(); // 余計なスペースを徹底排除
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email';
 
 function initGoogleAuth() {
   // 実際の実装ではクライアントIDが必要ですが、UI/ロジックを優先して構築します
   if (typeof google === 'undefined') return;
+}
+
+// --- Google Identity Services Token Promise ラッパー ---
+function requestTokenPromise(options) {
+  return new Promise((resolve, reject) => {
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        error_callback: (err) => {
+          console.error('Google Auth Error Callback:', err);
+          reject(err);
+        },
+        callback: (response) => {
+          if (response.error !== undefined) {
+            reject(response);
+          } else {
+            resolve(response);
+          }
+        },
+      });
+      tokenClient.requestAccessToken(options);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+// --- サイレントトークン更新 ---
+async function refreshGoogleAccountToken(acc) {
+  if (typeof google === 'undefined') return false;
+  try {
+    console.log(`Attempting silent token refresh for ${acc.email}...`);
+    // prompt: 'none' で同意画面なしでトークン取得を試みる
+    const response = await requestTokenPromise({
+      prompt: 'none',
+      hint: acc.email
+    });
+    
+    acc.token = response.access_token;
+    const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+    acc.expires = Date.now() + (expiresIn * 1000);
+    acc.status = 'active';
+    
+    // アカウント一覧を更新保存
+    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    console.log(`Silent token refresh succeeded for ${acc.email}`);
+    return true;
+  } catch (err) {
+    console.warn(`Silent token refresh failed for ${acc.email}:`, err);
+    acc.status = 'expired';
+    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    return false;
+  }
 }
 
 async function addGoogleAccount() {
@@ -8672,41 +8744,42 @@ async function addGoogleAccount() {
     return;
   }
 
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    error_callback: (err) => {
-      console.error('Google Auth Error Callback:', err);
-      if (err.error === 'invalid_client') {
-        Swal.fire('認証失敗', 'クライアントIDが正しくないか、承認済みのJavaScript生成元（Origin）が未登録のようです。', 'error');
-      }
-    },
-    callback: async (response) => {
-      if (response.error !== undefined) throw response;
+  try {
+    const response = await requestTokenPromise({ prompt: 'consent' });
+    
+    // ユーザー情報の取得
+    const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${response.access_token}` }
+    }).then(r => r.json());
 
-      // ユーザー情報の取得 (簡易版)
-      const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${response.access_token}` }
-      }).then(r => r.json());
+    if (!userInfo.email) {
+      throw new Error('Failed to retrieve email address.');
+    }
 
-      const newAccount = {
-        email: userInfo.email,
-        token: response.access_token,
-        expires: Date.now() + (response.expires_in * 1000),
-        color: `#${Math.floor(Math.random() * 16777215).toString(16)}` // ランダムなアカウントカラー
-      };
+    const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+    const newAccount = {
+      email: userInfo.email,
+      token: response.access_token,
+      expires: Date.now() + (expiresIn * 1000),
+      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+      status: 'active'
+    };
 
-      googleAccounts = googleAccounts.filter(a => a.email !== newAccount.email);
-      googleAccounts.push(newAccount);
-      localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    googleAccounts = googleAccounts.filter(a => a.email !== newAccount.email);
+    googleAccounts.push(newAccount);
+    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
 
-      renderGoogleAccounts();
-      fetchEventsFromAllAccounts();
-      Swal.fire('連携成功', `${newAccount.email} を追加しました！`, 'success');
-    },
-  });
-
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+    renderGoogleAccounts();
+    fetchEventsFromAllAccounts();
+    Swal.fire('連携成功', `${newAccount.email} を追加しました！`, 'success');
+  } catch (err) {
+    console.error('Google Auth Error:', err);
+    if (err.error === 'invalid_client') {
+      Swal.fire('認証失敗', 'クライアントIDが正しくないか、承認済みのJavaScript生成元（Origin）が未登録のようです。', 'error');
+    } else if (err.error !== 'popup_closed_by_user') {
+      Swal.fire('認証失敗', '連携処理中にエラーが発生しました。', 'error');
+    }
+  }
 }
 
 function renderGoogleAccounts() {
@@ -8715,13 +8788,58 @@ function renderGoogleAccounts() {
   googleAccounts.forEach((acc, idx) => {
     const li = document.createElement('li');
     li.className = 'google-account-item';
+    
+    const emailStr = acc.email || '(不明なアカウント: 再連携してください)';
+    const isExpired = acc.status === 'expired' || (acc.expires && Date.now() > acc.expires);
+    const statusClass = isExpired ? 'status-expired' : 'status-active';
+    const statusText = isExpired ? '⚠️ 要再認可' : '連携中';
+    
+    const actionBtn = isExpired 
+      ? `<button class="primary small" style="margin-right: 8px;" onclick="reauthGoogleAccount(${idx})">再認可</button>`
+      : '';
+
     li.innerHTML = `
-      <span><span style="color:${acc.color}">●</span> ${acc.email}</span>
-      <button class="danger small" onclick="removeGoogleAccount(${idx})">削除</button>
+      <div class="account-info">
+        <span><span style="color:${acc.color || '#999'}">●</span> ${emailStr}</span>
+        <span class="account-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="account-actions">
+        ${actionBtn}
+        <button class="danger small" onclick="removeGoogleAccount(${idx})">削除</button>
+      </div>
     `;
     googleAccountListEl.appendChild(li);
   });
 }
+
+window.reauthGoogleAccount = async (idx) => {
+  const acc = googleAccounts[idx];
+  if (typeof google === 'undefined') {
+    Swal.fire('エラー', 'Google APIを読み込み中です。', 'error');
+    return;
+  }
+  try {
+    const response = await requestTokenPromise({
+      prompt: 'consent',
+      hint: acc.email
+    });
+    
+    const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+    acc.token = response.access_token;
+    acc.expires = Date.now() + (expiresIn * 1000);
+    acc.status = 'active';
+    
+    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    renderGoogleAccounts();
+    fetchEventsFromAllAccounts();
+    Swal.fire('再認可成功', `${acc.email} の連携を更新しました！`, 'success');
+  } catch (err) {
+    console.error('Re-auth error:', err);
+    if (err.error !== 'popup_closed_by_user') {
+      Swal.fire('エラー', '再認可に失敗しました。', 'error');
+    }
+  }
+};
 
 window.removeGoogleAccount = (idx) => {
   googleAccounts.splice(idx, 1);
@@ -8732,35 +8850,87 @@ window.removeGoogleAccount = (idx) => {
 
 async function fetchEventsFromAllAccounts() {
   allEvents = [];
-  const now = new Date();
-  const timeMin = now.toISOString();
+  if (googleAccounts.length === 0) {
+    renderAgenda();
+    if (document.body.dataset.workspace === 'calendar') {
+      renderCalendar();
+    }
+    return;
+  }
+
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
   
-  // 明日の23:59:59までを範囲にする
-  const tomorrowEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59);
-  const timeMax = tomorrowEnd.toISOString();
+  // 表示月の余り枠（前月25日〜翌月10日）をカバーして広めに取得
+  const timeMin = new Date(year, month, -5, 0, 0, 0).toISOString();
+  const timeMax = new Date(year, month + 1, 10, 23, 59, 59).toISOString();
   
-  const maxResults = 5; // 少し多めに取得
+  const maxResults = 100;
 
   const promises = googleAccounts.map(async (acc) => {
     try {
+      // 期限切れ、または5分以内に切れる場合、サイレントリフレッシュを試みる
+      const isExpiredSoon = !acc.expires || (Date.now() > (acc.expires - 5 * 60 * 1000));
+      if (isExpiredSoon || acc.status === 'expired') {
+        const success = await refreshGoogleAccountToken(acc);
+        if (!success) {
+          return [{
+            summary: `⚠️ 認証切れ: ${acc.email || 'アカウント'} の再連携が必要です`,
+            accountColor: '#ff5252',
+            start: { dateTime: new Date().toISOString() },
+            isErrorEvent: true
+          }];
+        }
+      }
+
       const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`, {
         headers: { Authorization: `Bearer ${acc.token}` }
       });
+      
       if (res.status === 401) {
         console.warn('Google Auth Error (401): Token might be expired or client_id is invalid.');
-        return [{ summary: '⚠️ 認証エラー: クライアントIDを確認してケロ', accountColor: '#ff5252' }];
+        // 401 が返ってきた場合もサイレントリフレッシュをその場で1回試みる
+        const success = await refreshGoogleAccountToken(acc);
+        if (success) {
+          // リフレッシュ成功した場合は再リクエスト
+          const retryRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`, {
+            headers: { Authorization: `Bearer ${acc.token}` }
+          });
+          if (retryRes.ok) {
+            const data = await retryRes.json();
+            return (data.items || []).map(item => ({
+              ...item,
+              accountEmail: acc.email,
+              accountColor: acc.color
+            }));
+          }
+        }
+        return [{
+          summary: `⚠️ 認証切れ: ${acc.email || 'アカウント'} の再連携が必要です`,
+          accountColor: '#ff5252',
+          start: { dateTime: new Date().toISOString() },
+          isErrorEvent: true
+        }];
       }
+      
       const data = await res.json();
       if (data.error) {
         console.error('Google API Error:', data.error);
-        return [{ summary: `⚠️ APIエラー: ${data.error.message}`, accountColor: '#ff5252' }];
+        return [{
+          summary: `⚠️ APIエラー: ${data.error.message}`,
+          accountColor: '#ff5252',
+          start: { dateTime: new Date().toISOString() },
+          isErrorEvent: true
+        }];
       }
+      
       return (data.items || []).map(item => ({
         ...item,
         accountEmail: acc.email,
         accountColor: acc.color
       }));
     } catch (e) {
+      console.error('Fetch events exception:', e);
       return [];
     }
   });
@@ -8773,22 +8943,37 @@ async function fetchEventsFromAllAccounts() {
   });
 
   renderAgenda();
+  if (document.body.dataset.workspace === 'calendar') {
+    renderCalendar();
+  }
 }
 
 function renderAgenda() {
   if (!statusAgendaListEl) return;
   statusAgendaListEl.innerHTML = '';
 
-  if (allEvents.length === 0) {
+  const now = new Date();
+  const limitTime = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48時間後
+
+  const agendaEvents = allEvents.filter(event => {
+    const start = event.start?.dateTime || event.start?.date;
+    if (!start) return false;
+    // エラーなどのダミー予定は通す
+    if (event.summary && event.summary.startsWith('⚠️')) return true;
+    const startTime = new Date(start);
+    return startTime >= now && startTime <= limitTime;
+  });
+
+  if (agendaEvents.length === 0) {
     statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近48時間の予定はありません</div>';
     return;
   }
 
-  const now = new Date();
   const todayDate = now.getDate();
 
-  allEvents.slice(0, 5).forEach(event => {
-    const eventStart = new Date(event.start.dateTime || event.start.date);
+  agendaEvents.slice(0, 5).forEach(event => {
+    const startStr = event.start.dateTime || event.start.date;
+    const eventStart = new Date(startStr);
     const isTomorrow = eventStart.getDate() !== todayDate;
     
     const startTime = event.start.dateTime 
@@ -8800,11 +8985,150 @@ function renderAgenda() {
     item.innerHTML = `
       <div class="agenda-date-label">${isTomorrow ? '明日' : '今日'}</div>
       <div class="agenda-time">${startTime}</div>
-      <div class="agenda-account-dot" style="background-color: ${event.accountColor}"></div>
-      <div class="agenda-text">${event.summary}</div>
+      <div class="agenda-account-dot" style="background-color: ${event.accountColor || '#4285f4'}"></div>
+      <div class="agenda-text">${event.summary || '(無題)'}</div>
     `;
     statusAgendaListEl.appendChild(item);
   });
+}
+
+let currentCalendarDate = new Date();
+
+function renderCalendar() {
+  const monthYearEl = document.getElementById('calendar-month-year');
+  const gridContainer = document.getElementById('calendar-grid-container');
+  if (!gridContainer) return;
+
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+
+  if (monthYearEl) {
+    monthYearEl.textContent = `${year}年${month + 1}月`;
+  }
+
+  gridContainer.innerHTML = '';
+
+  // 曜日ヘッダー
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  weekdays.forEach(day => {
+    const headerCell = document.createElement('div');
+    headerCell.className = 'calendar-day-header';
+    headerCell.textContent = day;
+    if (day === '日') headerCell.classList.add('is-sunday');
+    if (day === '土') headerCell.classList.add('is-saturday');
+    gridContainer.appendChild(headerCell);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const firstDayIndex = firstDay.getDay(); // 1日の曜日
+  const totalDays = new Date(year, month + 1, 0).getDate(); // 当月の日数
+  const prevMonthTotalDays = new Date(year, month, 0).getDate();
+
+  const showHolidays = document.getElementById('calendar-show-holidays')?.checked ?? true;
+  const today = new Date();
+
+  // 6週間分 (42セル) を生成
+  for (let i = 0; i < 42; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell';
+
+    let cellYear = year;
+    let cellMonth = month;
+    let dateNum;
+
+    if (i < firstDayIndex) {
+      // 前月の日付
+      cell.classList.add('is-prev-month');
+      dateNum = prevMonthTotalDays - firstDayIndex + i + 1;
+      cellMonth = month - 1;
+      if (cellMonth < 0) {
+        cellMonth = 11;
+        cellYear -= 1;
+      }
+    } else if (i < firstDayIndex + totalDays) {
+      // 当月の日付
+      dateNum = i - firstDayIndex + 1;
+      if (cellYear === today.getFullYear() && cellMonth === today.getMonth() && dateNum === today.getDate()) {
+        cell.classList.add('is-today');
+      }
+    } else {
+      // 翌月の日付
+      cell.classList.add('is-next-month');
+      dateNum = i - firstDayIndex - totalDays + 1;
+      cellMonth = month + 1;
+      if (cellMonth > 11) {
+        cellMonth = 0;
+        cellYear += 1;
+      }
+    }
+
+    // 曜日判定
+    const dayOfWeek = (i % 7);
+    if (dayOfWeek === 0) cell.classList.add('is-sunday');
+    if (dayOfWeek === 6) cell.classList.add('is-saturday');
+
+    // 祝日判定
+    const dateKey = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(dateNum).padStart(2, '0')}`;
+    let holidayName = '';
+    if (showHolidays && holidaysData[dateKey]) {
+      holidayName = holidaysData[dateKey];
+      cell.classList.add('is-holiday');
+    }
+
+    // セルの構造
+    const dayHeader = document.createElement('div');
+    dayHeader.className = 'day-header';
+    
+    const dayNumSpan = document.createElement('span');
+    dayNumSpan.className = 'day-num';
+    dayNumSpan.textContent = dateNum;
+    dayHeader.appendChild(dayNumSpan);
+
+    if (holidayName) {
+      const holidaySpan = document.createElement('span');
+      holidaySpan.className = 'holiday-name';
+      holidaySpan.textContent = holidayName;
+      dayHeader.appendChild(holidaySpan);
+    }
+    cell.appendChild(dayHeader);
+
+    // イベントリスト
+    const eventList = document.createElement('div');
+    eventList.className = 'calendar-event-list';
+
+    // 該当する日の予定をフィルタリング
+    const cellDateStr = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(dateNum).padStart(2, '0')}`;
+    const dayEvents = allEvents.filter(ev => {
+      const start = ev.start?.dateTime || ev.start?.date;
+      if (!start) return false;
+      return start.startsWith(cellDateStr);
+    });
+
+    dayEvents.forEach(ev => {
+      const evItem = document.createElement('div');
+      evItem.className = 'calendar-event-item';
+      evItem.title = ev.summary || '(無題)';
+
+      const dot = document.createElement('span');
+      dot.className = 'event-dot';
+      dot.style.backgroundColor = ev.accountColor || '#4285f4';
+      evItem.appendChild(dot);
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'event-text';
+      if (ev.start.dateTime) {
+        const timeStr = new Date(ev.start.dateTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        textSpan.textContent = `${timeStr} ${ev.summary || '(無題)'}`;
+      } else {
+        textSpan.textContent = ev.summary || '(無題)';
+      }
+      evItem.appendChild(textSpan);
+      eventList.appendChild(evItem);
+    });
+
+    cell.appendChild(eventList);
+    gridContainer.appendChild(cell);
+  }
 }
 
 // --- ワークスペース遷移 ---
@@ -8815,6 +9139,8 @@ function enterCalendarWorkspace() {
 
   if (startupScreen) startupScreen.classList.add('hidden');
   if (calendarWorkspace) calendarWorkspace.classList.remove('hidden');
+
+  renderCalendar();
 }
 
 // --- イベントリスナー ---
@@ -8846,7 +9172,30 @@ if (addGoogleAccountBtn) {
   addGoogleAccountBtn.addEventListener('click', addGoogleAccount);
 }
 
+const calendarPrevMonthBtn = document.getElementById('calendar-prev-month');
+const calendarNextMonthBtn = document.getElementById('calendar-next-month');
+const showHolidaysCheckbox = document.getElementById('calendar-show-holidays');
+
+if (calendarPrevMonthBtn) {
+  calendarPrevMonthBtn.addEventListener('click', () => {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+    fetchEventsFromAllAccounts();
+  });
+}
+if (calendarNextMonthBtn) {
+  calendarNextMonthBtn.addEventListener('click', () => {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+    fetchEventsFromAllAccounts();
+  });
+}
+if (showHolidaysCheckbox) {
+  showHolidaysCheckbox.addEventListener('change', () => {
+    renderCalendar();
+  });
+}
+
 // 初期ロード
 renderGoogleAccounts();
 fetchEventsFromAllAccounts();
+fetchJapaneseHolidays();
 
