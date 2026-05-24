@@ -3858,8 +3858,11 @@ wallpaperChoices.addEventListener('click', (e) => {
       if (chooseCustomWallpaperButton) chooseCustomWallpaperButton.click();
       return;
     }
+    const saveUserId = currentUserId || auth.currentUser?.uid;
     applyWallpaper(theme);
-    saveWallpaperPreference(currentUserId, theme);
+    if (saveUserId) {
+      saveWallpaperPreference(saveUserId, theme);
+    }
   }
 });
 
@@ -3889,9 +3892,12 @@ if (chooseCustomWallpaperButton && customWallpaperInput) {
       const { full, thumb } = await prepareWallpaperDataUrls(file);
       customWallpaperDataUrl = full;
       setCustomWallpaperVars(full, thumb);
-      await saveCustomWallpaperToDevice(currentUserId, full, thumb);
-      applyWallpaper('custom');
-      await saveWallpaperPreference(currentUserId, 'custom');
+      const saveUserId = currentUserId || auth.currentUser?.uid;
+      if (saveUserId) {
+        await saveCustomWallpaperToDevice(saveUserId, full, thumb);
+        applyWallpaper('custom');
+        await saveWallpaperPreference(saveUserId, 'custom');
+      }
     } catch (err) {
       console.error('Failed to set custom wallpaper:', err);
       alert('壁紙の設定に失敗しました。別の画像でお試しください。');
