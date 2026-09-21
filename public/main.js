@@ -960,6 +960,7 @@ function handleSignedOut(showAuthScreen = true) {
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
+  if (typeof clearGoogleAccounts === 'function') clearGoogleAccounts();
 }
 
 // ===== Wallpaper Functions =====
@@ -3154,6 +3155,7 @@ if (loginButton) {
 if (logoutButtonModal) {
   logoutButtonModal.addEventListener('click', () => {
     if (typeof closeSettings === 'function') closeSettings();
+    if (typeof clearGoogleAccounts === 'function') clearGoogleAccounts();
     showStartupScreen();
     signOut(auth);
   });
@@ -8855,11 +8857,45 @@ window.reauthGoogleAccount = async (idx) => {
 };
 
 window.removeGoogleAccount = (idx) => {
+  const acc = googleAccounts[idx];
+  if (acc && acc.token && typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+    try {
+      google.accounts.oauth2.revoke(acc.token, () => {
+        console.log(`Google token revoked for ${acc.email}`);
+      });
+    } catch (e) {
+      console.warn('Google token revoke error:', e);
+    }
+  }
   googleAccounts.splice(idx, 1);
   localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
   renderGoogleAccounts();
   fetchEventsFromAllAccounts();
 };
+
+function clearGoogleAccounts() {
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+    googleAccounts.forEach(acc => {
+      if (acc && acc.token) {
+        try {
+          google.accounts.oauth2.revoke(acc.token, () => {
+            console.log(`Google token revoked on logout for ${acc.email}`);
+          });
+        } catch (e) {
+          console.warn('Google revoke error on logout:', e);
+        }
+      }
+    });
+  }
+  googleAccounts = [];
+  localStorage.removeItem('ivy_google_accounts');
+  allEvents = [];
+  if (typeof renderGoogleAccounts === 'function') renderGoogleAccounts();
+  if (typeof renderAgenda === 'function') renderAgenda();
+  if (typeof renderCalendar === 'function' && document.body.dataset.workspace === 'calendar') {
+    renderCalendar();
+  }
+}
 
 async function fetchEventsFromAllAccounts() {
   allEvents = [];
