@@ -740,7 +740,9 @@ button:hover {
 
 #label-modal-backdrop,
 #task-detail-modal-backdrop,
+#add-task-modal-backdrop,
 #settings-modal-backdrop,
+#calendar-settings-modal-backdrop,
 #updates-modal-backdrop,
 #recurring-task-modal-backdrop,
 #recurring-list-modal-backdrop,
@@ -756,7 +758,10 @@ button:hover {
 
 #label-modal,
 #task-detail-modal,
+#add-task-modal,
 #settings-modal,
+#calendar-settings-modal,
+.settings-modal,
 #updates-modal,
 #recurring-task-modal,
 #recurring-list-modal,
@@ -774,6 +779,12 @@ button:hover {
 
 /* Make settings modal content scrollable on small viewports */
 #settings-modal,
+#calendar-settings-modal,
+.settings-modal {
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* Make updates modal scrollable as well */
 #updates-modal {
