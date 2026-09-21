@@ -867,11 +867,15 @@ async function handleSignedIn(user) {
 
   authContainer.style.display = 'none';
   mainContainer.style.display = workspaceSelection === 'task' ? 'block' : 'none';
-  archiveContainer.style.display = 'none';
-  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   userEmailSpan.textContent = user.email;
   setRecurringTaskUser(user.uid);
   refreshTodayRecurringTasks();
+
+  if (typeof loadGoogleAccounts === 'function') {
+    loadGoogleAccounts(user.uid);
+    renderGoogleAccounts();
+    fetchEventsFromAllAccounts();
+  }
 
   if (currentUserId === MASTER_UID) {
     if (chatPetSelect && !chatPetSelect.querySelector('option[value="frog"]')) {
@@ -8611,9 +8615,24 @@ const addGoogleAccountBtn = document.getElementById('add-google-account-button')
 const googleAccountListEl = document.getElementById('google-account-list');
 const statusDecoCharacter = document.getElementById('status-deco-character');
 
-let googleAccounts = JSON.parse(localStorage.getItem('ivy_google_accounts') || '[]');
+let googleAccounts = [];
 let allEvents = [];
 let holidaysData = {};
+
+function loadGoogleAccounts(userId) {
+  if (!userId) {
+    googleAccounts = [];
+    return;
+  }
+  googleAccounts = JSON.parse(localStorage.getItem(`ivy_google_accounts_${userId}`) || localStorage.getItem('ivy_google_accounts') || '[]');
+}
+
+function saveGoogleAccounts() {
+  if (currentUserId) {
+    localStorage.setItem(`ivy_google_accounts_${currentUserId}`, JSON.stringify(googleAccounts));
+  }
+  localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+}
 
 async function fetchJapaneseHolidays() {
   try {
@@ -8730,18 +8749,22 @@ async function refreshGoogleAccountToken(acc) {
     acc.status = 'active';
     
     // アカウント一覧を更新保存
-    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    saveGoogleAccounts();
     console.log(`Silent token refresh succeeded for ${acc.email}`);
     return true;
   } catch (err) {
     console.warn(`Silent token refresh failed for ${acc.email}:`, err);
     acc.status = 'expired';
-    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    saveGoogleAccounts();
     return false;
   }
 }
 
 async function addGoogleAccount() {
+  if (!currentUserId) {
+    Swal.fire('エラー', 'ログインが必要です。', 'error');
+    return;
+  }
   if (typeof google === 'undefined') {
     Swal.fire('エラー', 'Google APIを読み込み中です。', 'error');
     return;
@@ -8782,7 +8805,7 @@ async function addGoogleAccount() {
 
     googleAccounts = googleAccounts.filter(a => a.email !== newAccount.email);
     googleAccounts.push(newAccount);
-    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    saveGoogleAccounts();
 
     renderGoogleAccounts();
     fetchEventsFromAllAccounts();
@@ -8800,6 +8823,8 @@ async function addGoogleAccount() {
 function renderGoogleAccounts() {
   if (!googleAccountListEl) return;
   googleAccountListEl.innerHTML = '';
+  if (!currentUserId) return;
+
   googleAccounts.forEach((acc, idx) => {
     const li = document.createElement('li');
     li.className = 'google-account-item';
@@ -8844,7 +8869,7 @@ window.reauthGoogleAccount = async (idx) => {
     acc.expires = Date.now() + (expiresIn * 1000);
     acc.status = 'active';
     
-    localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+    saveGoogleAccounts();
     renderGoogleAccounts();
     fetchEventsFromAllAccounts();
     Swal.fire('再認可成功', `${acc.email} の連携を更新しました！`, 'success');
@@ -8868,7 +8893,7 @@ window.removeGoogleAccount = (idx) => {
     }
   }
   googleAccounts.splice(idx, 1);
-  localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
+  saveGoogleAccounts();
   renderGoogleAccounts();
   fetchEventsFromAllAccounts();
 };
@@ -8887,11 +8912,16 @@ function clearGoogleAccounts() {
       }
     });
   }
-  googleAccounts = [];
+  if (currentUserId) {
+    localStorage.removeItem(`ivy_google_accounts_${currentUserId}`);
+  }
   localStorage.removeItem('ivy_google_accounts');
+  googleAccounts = [];
   allEvents = [];
-  if (typeof renderGoogleAccounts === 'function') renderGoogleAccounts();
-  if (typeof renderAgenda === 'function') renderAgenda();
+  if (googleAccountListEl) googleAccountListEl.innerHTML = '';
+  if (statusAgendaListEl) {
+    statusAgendaListEl.innerHTML = '<div class="agenda-empty">今日・明日の予定はありません</div>';
+  }
   if (typeof renderCalendar === 'function' && document.body.dataset.workspace === 'calendar') {
     renderCalendar();
   }
@@ -8899,7 +8929,7 @@ function clearGoogleAccounts() {
 
 async function fetchEventsFromAllAccounts() {
   allEvents = [];
-  if (googleAccounts.length === 0) {
+  if (!currentUserId || googleAccounts.length === 0) {
     renderAgenda();
     if (document.body.dataset.workspace === 'calendar') {
       renderCalendar();
@@ -9000,6 +9030,11 @@ async function fetchEventsFromAllAccounts() {
 function renderAgenda() {
   if (!statusAgendaListEl) return;
   statusAgendaListEl.innerHTML = '';
+
+  if (!currentUserId) {
+    statusAgendaListEl.innerHTML = '<div class="agenda-empty">今日・明日の予定はありません</div>';
+    return;
+  }
 
   const now = new Date();
   // 今日の日付の明日23:59:59.999までに制限する（今日と明日の予定のみ表示）
