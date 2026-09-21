@@ -3135,8 +3135,36 @@ if (closePreviewButton) {
     closePdfViewer();
   });
 }
-// バックドロップへの直接クリックによる閉じる処理は _pdfClickHandler で管理
-// （ページナビゲーションとの競合防止のため削除）
+if (signupButton) {
+  signupButton.addEventListener('click', () => {
+    const email = emailInput.value, password = passwordInput.value;
+    if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
+    createUserWithEmailAndPassword(auth, email, password).catch(err => alert('サインアップ失敗: ' + err.message));
+  });
+}
+
+if (loginButton) {
+  loginButton.addEventListener('click', () => {
+    const email = emailInput.value, password = passwordInput.value;
+    if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
+    signInWithEmailAndPassword(auth, email, password).catch(err => alert('ログイン失敗: ' + err.message));
+  });
+}
+
+if (logoutButtonModal) {
+  logoutButtonModal.addEventListener('click', () => {
+    if (typeof closeSettings === 'function') closeSettings();
+    showStartupScreen();
+    signOut(auth);
+  });
+}
+
+if (returnStartupButton) {
+  returnStartupButton.addEventListener('click', () => {
+    if (typeof closeSettings === 'function') closeSettings();
+    showStartupScreen();
+  });
+}
 
 // ===== Due date segmented inputs (YYYY / MM / DD) =====
 (function setupSegmentedDueDateInputs() {
