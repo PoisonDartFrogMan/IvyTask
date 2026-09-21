@@ -649,7 +649,17 @@ function showStartupScreen() {
 
   // Reset workspace
   document.body.removeAttribute('data-workspace');
-  handleSignedOut(false);
+
+  const effectiveUser = auth.currentUser || lastKnownAuthUser;
+  if (effectiveUser) {
+    currentUserId = effectiveUser.uid;
+    if (authContainer) authContainer.style.display = 'none';
+    if (mainContainer) mainContainer.style.display = 'none';
+    if (archiveContainer) archiveContainer.style.display = 'none';
+  } else {
+    handleSignedOut(false);
+  }
+
   if (startupScreen) startupScreen.classList.remove('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
@@ -658,7 +668,13 @@ function showStartupScreen() {
   if (chatContainer) chatContainer.classList.add('hidden');
 
   currentCalendarDate = new Date();
-  fetchEventsFromAllAccounts();
+  if (currentUserId) {
+    if (typeof loadGoogleAccounts === 'function') loadGoogleAccounts(currentUserId);
+    if (typeof renderGoogleAccounts === 'function') renderGoogleAccounts();
+    fetchEventsFromAllAccounts();
+  } else {
+    clearGoogleAccounts();
+  }
 }
 
 async function enterTaskWorkspace() {
@@ -8619,17 +8635,23 @@ let googleAccounts = [];
 let allEvents = [];
 let holidaysData = {};
 
+function getEffectiveUserId() {
+  return currentUserId || auth.currentUser?.uid || lastKnownAuthUser?.uid || null;
+}
+
 function loadGoogleAccounts(userId) {
-  if (!userId) {
+  const uid = userId || getEffectiveUserId();
+  if (!uid) {
     googleAccounts = [];
     return;
   }
-  googleAccounts = JSON.parse(localStorage.getItem(`ivy_google_accounts_${userId}`) || localStorage.getItem('ivy_google_accounts') || '[]');
+  googleAccounts = JSON.parse(localStorage.getItem(`ivy_google_accounts_${uid}`) || localStorage.getItem('ivy_google_accounts') || '[]');
 }
 
 function saveGoogleAccounts() {
-  if (currentUserId) {
-    localStorage.setItem(`ivy_google_accounts_${currentUserId}`, JSON.stringify(googleAccounts));
+  const uid = getEffectiveUserId();
+  if (uid) {
+    localStorage.setItem(`ivy_google_accounts_${uid}`, JSON.stringify(googleAccounts));
   }
   localStorage.setItem('ivy_google_accounts', JSON.stringify(googleAccounts));
 }
@@ -8761,7 +8783,8 @@ async function refreshGoogleAccountToken(acc) {
 }
 
 async function addGoogleAccount() {
-  if (!currentUserId) {
+  const uid = getEffectiveUserId();
+  if (!uid) {
     Swal.fire('エラー', 'ログインが必要です。', 'error');
     return;
   }
@@ -8823,7 +8846,7 @@ async function addGoogleAccount() {
 function renderGoogleAccounts() {
   if (!googleAccountListEl) return;
   googleAccountListEl.innerHTML = '';
-  if (!currentUserId) return;
+  if (!getEffectiveUserId()) return;
 
   googleAccounts.forEach((acc, idx) => {
     const li = document.createElement('li');
@@ -8912,8 +8935,9 @@ function clearGoogleAccounts() {
       }
     });
   }
-  if (currentUserId) {
-    localStorage.removeItem(`ivy_google_accounts_${currentUserId}`);
+  const uid = getEffectiveUserId();
+  if (uid) {
+    localStorage.removeItem(`ivy_google_accounts_${uid}`);
   }
   localStorage.removeItem('ivy_google_accounts');
   googleAccounts = [];
@@ -8929,7 +8953,7 @@ function clearGoogleAccounts() {
 
 async function fetchEventsFromAllAccounts() {
   allEvents = [];
-  if (!currentUserId || googleAccounts.length === 0) {
+  if (!getEffectiveUserId() || googleAccounts.length === 0) {
     renderAgenda();
     if (document.body.dataset.workspace === 'calendar') {
       renderCalendar();
@@ -9031,7 +9055,7 @@ function renderAgenda() {
   if (!statusAgendaListEl) return;
   statusAgendaListEl.innerHTML = '';
 
-  if (!currentUserId) {
+  if (!getEffectiveUserId()) {
     statusAgendaListEl.innerHTML = '<div class="agenda-empty">今日・明日の予定はありません</div>';
     return;
   }
