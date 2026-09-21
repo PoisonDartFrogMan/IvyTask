@@ -54,51 +54,11 @@ setPersistence(auth, indexedDBLocalPersistence).catch(console.error);
 const MASTER_UID = "8V7CfCrj4wSD8aZymfrf1WKZaAg1";
 initializeRecurringTasks(db);
 
-
 // ===== DOM Elements =====
 const startupScreen = document.getElementById('startup-screen');
 const startTaskButton = document.getElementById('start-task-button');
-const startTodoButton = document.getElementById('start-todo-button');
 const startMemoButton = document.getElementById('start-memo-button');
-const todoComingSoon = document.getElementById('todo-coming-soon');
-const todoContainer = document.getElementById('todo-container');
-const todoBackStartupButton = document.getElementById('todo-back-startup-button');
 
-const openCandidatePanelButton = document.getElementById('open-candidate-panel');
-const candidatePanel = document.getElementById('candidate-panel');
-const candidateForm = document.getElementById('candidate-form');
-const candidateNameInput = document.getElementById('candidate-name');
-const candidateStartInput = document.getElementById('candidate-start');
-const candidateDeptInput = document.getElementById('candidate-dept');
-const candidateGradeInput = document.getElementById('candidate-grade');
-const candidateNoteInput = document.getElementById('candidate-note');
-const candidateTypeInput = document.getElementById('candidate-type');
-const candidateList = document.getElementById('candidate-list');
-const candidateModalBackdrop = document.getElementById('candidate-modal-backdrop');
-const candidateDetailForm = document.getElementById('candidate-detail-form');
-const candidateDetailNameInput = document.getElementById('candidate-detail-name');
-const candidateDetailStartInput = document.getElementById('candidate-detail-start');
-const candidateDetailDeptInput = document.getElementById('candidate-detail-dept');
-const candidateDetailGradeInput = document.getElementById('candidate-detail-grade');
-const candidateDetailNoteInput = document.getElementById('candidate-detail-note');
-const candidateDetailTypeInput = document.getElementById('candidate-detail-type');
-const candidateDetailTasks = document.getElementById('candidate-detail-tasks');
-const candidateModalCloseButton = document.getElementById('candidate-modal-close');
-const interviewModalBackdrop = document.getElementById('candidate-interview-modal-backdrop');
-const interviewModal = document.getElementById('candidate-interview-modal');
-const interviewModalSaveButton = document.getElementById('interview-modal-save');
-const interviewModalCancelButton = document.getElementById('interview-modal-cancel');
-const interviewModalList = document.getElementById('interview-modal-list');
-const onboardingModalBackdrop = document.getElementById('onboarding-modal-backdrop');
-const onboardingModal = document.getElementById('onboarding-modal');
-const onboardingDatetimeInput = document.getElementById('onboarding-datetime');
-const onboardingItemsCheckbox = document.getElementById('onboarding-items-checkbox');
-const onboardingModalSaveButton = document.getElementById('onboarding-modal-save');
-const onboardingModalCancelButton = document.getElementById('onboarding-modal-cancel');
-const todoSettingsButton = document.getElementById('todo-settings-button');
-const todoSettingsModalBackdrop = document.getElementById('todo-settings-modal-backdrop');
-const closeTodoSettingsModalButton = document.getElementById('close-todo-settings-modal-button');
-const todoUpdatesList = document.getElementById('todo-updates-list');
 const authContainer = document.getElementById('auth-container');
 const mainContainer = document.getElementById('app-container');
 const archiveContainer = document.getElementById('archive-container');
@@ -267,7 +227,6 @@ const voiceCopyBtn = document.getElementById('voice-copy-btn');
 const voiceInsertBtn = document.getElementById('voice-insert-btn');
 const voiceChunkInfo = document.getElementById('voice-chunk-info');
 
-
 // Archive Workspace Elements
 const archiveWorkspace = document.getElementById('archive-workspace');
 const startArchiveButton = document.getElementById('start-archive-button');
@@ -333,7 +292,6 @@ if (imagePreviewWrapper) {
   });
 }
 
-
 const archiveIcon = document.getElementById('archive-icon');
 const archiveSecretCaption = document.getElementById('archive-secret-caption');
 const startDiarySlideshowButton = document.getElementById('start-diary-slideshow-button');
@@ -362,11 +320,7 @@ let sleepSeconds = 60; // default
 let sleepTimerId = null;
 const THEME_KEYS = ['pastel', 'okinawa', 'jungle', 'dolphins', 'sunny', 'happyhacking', 'skycastle', 'lunar', 'custom'];
 let customWallpaperDataUrl = null; // base64 JPEG stored per device (IndexedDB), not synced
-let currentCandidateId = null;
-let currentDetailTasks = [];
-let currentInterviewTaskId = null;
-let currentInterviews = [];
-let currentOnboardingTaskId = null;
+
 // Memo State
 let memos = [];
 let currentMemoId = null;
@@ -397,14 +351,6 @@ let _pdfTotalPages = 0;
 let _pdfRendering = false;
 let _pdfClickTimer = null;
 
-
-
-// Candidate (Todo) State
-let candidates = [];
-let unsubscribeCandidates = () => { };
-const importCSVButton = document.getElementById('import-csv-button');
-const importCSVInput = document.getElementById('import-csv-input');
-let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
 let vaultAutolockSeconds = 900; // New: Default 15 minutes
@@ -419,14 +365,6 @@ const PASTEL_COLORS = [
   '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
   '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
   '#ffb3ba', '#ffdfba', '#baffc9', '#e4e4e4'
-];
-const DEFAULT_CANDIDATE_TASKS = [
-  '面接',
-  '入社前説明',
-  '関係者への求職者情報の共有',
-  '経営会議への報告資料作成',
-  '社内ネットワークへの人事発令',
-  '入社時研修'
 ];
 
 // ===== Secret Diary Feature =====
@@ -704,11 +642,9 @@ async function requestNotificationPermission(userId) {
 
 const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 
-
 // ===== Startup View Helpers =====
-function showStartupScreen(showTodoMessage = false) {
+function showStartupScreen() {
   workspaceSelection = showTodoMessage ? 'todo' : null; // Keep this logic for 'todo' message, but general reset
-  if (!showTodoMessage) {
     workspaceSelection = null;
     localStorage.removeItem('ivy_workspace_selection');
   }
@@ -717,14 +653,12 @@ function showStartupScreen(showTodoMessage = false) {
   document.body.removeAttribute('data-workspace');
   handleSignedOut(false);
   if (startupScreen) startupScreen.classList.remove('hidden');
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
   if (ivyTaskContainer) ivyTaskContainer.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 
   currentCalendarDate = new Date();
   fetchEventsFromAllAccounts();
@@ -734,14 +668,12 @@ async function enterTaskWorkspace() {
   workspaceSelection = 'task';
   localStorage.setItem('ivy_workspace_selection', 'task');
   document.body.dataset.workspace = 'task';
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (startupScreen) startupScreen.classList.add('hidden');
   if (lastKnownAuthUser) {
     await handleSignedIn(lastKnownAuthUser);
   } else {
     handleSignedOut(true);
   }
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
@@ -749,28 +681,6 @@ async function enterTaskWorkspace() {
   if (chatContainer) chatContainer.classList.add('hidden');
 }
 
-function enterTodoWorkspace() {
-  workspaceSelection = 'todo';
-  localStorage.setItem('ivy_workspace_selection', 'todo');
-  document.body.dataset.workspace = 'todo';
-  if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
-  if (mainContainer) mainContainer.style.display = 'none';
-  if (archiveContainer) archiveContainer.style.display = 'none';
-  if (memoContainer) memoContainer.classList.add('hidden');
-  if (vaultContainer) vaultContainer.classList.add('hidden');
-  if (databaseContainer) databaseContainer.classList.add('hidden');
-  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
-  if (chatContainer) chatContainer.classList.add('hidden');
-  if (lastKnownAuthUser) {
-    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
-    if (authContainer) authContainer.style.display = 'none';
-    if (todoContainer) todoContainer.classList.remove('hidden');
-    subscribeCandidates(currentUserId);
-    renderCandidates();
-  } else {
-    handleSignedOut(true);
-  }
 }
 
 async function enterMemoWorkspace() {
@@ -778,11 +688,9 @@ async function enterMemoWorkspace() {
   localStorage.setItem('ivy_workspace_selection', 'memo');
   document.body.dataset.workspace = 'memo';
   if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.remove('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
@@ -808,12 +716,9 @@ async function enterArchiveWorkspace() {
   localStorage.setItem('ivy_workspace_selection', 'archive');
   document.body.dataset.workspace = 'archive';
   if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
@@ -841,11 +746,9 @@ async function enterChatWorkspace() {
   localStorage.setItem('ivy_workspace_selection', 'chat');
   document.body.dataset.workspace = 'chat';
   if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
@@ -905,16 +808,13 @@ onAuthStateChanged(auth, async (user) => {
 
   // マスターUID判定: ログイン確定直後に表示制御
   const startDbBtn = document.getElementById('start-database-button');
-  const startIvyTaskBtn = document.getElementById('start-ivytask-button');
   if (user && user.uid === MASTER_UID) {
     if (startDbBtn) startDbBtn.classList.remove('hidden');
     // Coral-Voice AI は使用頻度が低いため非表示（必要時はコメントを外す）
     // if (startVoiceButton) startVoiceButton.classList.remove('hidden');
-    if (startIvyTaskBtn) startIvyTaskBtn.classList.remove('hidden');
   } else {
     if (startDbBtn) startDbBtn.classList.add('hidden');
     if (startVoiceButton) startVoiceButton.classList.add('hidden');
-    if (startIvyTaskBtn) startIvyTaskBtn.classList.add('hidden');
   }
 
   // user_profiles に保存 & 保留中の招待を処理
@@ -941,8 +841,6 @@ onAuthStateChanged(auth, async (user) => {
 
   if (workspaceSelection === 'task') {
     await enterTaskWorkspace();
-  } else if (workspaceSelection === 'todo') {
-    enterTodoWorkspace();
   } else if (workspaceSelection === 'memo') {
     enterMemoWorkspace();
   } else if (workspaceSelection === 'vault') {
@@ -955,10 +853,8 @@ onAuthStateChanged(auth, async (user) => {
     enterChatWorkspace();
   } else if (workspaceSelection === 'calendar') {
     enterCalendarWorkspace();
-  } else if (workspaceSelection === 'ivytask') {
-    enterIvyTaskWorkspace();
   } else {
-    showStartupScreen(workspaceSelection === 'todo');
+    showStartupScreen();
   }
 
   // ログイン成功時に通知許可を確認
@@ -1011,7 +907,6 @@ async function handleSignedIn(user) {
     console.error('ユーザーデータ読み込みエラー:', e);
   }
 
-
   if (unsubscribeLabels) unsubscribeLabels();
   if (unsubscribeTasks) unsubscribeTasks();
 
@@ -1051,7 +946,6 @@ async function handleSignedIn(user) {
   });
 
   activateDragAndDrop();
-  subscribeCandidates(user.uid);
 }
 
 function handleSignedOut(showAuthScreen = true) {
@@ -1068,7 +962,6 @@ function handleSignedOut(showAuthScreen = true) {
   if (unsubscribeMemoFolders) unsubscribeMemoFolders();
   if (unsubscribeVaults) unsubscribeVaults();
   if (unsubscribeArchive) unsubscribeArchive();
-  if (unsubscribeCandidates) unsubscribeCandidates();
   sleepEnabled = false; if (sleepTimerId) { clearTimeout(sleepTimerId); sleepTimerId = null; }
   exitSleep();
   applyWallpaper('default');
@@ -1264,20 +1157,12 @@ async function ensureUpdatesLoaded() {
   if (updatesModalBackdrop && !updatesModalBackdrop.classList.contains('hidden')) {
     renderUpdatesFull(items, updatesListFull);
   }
-  if (todoSettingsModalBackdrop && !todoSettingsModalBackdrop.classList.contains('hidden')) {
-    renderUpdatesFull(items, todoUpdatesList);
-  }
-}
-
-function enterSleep() {
-  document.body.classList.add('sleeping');
 }
 
 function exitSleep() {
   document.body.classList.remove('sleeping');
   scheduleSleepTimer();
 }
-
 
 // ===== Labels Functions =====
 function initializeLabelColorPalette() {
@@ -1373,7 +1258,6 @@ function updateSelectedLabelHint() {
   const lbl = labels.find(l => l.id === selectedLabelId);
   selectedLabelHint.textContent = lbl ? `選択中：${lbl.name}` : '';
 }
-
 
 // ===== Tasks Functions =====
 async function loadArchivedTasks(userId) {
@@ -3172,13 +3056,6 @@ function closeAllDropdowns() {
 if (startTaskButton) {
   startTaskButton.addEventListener('click', () => { enterTaskWorkspace(); });
 }
-if (startTodoButton) {
-  startTodoButton.addEventListener('click', () => { enterTodoWorkspace(); });
-}
-if (todoBackStartupButton) {
-  todoBackStartupButton.addEventListener('click', () => { showStartupScreen(); });
-}
-
 if (startArchiveButton) {
   startArchiveButton.addEventListener('click', () => { enterArchiveWorkspace(); });
 }
@@ -3265,387 +3142,6 @@ if (closePreviewButton) {
 }
 // バックドロップへの直接クリックによる閉じる処理は _pdfClickHandler で管理
 // （ページナビゲーションとの競合防止のため削除）
-
-if (openCandidatePanelButton) {
-  openCandidatePanelButton.addEventListener('click', () => {
-    if (candidatePanel) candidatePanel.classList.remove('hidden');
-    if (candidateNameInput) candidateNameInput.focus();
-  });
-}
-if (candidateForm) {
-  candidateForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentUserId) return;
-    const name = (candidateNameInput?.value || '').trim();
-    const start = (candidateStartInput?.value || '').trim();
-    const dept = (candidateDeptInput?.value || '').trim();
-    const grade = (candidateGradeInput?.value || '').trim();
-    const note = (candidateNoteInput?.value || '').trim();
-    const type = (candidateTypeInput?.value || '').trim();
-    if (!name) return;
-    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
-      id: `t-${Date.now()}-${idx}`,
-      text: t,
-      done: false,
-      stage: '',
-      schedule: '',
-      infoProvided: false,
-      onboardingSchedule: '',
-      onboardingItemsProvided: false
-    }));
-    try {
-      await addDoc(collection(db, 'candidates'), {
-        userId: currentUserId,
-        name, start, dept, grade, note, type,
-        tasks,
-        interviews: normalizeInterviews([]),
-        createdAt: serverTimestamp()
-      });
-    } catch (err) {
-      console.error('candidates addDoc error:', err);
-      alert('追加失敗: ' + err.message);
-      return;
-    }
-    if (candidateNameInput) candidateNameInput.value = '';
-    if (candidateStartInput) candidateStartInput.value = '';
-    if (candidateDeptInput) candidateDeptInput.value = '';
-    if (candidateGradeInput) candidateGradeInput.value = '';
-    if (candidateNoteInput) candidateNoteInput.value = '';
-    if (candidateTypeInput) candidateTypeInput.value = '';
-    candidateNameInput?.focus();
-  });
-}
-if (candidateModalCloseButton && candidateModalBackdrop) {
-  candidateModalCloseButton.addEventListener('click', () => closeCandidateModal());
-  candidateModalBackdrop.addEventListener('click', (e) => { if (e.target === candidateModalBackdrop) closeCandidateModal(); });
-}
-if (interviewModalBackdrop) {
-  interviewModalBackdrop.addEventListener('click', (e) => { if (e.target === interviewModalBackdrop) closeInterviewModal(); });
-}
-if (interviewModalCancelButton) {
-  interviewModalCancelButton.addEventListener('click', closeInterviewModal);
-}
-if (interviewModalSaveButton) {
-  interviewModalSaveButton.addEventListener('click', saveInterviewDetails);
-}
-if (onboardingModalBackdrop) {
-  onboardingModalBackdrop.addEventListener('click', (e) => { if (e.target === onboardingModalBackdrop) closeOnboardingModal(); });
-}
-if (onboardingModalCancelButton) {
-  onboardingModalCancelButton.addEventListener('click', closeOnboardingModal);
-}
-if (onboardingModalSaveButton) {
-  onboardingModalSaveButton.addEventListener('click', saveOnboardingDetails);
-}
-if (todoSettingsButton) {
-  todoSettingsButton.addEventListener('click', async () => {
-    todoSettingsModalBackdrop?.classList.remove('hidden');
-    document.body.classList.add('modal-open');
-    const items = await fetchGithubUpdates();
-    renderUpdatesFull(items, todoUpdatesList);
-  });
-}
-const closeTodoSettings = () => {
-  todoSettingsModalBackdrop?.classList.add('hidden');
-  document.body.classList.remove('modal-open');
-};
-if (closeTodoSettingsModalButton) closeTodoSettingsModalButton.addEventListener('click', closeTodoSettings);
-if (todoSettingsModalBackdrop) {
-  todoSettingsModalBackdrop.addEventListener('click', (e) => { if (e.target === todoSettingsModalBackdrop) closeTodoSettings(); });
-}
-if (candidateDetailForm) {
-  candidateDetailForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentCandidateId) return closeCandidateModal();
-    const tasks = readDetailTasks();
-    await updateDoc(doc(db, 'candidates', currentCandidateId), {
-      name: candidateDetailNameInput?.value.trim() || '',
-      start: candidateDetailStartInput?.value.trim() || '',
-      dept: candidateDetailDeptInput?.value.trim() || '',
-      grade: candidateDetailGradeInput?.value.trim() || '',
-      note: candidateDetailNoteInput?.value.trim() || '',
-      type: candidateDetailTypeInput?.value.trim() || '',
-      tasks,
-      interviews: currentInterviews
-    });
-    closeCandidateModal();
-  });
-}
-
-function subscribeCandidates(userId) {
-  if (unsubscribeCandidates) unsubscribeCandidates();
-  const q = query(collection(db, 'candidates'), where('userId', '==', userId));
-  unsubscribeCandidates = onSnapshot(q, (snapshot) => {
-    candidates = [];
-    snapshot.forEach(docSnap => {
-      candidates.push(normalizeCandidate({ id: docSnap.id, ...docSnap.data() }));
-    });
-    renderCandidates(candidates);
-  }, (err) => {
-    console.error('candidates onSnapshot error:', err);
-  });
-}
-function renderCandidates(list = candidates) {
-  if (!candidateList) return;
-  candidateList.innerHTML = '';
-  if (!list.length) {
-    candidateList.classList.add('empty-state');
-    const li = document.createElement('li');
-    li.className = 'candidate-empty';
-    li.textContent = 'まだ登録がありません。';
-    candidateList.appendChild(li);
-    return;
-  }
-  candidateList.classList.remove('empty-state');
-  list.forEach(c => {
-    const li = document.createElement('li');
-    li.dataset.id = c.id;
-    const info = document.createElement('div');
-    const nameSpan = document.createElement('div');
-    nameSpan.className = 'candidate-name';
-    nameSpan.textContent = c.name;
-    const meta = document.createElement('div');
-    meta.className = 'candidate-meta';
-    const parts = [];
-    if (c.start) parts.push(`入社予定日: ${c.start}`);
-    if (c.dept) parts.push(`部署: ${c.dept}`);
-    if (c.grade) parts.push(`グレード: ${c.grade}`);
-    if (c.type) parts.push(`区分: ${c.type}`);
-    if (c.note) parts.push(c.note);
-    meta.textContent = parts.join(' / ');
-    info.appendChild(nameSpan);
-    info.appendChild(meta);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'candidate-remove';
-    removeBtn.innerHTML = '<span class=\"icon\">🗑️</span>削除';
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!confirm('この求職者を削除しますか？')) return;
-      deleteDoc(doc(db, 'candidates', c.id));
-    });
-    li.append(info, removeBtn);
-    li.addEventListener('click', (e) => {
-      if (e.target.closest('.candidate-remove')) return;
-      openCandidateModal(c.id);
-    });
-    candidateList.appendChild(li);
-  });
-}
-
-function normalizeCandidate(c) {
-  const tasks = Array.isArray(c.tasks) && c.tasks.length
-    ? c.tasks.map((t, idx) => ({
-      id: t.id || `t-${c.id || idx}-${idx}`,
-      text: t.text || t,
-      done: !!t.done,
-      stage: t.stage || '',
-      schedule: t.schedule || '',
-      infoProvided: !!t.infoProvided,
-      onboardingSchedule: t.onboardingSchedule || '',
-      onboardingItemsProvided: !!t.onboardingItemsProvided
-    }))
-    : DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
-      id: `t-${c.id || 'new'}-${idx}`,
-      text: t,
-      done: false,
-      stage: '',
-      schedule: '',
-      infoProvided: false,
-      onboardingSchedule: '',
-      onboardingItemsProvided: false
-    }));
-  return { ...c, tasks, interviews: normalizeInterviews(c.interviews) };
-}
-
-function normalizeInterviews(interviews) {
-  const base = INTERVIEW_STAGES.map(stage => ({ stage, schedule: '', infoProvided: false }));
-  if (!Array.isArray(interviews)) return base;
-  return base.map(row => {
-    const found = interviews.find(i => i.stage === row.stage);
-    if (found) return { stage: row.stage, schedule: found.schedule || '', infoProvided: !!found.infoProvided };
-    return row;
-  });
-}
-
-function openCandidateModal(id) {
-  const candidate = candidates.find(c => c.id === id);
-  if (!candidate || !candidateModalBackdrop) return;
-  currentCandidateId = id;
-  currentDetailTasks = (candidate.tasks || []).map(t => ({ ...t }));
-  if (candidateDetailNameInput) candidateDetailNameInput.value = candidate.name || '';
-  if (candidateDetailStartInput) candidateDetailStartInput.value = candidate.start || '';
-  if (candidateDetailDeptInput) candidateDetailDeptInput.value = candidate.dept || '';
-  if (candidateDetailGradeInput) candidateDetailGradeInput.value = candidate.grade || '';
-  if (candidateDetailNoteInput) candidateDetailNoteInput.value = candidate.note || '';
-  if (candidateDetailTypeInput) candidateDetailTypeInput.value = candidate.type || '';
-  currentInterviews = normalizeInterviews(candidate.interviews || []);
-  renderDetailTasks(currentDetailTasks);
-  candidateModalBackdrop.classList.remove('hidden');
-}
-
-function renderDetailTasks(tasks) {
-  if (!candidateDetailTasks) return;
-  candidateDetailTasks.innerHTML = '';
-  tasks.forEach(task => {
-    const li = document.createElement('li');
-    li.dataset.taskId = task.id;
-    const label = document.createElement('label');
-    label.style.display = 'flex';
-    label.style.alignItems = 'center';
-    label.style.gap = '8px';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!task.done;
-    cb.dataset.id = task.id;
-    const span = document.createElement('span');
-    span.textContent = task.text;
-    const meta = document.createElement('div');
-    meta.className = 'candidate-meta';
-    const metaParts = [];
-    if (task.stage) metaParts.push(task.stage);
-    if (task.schedule) metaParts.push(task.schedule);
-    if (task.infoProvided) metaParts.push('面接官へ情報提供済み');
-    meta.textContent = metaParts.join(' / ');
-    meta.style.color = 'var(--text-secondary)';
-    meta.style.fontSize = '0.9rem';
-    label.append(cb, span);
-    li.append(label);
-    candidateDetailTasks.appendChild(li);
-    if (task.text && task.text.includes('面接')) {
-      li.addEventListener('click', (e) => {
-        if (e.target === cb) return;
-        openInterviewModal();
-      });
-    }
-    if (task.text && task.text.includes('入社前説明')) {
-      li.addEventListener('click', (e) => {
-        if (e.target === cb) return;
-        openOnboardingModal(task.id);
-      });
-    }
-  });
-}
-
-function renderInterviewModalList() {
-  if (!interviewModalList) return;
-  interviewModalList.innerHTML = '';
-  currentInterviews.forEach((iv) => {
-    const li = document.createElement('li');
-    const stage = document.createElement('div');
-    stage.className = 'stage-label';
-    stage.textContent = iv.stage;
-    const dt = document.createElement('input');
-    dt.type = 'datetime-local';
-    dt.value = iv.schedule || '';
-    const infoRow = document.createElement('label');
-    infoRow.className = 'info-provided';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!iv.infoProvided;
-    const text = document.createElement('span');
-    text.textContent = '面接官へ情報提供済み';
-    infoRow.append(cb, text);
-    li.append(stage, dt, infoRow);
-    interviewModalList.appendChild(li);
-  });
-}
-
-function readDetailTasks() {
-  return currentDetailTasks.map(task => {
-    const cb = candidateDetailTasks?.querySelector(`input[data-id="${task.id}"]`);
-    return {
-      ...task,
-      done: cb ? cb.checked : !!task.done
-    };
-  });
-}
-
-function closeCandidateModal() {
-  currentCandidateId = null;
-  currentDetailTasks = [];
-  currentInterviews = [];
-  currentOnboardingTaskId = null;
-  closeInterviewModal();
-  closeOnboardingModal();
-  if (candidateModalBackdrop) candidateModalBackdrop.classList.add('hidden');
-}
-
-function openInterviewModal(taskId) {
-  currentInterviewTaskId = taskId || null;
-  renderInterviewModalList();
-  if (interviewModalBackdrop) interviewModalBackdrop.classList.remove('hidden');
-}
-
-function closeInterviewModal() {
-  currentInterviewTaskId = null;
-  if (interviewModalBackdrop) interviewModalBackdrop.classList.add('hidden');
-}
-
-function openOnboardingModal(taskId) {
-  currentOnboardingTaskId = taskId;
-  const task = currentDetailTasks.find(t => t.id === taskId);
-  if (onboardingDatetimeInput) onboardingDatetimeInput.value = task?.onboardingSchedule || '';
-  if (onboardingItemsCheckbox) onboardingItemsCheckbox.checked = !!task?.onboardingItemsProvided;
-  if (onboardingModalBackdrop) onboardingModalBackdrop.classList.remove('hidden');
-}
-
-function closeOnboardingModal() {
-  currentOnboardingTaskId = null;
-  if (onboardingModalBackdrop) onboardingModalBackdrop.classList.add('hidden');
-}
-
-function saveOnboardingDetails() {
-  if (!currentOnboardingTaskId) return closeOnboardingModal();
-  const schedule = onboardingDatetimeInput?.value || '';
-  const itemsProvided = onboardingItemsCheckbox?.checked || false;
-  currentDetailTasks = currentDetailTasks.map(t => t.id === currentOnboardingTaskId ? { ...t, onboardingSchedule: schedule, onboardingItemsProvided: itemsProvided } : t);
-  renderDetailTasks(currentDetailTasks);
-  closeOnboardingModal();
-}
-
-function saveInterviewDetails() {
-  if (!interviewModalList) return closeInterviewModal();
-  // Save from modal list inputs
-  const rows = Array.from(interviewModalList?.querySelectorAll('li') || []);
-  currentInterviews = rows.map(row => {
-    const stage = row.querySelector('.stage-label')?.textContent || '';
-    const schedule = row.querySelector('input[type="datetime-local"]')?.value || '';
-    const infoProvided = !!row.querySelector('input[type="checkbox"]')?.checked;
-    return { stage, schedule, infoProvided };
-  });
-  // Mirror first stage info into the interview task meta (for quick glance)
-  const first = currentInterviews.find(iv => iv.schedule) || currentInterviews[0] || { stage: '', schedule: '', infoProvided: false };
-  currentDetailTasks = currentDetailTasks.map(t => {
-    if (t.text && t.text.includes('面接')) {
-      return { ...t, stage: first.stage, schedule: first.schedule, infoProvided: first.infoProvided };
-    }
-    return t;
-  });
-  renderDetailTasks(currentDetailTasks);
-  closeInterviewModal();
-}
-
-signupButton.addEventListener('click', () => {
-  const email = emailInput.value, password = passwordInput.value;
-  if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
-  createUserWithEmailAndPassword(auth, email, password).catch(err => alert('サインアップ失敗: ' + err.message));
-});
-loginButton.addEventListener('click', () => {
-  const email = emailInput.value, password = passwordInput.value;
-  if (!email || !password) return alert("メールアドレスとパスワードを入力してください。");
-  signInWithEmailAndPassword(auth, email, password).catch(err => alert('ログイン失敗: ' + err.message));
-});
-logoutButtonModal.addEventListener('click', () => {
-  showStartupScreen();
-  signOut(auth);
-});
-if (returnStartupButton) {
-  returnStartupButton.addEventListener('click', () => {
-    closeSettings();
-    showStartupScreen();
-  });
-}
 
 // ===== Due date segmented inputs (YYYY / MM / DD) =====
 (function setupSegmentedDueDateInputs() {
@@ -4245,7 +3741,6 @@ document.body.addEventListener('click', async (event) => {
   }
 });
 
-
 // ===== Vault Functions =====
 
 // ===== Vault Crypto & State Functions =====
@@ -4373,7 +3868,6 @@ function unlockVault(password) {
   }
 }
 
-
 // Global State for Vault Sort & Filter
 let currentVaultSort = 'newest';
 let currentVaultCategory = 'all';
@@ -4389,11 +3883,9 @@ async function enterVaultWorkspace() {
   localStorage.setItem('ivy_workspace_selection', 'vault');
   document.body.dataset.workspace = 'vault';
   if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.remove('hidden');
   if (databaseContainer) databaseContainer.classList.add('hidden');
@@ -5014,112 +4506,6 @@ if (taskBackStartupButton) {
   });
 }
 
-// CSV Import Logic
-if (importCSVButton && importCSVInput) {
-  importCSVButton.addEventListener('click', () => {
-    importCSVInput.click();
-  });
-
-  importCSVInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const csvData = event.target.result;
-      await processCSVData(csvData);
-      importCSVInput.value = ''; // Reset
-    };
-    reader.readAsText(file);
-  });
-}
-
-async function processCSVData(csvText) {
-  if (!currentUserId) {
-    alert('ユーザー認証エラー: 再ログインしてください。');
-    return;
-  }
-
-  const lines = csvText.split(/\r\n|\n/);
-  const dataLines = lines.filter(line => line.trim() !== '');
-
-  if (dataLines.length < 2) {
-    alert('CSVデータが空か、ヘッダーのみです。');
-    return;
-  }
-
-  // Header: 氏名,入社予定日,配属予定部署,グレード,メモ,区分
-  // Index: 0, 1, 2, 3, 4, 5
-  // We assume the first line is header. We won't strictly validate header names for flexibility, but assume order.
-
-  const newCandidates = [];
-  let successCount = 0;
-  let failCount = 0;
-
-  // Start from index 1 (skip header)
-  for (let i = 1; i < dataLines.length; i++) {
-    const line = dataLines[i];
-    const columns = line.split(',').map(c => c.trim());
-
-    // Basic validation: Name is required
-    // name is index 0
-    const name = columns[0];
-    if (!name) {
-      failCount++;
-      continue;
-    }
-
-    const start = columns[1] || '';
-    const dept = columns[2] || '';
-    const grade = columns[3] || '';
-    const note = columns[4] || '';
-    const type = columns[5] || '';
-
-    const tasks = DEFAULT_CANDIDATE_TASKS.map((t, idx) => ({
-      id: `t-${Date.now()}-${i}-${idx}`, // Unique ID
-      text: t,
-      done: false,
-      stage: '',
-      schedule: '',
-      infoProvided: false,
-      onboardingSchedule: '',
-      onboardingItemsProvided: false
-    }));
-
-    newCandidates.push({
-      userId: currentUserId,
-      name, start, dept, grade, note, type,
-      tasks,
-      interviews: [],
-      createdAt: serverTimestamp() // We can't batch serverTimestamp easily in a loop if we want accurate order? Actually fine.
-    });
-  }
-
-  if (newCandidates.length === 0) {
-    alert('インポートできるデータがありませんでした。');
-    return;
-  }
-
-  if (!confirm(`${newCandidates.length}件のデータをインポートしますか？`)) return;
-
-  try {
-    const batch = writeBatch(db);
-    // Firestore batch limit is 500. If more, we need multiple batches.
-    // For simplicity, assuming < 500 for now.
-
-    newCandidates.forEach(c => {
-      const ref = doc(collection(db, 'candidates'));
-      batch.set(ref, c);
-      successCount++;
-    });
-
-    await batch.commit();
-    alert(`インポート完了: ${successCount}件成功`);
-  } catch (e) {
-    console.error('CSV Import Error:', e);
-    alert('インポートに失敗しました: ' + e.message);
-  }
-}
 // Helper for Employee ID Formatting
 function formatEmpId(id) {
   if (!id) return '';
@@ -5261,11 +4647,9 @@ async function enterDatabaseWorkspace() {
   localStorage.setItem('ivy_workspace_selection', 'database');
   document.body.dataset.workspace = 'database';
   if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
   if (authContainer) authContainer.style.display = 'none';
   if (mainContainer) mainContainer.style.display = 'none';
   if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.add('hidden');
   if (memoContainer) memoContainer.classList.add('hidden');
   if (vaultContainer) vaultContainer.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
@@ -6423,63 +5807,6 @@ if (filterModalBackdrop) {
   });
 }
 
-// Migration Logic
-const migrateCandidateButton = document.getElementById('migrate-candidate-button');
-
-if (migrateCandidateButton) {
-  migrateCandidateButton.addEventListener('click', async () => {
-    if (!currentCandidateId) return;
-    const candidate = candidates.find(c => c.id === currentCandidateId);
-    if (!candidate) return;
-
-    if (!confirm(`求職者「${candidate.name}」をデータベース（職員名簿）に登録しますか？`)) return;
-
-    try {
-      // Prepare Employee Data
-      const hireDate = candidate.start ? formatDateForInput(candidate.start) : '';
-
-      const empData = {
-        userId: currentUserId,
-        name: candidate.name,
-        dept: candidate.dept || '', // Division (部門) map to dept? Or Department? Plan said "dept -> dept (mapped to 部門)"
-        department: candidate.dept || '', // Map to both for safety as input is ambiguous
-        grade: candidate.grade || '',
-        contractType: candidate.type || '',
-        hireDate: hireDate,
-        note: candidate.note || '',
-        status: '在籍', // Default to Active
-        // Legacy fields or empty
-        empId: '', // Needs manual entry later
-        title: '',
-        birthday: '',
-        age: '',
-        tenure: calculateTenure(hireDate),
-        email: '',
-        phone: '',
-        contractEnd: '',
-        businessUnit: '',
-        resignationDate: '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      // Add to employees
-      await addDoc(collection(db, 'employees'), empData);
-
-      alert('データベースへの登録が完了しました。');
-
-      // Ask to delete from Candidates
-      if (confirm(`登録が完了しました。Todoリストから「${candidate.name}」を削除しますか？`)) {
-        await deleteDoc(doc(db, 'candidates', currentCandidateId));
-        closeCandidateModal();
-      }
-
-    } catch (e) {
-      console.error('Migration failed:', e);
-      alert('移行に失敗しました: ' + e.message);
-    }
-  });
-}
 
 // ===== Archive Logic =====
 function subscribeArchive(userId) {
@@ -6609,7 +5936,6 @@ function updateStorageGauge(usedBytes) {
     ? `${fmt(usedBytes)} / 5 GB (${pct.toFixed(1)}%)`
     : '計測データなし（既存ファイルは集計外）';
 }
-
 
 function renderArchiveFilters() {
   if (!archiveFilterContainer) return;
@@ -7277,7 +6603,6 @@ function renderRecentSection() {
   gridBtn.onclick = () => applyMode('grid');
 })()
 
-
 function initArchiveDropZone() {
   if (!pdfDropZone) return;
 
@@ -7617,7 +6942,6 @@ function listenChatMessages(roomId) {
         msg.id = change.doc.id;
         appendChatMessage(msg, isInitialLoad);
 
-
         // 初回ロード以外・自分以外のメッセージ・アプリが非アクティブのとき通知
         if (!isInitialLoad && msg.senderId !== currentUserId && document.hidden) {
           if (Notification.permission === 'granted') {
@@ -7816,7 +7140,6 @@ function renderNormalBubble(msg) {
   bubble.textContent = msg.text;
   return bubble;
 }
-
 
 async function sendChatMessage(text) {
   if (!text.trim() || !currentChatRoomId || !currentUserId || !lastKnownAuthUser) {
@@ -9970,7 +9293,6 @@ renderGoogleAccounts();
 fetchEventsFromAllAccounts();
 fetchJapaneseHolidays();
 
-
 // ===== Phase 9: Secret Chat with Gemiko (Gemini) =====
 let gemikoChatSession = null;
 let isGemikoInitialized = false;
@@ -10225,953 +9547,3 @@ async function handleGemikoSend() {
   }
 }
 
-
-// ============================================================
-// ===== IvyTask ワークスペース =====
-// ============================================================
-
-// ----- 状態変数 -----
-let ivyStaffList = [];
-let ivyTaskList = [];
-let unsubscribeIvyStaff = () => {};
-let unsubscribeIvyTasks = () => {};
-let ivyViewMode = 'todo'; // 'todo' | 'calendar' | 'gantt'
-let ivySelectedStaffId = 'all'; // 'all' or staffId
-let ivyCalendarDate = new Date();
-let editingIvyTaskId = null;
-let editingIvyStaffId = null;
-let ivyExtractedTasks = []; // AIで抽出したタスクの一時保存
-
-// ----- DOM要素 -----
-const ivyTaskContainer = document.getElementById('ivytask-container');
-const startIvyTaskButton = document.getElementById('start-ivytask-button');
-const ivyBackStartupButton = document.getElementById('ivytask-back-startup-button');
-
-// ----- Firestore CRUD -----
-
-function subscribeIvyStaff(userId) {
-  if (unsubscribeIvyStaff) unsubscribeIvyStaff();
-  const q = query(collection(db, 'staff'), where('userId', '==', userId));
-  unsubscribeIvyStaff = onSnapshot(q, snap => {
-    ivyStaffList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    ivyStaffList.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now();
-      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now();
-      return aTime - bTime;
-    });
-    renderIvyStaffSidebar();
-    renderCurrentIvyView();
-  }, err => console.error('staff subscribe error:', err));
-}
-
-function subscribeIvyTasks(userId) {
-  if (unsubscribeIvyTasks) unsubscribeIvyTasks();
-  const q = query(collection(db, 'staff_tasks'), where('userId', '==', userId));
-  unsubscribeIvyTasks = onSnapshot(q, snap => {
-    ivyTaskList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    ivyTaskList.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now();
-      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now();
-      return bTime - aTime;
-    });
-    renderCurrentIvyView();
-  }, err => console.error('staff_tasks subscribe error:', err));
-}
-
-async function addIvyStaff(userId, name, role) {
-  return addDoc(collection(db, 'staff'), {
-    userId, name, role: role || '',
-    createdAt: serverTimestamp()
-  });
-}
-
-async function deleteIvyStaff(staffId) {
-  await deleteDoc(doc(db, 'staff', staffId));
-}
-
-async function addIvyTask(userId, taskData) {
-  return addDoc(collection(db, 'staff_tasks'), {
-    userId,
-    title: taskData.title || '',
-    staffId: taskData.staffId || null,
-    requestedBy: taskData.requestedBy || null,
-    direction: taskData.direction || 'REQUESTED_TO',
-    status: taskData.status || 'TODO',
-    priority: taskData.priority || 'MEDIUM',
-    startDate: taskData.startDate || null,
-    dueDate: taskData.dueDate || null,
-    fileUrl: taskData.fileUrl || null,
-    description: taskData.description || '',
-    sourceSnippet: taskData.sourceSnippet || '',
-    createdAt: serverTimestamp()
-  });
-}
-
-async function updateIvyTask(taskId, updates) {
-  const ref = doc(db, 'staff_tasks', taskId);
-  await updateDoc(ref, updates);
-}
-
-async function deleteIvyTask(taskId) {
-  await deleteDoc(doc(db, 'staff_tasks', taskId));
-}
-
-// ----- ワークスペース切り替え -----
-
-async function enterIvyTaskWorkspace() {
-  workspaceSelection = 'ivytask';
-  localStorage.setItem('ivy_workspace_selection', 'ivytask');
-  document.body.dataset.workspace = 'ivytask';
-
-  if (startupScreen) startupScreen.classList.add('hidden');
-  if (todoComingSoon) todoComingSoon.classList.add('hidden');
-  if (mainContainer) mainContainer.style.display = 'none';
-  if (archiveContainer) archiveContainer.style.display = 'none';
-  if (todoContainer) todoContainer.classList.add('hidden');
-  if (memoContainer) memoContainer.classList.add('hidden');
-  if (vaultContainer) vaultContainer.classList.add('hidden');
-  if (databaseContainer) databaseContainer.classList.add('hidden');
-  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
-  if (chatContainer) chatContainer.style.display = 'none';
-  if (ivyTaskContainer) ivyTaskContainer.classList.remove('hidden');
-
-  if (lastKnownAuthUser) {
-    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
-    await loadUserSettings(currentUserId);
-    subscribeIvyStaff(currentUserId);
-    subscribeIvyTasks(currentUserId);
-    switchIvyView('todo');
-  } else {
-    handleSignedOut(true);
-  }
-}
-
-function leaveIvyTaskWorkspace() {
-  if (ivyTaskContainer) ivyTaskContainer.classList.add('hidden');
-  if (unsubscribeIvyStaff) unsubscribeIvyStaff();
-  if (unsubscribeIvyTasks) unsubscribeIvyTasks();
-}
-
-// ----- ビュー切り替え -----
-
-function switchIvyView(mode) {
-  ivyViewMode = mode;
-  document.querySelectorAll('.ivytask-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.view === mode);
-  });
-  document.getElementById('ivytask-todo-view').classList.toggle('hidden', mode !== 'todo');
-  document.getElementById('ivytask-calendar-view').classList.toggle('hidden', mode !== 'calendar');
-  document.getElementById('ivytask-gantt-view').classList.toggle('hidden', mode !== 'gantt');
-  renderCurrentIvyView();
-}
-
-function renderCurrentIvyView() {
-  if (ivyViewMode === 'todo') renderIvyTodoView();
-  else if (ivyViewMode === 'calendar') renderIvyCalendarView();
-  else if (ivyViewMode === 'gantt') renderIvyGanttView();
-}
-
-function updateStaffDatalist() {
-  const datalist = document.getElementById('ivytask-staff-datalist');
-  if (!datalist) return;
-  datalist.innerHTML = '';
-  ivyStaffList.forEach(s => {
-    if (s.name) {
-      const opt = document.createElement('option');
-      opt.value = s.name;
-      datalist.appendChild(opt);
-    }
-  });
-}
-
-// ----- スタッフサイドバー -----
-
-function renderIvyStaffSidebar() {
-  updateStaffDatalist();
-  const list = document.getElementById('ivytask-staff-list');
-  if (!list) return;
-  list.innerHTML = '';
-
-  // 「全員」
-  const allLi = document.createElement('li');
-  allLi.className = 'ivytask-staff-item' + (ivySelectedStaffId === 'all' ? ' active' : '');
-  allLi.innerHTML = `<span class="ivytask-staff-avatar">全</span><span class="ivytask-staff-name">すべて</span>`;
-  allLi.addEventListener('click', () => {
-    ivySelectedStaffId = 'all';
-    renderIvyStaffSidebar();
-    renderCurrentIvyView();
-  });
-  list.appendChild(allLi);
-
-  ivyStaffList.forEach(s => {
-    const li = document.createElement('li');
-    li.className = 'ivytask-staff-item' + (ivySelectedStaffId === s.id ? ' active' : '');
-    const initial = (s.name || '?').charAt(0);
-    li.innerHTML = `
-      <span class="ivytask-staff-avatar">${initial}</span>
-      <span class="ivytask-staff-info">
-        <span class="ivytask-staff-name">${escapeHtml(s.name)}</span>
-        ${s.role ? `<span class="ivytask-staff-role">${escapeHtml(s.role)}</span>` : ''}
-      </span>
-      <button class="ivytask-staff-delete" title="削除">✕</button>
-    `;
-    li.querySelector('.ivytask-staff-delete').addEventListener('click', async e => {
-      e.stopPropagation();
-      const confirmed = await Swal.fire({
-        title: `「${s.name}」を削除しますか？`,
-        text: '関連タスクのスタッフIDはnullになります。',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: '削除',
-        cancelButtonText: 'キャンセル',
-        confirmButtonColor: '#ef4444'
-      });
-      if (confirmed.isConfirmed) {
-        await deleteIvyStaff(s.id);
-        if (ivySelectedStaffId === s.id) ivySelectedStaffId = 'all';
-      }
-    });
-    li.addEventListener('click', e => {
-      if (e.target.classList.contains('ivytask-staff-delete')) return;
-      ivySelectedStaffId = s.id;
-      renderIvyStaffSidebar();
-      renderCurrentIvyView();
-    });
-    list.appendChild(li);
-  });
-}
-
-// ----- ToDoビュー -----
-
-function getIvyFilteredTasks() {
-  const filterDir = document.getElementById('ivytask-filter-direction')?.value || 'all';
-  const filterStatus = document.getElementById('ivytask-filter-status')?.value || 'all';
-  const filterPriority = document.getElementById('ivytask-filter-priority')?.value || 'all';
-  const showDone = document.getElementById('ivytask-filter-show-done')?.checked || false;
-
-  return ivyTaskList.filter(t => {
-    if (ivySelectedStaffId !== 'all' && t.staffId !== ivySelectedStaffId) return false;
-    if (filterDir !== 'all' && t.direction !== filterDir) return false;
-    if (filterStatus !== 'all' && t.status !== filterStatus) return false;
-    if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
-    // デフォルトでは完了(DONE)を非表示にし、「完了済みを表示」がON、またはステータスで「DONE」が明示選択されている時のみ表示
-    if (!showDone && filterStatus !== 'DONE' && t.status === 'DONE') return false;
-    return true;
-  });
-}
-
-function renderIvyTodoView() {
-  const container = document.getElementById('ivytask-todo-list');
-  if (!container) return;
-  container.innerHTML = '';
-
-  const tasks = getIvyFilteredTasks();
-  if (tasks.length === 0) {
-    container.innerHTML = `<div class="ivytask-empty-state"><p>タスクがありません</p><p style="font-size:0.85rem;">「AIでタスク抽出」または「＋ タスクを手動追加」から追加してください。</p></div>`;
-    return;
-  }
-
-  // スタッフ別グループ化
-  const staffMap = {};
-  tasks.forEach(t => {
-    const sid = t.staffId || '__none__';
-    if (!staffMap[sid]) staffMap[sid] = [];
-    staffMap[sid].push(t);
-  });
-
-  Object.entries(staffMap).forEach(([staffId, staffTasks]) => {
-    const staff = ivyStaffList.find(s => s.id === staffId);
-    const staffName = staff ? staff.name : '（担当未設定）';
-
-    const group = document.createElement('div');
-    group.className = 'ivytask-staff-group';
-    group.innerHTML = `<div class="ivytask-group-header">
-      <span class="ivytask-staff-avatar" style="width:20px;height:20px;font-size:0.7rem;">${staffName.charAt(0)}</span>
-      ${escapeHtml(staffName)} (${staffTasks.length})
-    </div>`;
-
-    staffTasks.forEach(t => {
-      const card = createIvyTaskCard(t);
-      group.appendChild(card);
-    });
-    container.appendChild(group);
-  });
-}
-
-function createIvyTaskCard(task) {
-  const today = new Date().toISOString().split('T')[0];
-  const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'DONE';
-
-  const staff = ivyStaffList.find(s => s.id === task.staffId);
-  const staffName = staff ? staff.name : '';
-  const reqName = task.requestedBy || '';
-
-  let dirLabel = '';
-  if (task.direction === 'REQUESTED_BY') {
-    if (reqName) {
-      dirLabel = `📩 ${reqName}から依頼`;
-    } else if (staffName) {
-      dirLabel = `📩 ${staffName}から依頼`;
-    } else {
-      dirLabel = `📩 依頼された`;
-    }
-  } else {
-    if (staffName) {
-      dirLabel = `📤 ${staffName}へ依頼`;
-    } else {
-      dirLabel = `📤 依頼した`;
-    }
-  }
-  const dirClass = task.direction === 'REQUESTED_TO' ? 'to' : 'by';
-  const statusLabel = { TODO: 'TODO', IN_PROGRESS: '進行中', DONE: '完了' }[task.status] || task.status;
-
-  let fileBadgeHtml = '';
-  if (task.fileUrl) {
-    let fileLabel = '関連ファイル';
-    const lowerUrl = task.fileUrl.toLowerCase();
-    if (lowerUrl.includes('drive.google.com') || lowerUrl.includes('docs.google.com')) {
-      fileLabel = 'Google Drive';
-    } else if (lowerUrl.includes('onedrive') || lowerUrl.includes('sharepoint') || lowerUrl.includes('1drv.ms')) {
-      fileLabel = 'OneDrive';
-    } else if (lowerUrl.includes('dropbox.com')) {
-      fileLabel = 'Dropbox';
-    } else if (lowerUrl.includes('box.com')) {
-      fileLabel = 'Box';
-    }
-    fileBadgeHtml = `<a href="${escapeHtml(task.fileUrl)}" target="_blank" rel="noopener noreferrer" class="ivytask-file-link-badge" title="${escapeHtml(task.fileUrl)}" onclick="event.stopPropagation();">🔗 ${fileLabel}</a>`;
-  }
-
-  const card = document.createElement('div');
-  card.className = `ivytask-task-card priority-${task.priority} status-${task.status}`;
-  card.innerHTML = `
-    <input type="checkbox" class="ivytask-task-check" ${task.status === 'DONE' ? 'checked' : ''} title="完了にする">
-    <div class="ivytask-task-body">
-      <div class="ivytask-task-title">${escapeHtml(task.title)}</div>
-      <div class="ivytask-task-meta">
-        <span class="ivytask-direction-badge ${dirClass}">${escapeHtml(dirLabel)}</span>
-        <span class="ivytask-status-badge ${task.status}">${statusLabel}</span>
-        ${task.dueDate ? `<span class="ivytask-task-due${isOverdue ? ' overdue' : ''}">📅 ${task.dueDate}${isOverdue ? ' ⚠️' : ''}</span>` : ''}
-        ${fileBadgeHtml}
-      </div>
-      ${task.description ? `<div class="ivytask-task-desc">${escapeHtml(task.description)}</div>` : ''}
-    </div>
-  `;
-
-  // チェックボックス → DONE/TODOトグル
-  card.querySelector('.ivytask-task-check').addEventListener('change', async e => {
-    e.stopPropagation();
-    const newStatus = e.target.checked ? 'DONE' : 'TODO';
-    await updateIvyTask(task.id, { status: newStatus });
-  });
-
-  // カードクリック → 編集モーダル
-  card.addEventListener('click', e => {
-    if (e.target.classList.contains('ivytask-task-check')) return;
-    openIvyTaskModal(task);
-  });
-
-  return card;
-}
-
-// ----- カレンダービュー -----
-
-function renderIvyCalendarView() {
-  const grid = document.getElementById('ivytask-calendar-grid');
-  const label = document.getElementById('ivytask-cal-month-label');
-  if (!grid || !label) return;
-
-  const year = ivyCalendarDate.getFullYear();
-  const month = ivyCalendarDate.getMonth();
-  label.textContent = `${year}年${month + 1}月`;
-
-  const tasks = getIvyFilteredTasks();
-
-  // タスクを期日でマップ化
-  const tasksByDate = {};
-  tasks.forEach(t => {
-    if (t.dueDate) {
-      if (!tasksByDate[t.dueDate]) tasksByDate[t.dueDate] = [];
-      tasksByDate[t.dueDate].push(t);
-    }
-  });
-
-  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date().toISOString().split('T')[0];
-
-  grid.innerHTML = '';
-
-  // 曜日ヘッダー
-  ['日', '月', '火', '水', '木', '金', '土'].forEach(d => {
-    const h = document.createElement('div');
-    h.className = 'ivytask-cal-day-header';
-    h.textContent = d;
-    grid.appendChild(h);
-  });
-
-  // 前月の空白
-  for (let i = 0; i < firstDay; i++) {
-    const empty = document.createElement('div');
-    empty.className = 'ivytask-cal-day other-month';
-    grid.appendChild(empty);
-  }
-
-  // 日付セル
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const cell = document.createElement('div');
-    cell.className = 'ivytask-cal-day' + (dateStr === today ? ' today' : '');
-
-    const dateEl = document.createElement('div');
-    dateEl.className = 'ivytask-cal-date';
-    dateEl.textContent = d;
-    cell.appendChild(dateEl);
-
-    const dayTasks = tasksByDate[dateStr] || [];
-    const MAX_DOTS = 3;
-    dayTasks.slice(0, MAX_DOTS).forEach(t => {
-      const dot = document.createElement('span');
-      dot.className = `ivytask-cal-task-dot priority-${t.priority}`;
-      dot.textContent = t.title;
-      dot.title = t.title;
-      dot.addEventListener('click', () => openIvyTaskModal(t));
-      cell.appendChild(dot);
-    });
-    if (dayTasks.length > MAX_DOTS) {
-      const more = document.createElement('span');
-      more.className = 'ivytask-cal-more';
-      more.textContent = `+${dayTasks.length - MAX_DOTS} 件`;
-      cell.appendChild(more);
-    }
-    grid.appendChild(cell);
-  }
-}
-
-// ----- ガントチャートビュー -----
-
-function renderIvyGanttView() {
-  const container = document.getElementById('ivytask-gantt-container');
-  if (!container) return;
-
-  const tasks = getIvyFilteredTasks().filter(t => t.dueDate);
-  if (tasks.length === 0) {
-    container.innerHTML = '<div class="ivytask-gantt-empty">期日が設定されたタスクがありません。</div>';
-    return;
-  }
-
-  // 日付範囲を決定
-  const todayStr = new Date().toISOString().split('T')[0];
-  let minDate = todayStr;
-  let maxDate = todayStr;
-  tasks.forEach(t => {
-    const start = t.startDate || t.createdAt?.toDate?.().toISOString().split('T')[0] || todayStr;
-    if (start < minDate) minDate = start;
-    if (t.dueDate > maxDate) maxDate = t.dueDate;
-  });
-
-  // 7日程度の余裕を追加
-  const minD = new Date(minDate);
-  minD.setDate(minD.getDate() - 1);
-  const maxD = new Date(maxDate);
-  maxD.setDate(maxD.getDate() + 3);
-
-  const days = [];
-  for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
-    days.push(d.toISOString().split('T')[0]);
-  }
-
-  const table = document.createElement('table');
-  table.className = 'ivytask-gantt-table';
-
-  // ヘッダー行
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  const taskTh = document.createElement('th');
-  taskTh.className = 'task-col';
-  taskTh.textContent = 'タスク名';
-  headerRow.appendChild(taskTh);
-  days.forEach(dateStr => {
-    const th = document.createElement('th');
-    const d = new Date(dateStr + 'T00:00:00');
-    th.textContent = `${d.getMonth() + 1}/${d.getDate()}`;
-    if (dateStr === todayStr) th.style.background = 'rgba(74,124,89,0.12)';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  // データ行
-  const tbody = document.createElement('tbody');
-  tasks.forEach(t => {
-    const tr = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.className = 'task-name-cell';
-    nameTd.textContent = t.title;
-    nameTd.title = t.title;
-    nameTd.addEventListener('click', () => openIvyTaskModal(t));
-    tr.appendChild(nameTd);
-
-    const startStr = t.startDate || t.createdAt?.toDate?.().toISOString().split('T')[0] || todayStr;
-
-    days.forEach(dateStr => {
-      const td = document.createElement('td');
-      if (dateStr === todayStr) td.style.background = 'rgba(74,124,89,0.05)';
-      if (dateStr >= startStr && dateStr <= t.dueDate) {
-        const bar = document.createElement('div');
-        const totalCols = days.length;
-        const startIdx = days.indexOf(startStr);
-        const endIdx = days.indexOf(t.dueDate);
-        if (dateStr === startStr) {
-          const colSpan = endIdx - startIdx + 1;
-          bar.className = `ivytask-gantt-bar priority-${t.priority} status-${t.status}`;
-          bar.style.left = '2px';
-          bar.style.right = dateStr === t.dueDate ? '2px' : `calc(-${colSpan - 1}00% - ${(colSpan - 1) * 2}px + 2px)`;
-          bar.style.width = `calc(${colSpan * 100}% + ${(colSpan - 1) * 2}px - 4px)`;
-          bar.title = `${t.title} (${startStr} → ${t.dueDate})`;
-          bar.addEventListener('click', () => openIvyTaskModal(t));
-          td.appendChild(bar);
-        }
-      }
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-
-  container.innerHTML = '';
-  container.appendChild(table);
-}
-
-// ----- タスク編集モーダル -----
-
-function openIvyTaskModal(task = null) {
-  editingIvyTaskId = task ? task.id : null;
-  const title = document.getElementById('ivytask-task-modal-title');
-  const form = document.getElementById('ivytask-task-form');
-  const deleteBtn = document.getElementById('ivytask-task-delete-btn');
-  const sourceRow = document.getElementById('ivytask-task-source-row');
-  const sourceText = document.getElementById('ivytask-task-source-text');
-
-  if (!form) return;
-
-  if (title) title.textContent = task ? 'タスクを編集' : 'タスクを追加';
-  if (deleteBtn) deleteBtn.style.display = task ? '' : 'none';
-
-  // スタッフセレクトおよびdatalistを更新
-  updateStaffDatalist();
-  const staffSel = document.getElementById('ivytask-task-staff');
-  if (staffSel) {
-    staffSel.innerHTML = '<option value="">（未設定）</option>';
-    ivyStaffList.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name;
-      staffSel.appendChild(opt);
-    });
-  }
-
-  // フォームに値を設定
-  document.getElementById('ivytask-task-title').value = task?.title || '';
-  if (staffSel) staffSel.value = task?.staffId || '';
-  const reqByEl = document.getElementById('ivytask-task-requested-by');
-  if (reqByEl) reqByEl.value = task?.requestedBy || '';
-  document.getElementById('ivytask-task-direction').value = task?.direction || 'REQUESTED_TO';
-  document.getElementById('ivytask-task-status').value = task?.status || 'TODO';
-  document.getElementById('ivytask-task-priority').value = task?.priority || 'MEDIUM';
-  document.getElementById('ivytask-task-due').value = task?.dueDate || '';
-  document.getElementById('ivytask-task-start').value = task?.startDate || '';
-  const fileUrlEl = document.getElementById('ivytask-task-file-url');
-  if (fileUrlEl) fileUrlEl.value = task?.fileUrl || '';
-  document.getElementById('ivytask-task-description').value = task?.description || '';
-
-  if (sourceRow && sourceText) {
-    if (task?.sourceSnippet) {
-      sourceRow.classList.remove('hidden');
-      sourceText.textContent = task.sourceSnippet;
-    } else {
-      sourceRow.classList.add('hidden');
-    }
-  }
-
-  document.getElementById('ivytask-task-modal-backdrop').classList.remove('hidden');
-}
-
-function closeIvyTaskModal() {
-  document.getElementById('ivytask-task-modal-backdrop').classList.add('hidden');
-  editingIvyTaskId = null;
-}
-
-// ----- スタッフ追加モーダル -----
-
-function openIvyStaffModal(staff = null) {
-  editingIvyStaffId = staff ? staff.id : null;
-  document.getElementById('ivytask-staff-modal-title').textContent = staff ? 'スタッフを編集' : 'スタッフを追加';
-  document.getElementById('ivytask-staff-name').value = staff?.name || '';
-  document.getElementById('ivytask-staff-role').value = staff?.role || '';
-  document.getElementById('ivytask-staff-modal-backdrop').classList.remove('hidden');
-  document.getElementById('ivytask-staff-name').focus();
-}
-
-function closeIvyStaffModal() {
-  document.getElementById('ivytask-staff-modal-backdrop').classList.add('hidden');
-  editingIvyStaffId = null;
-}
-
-// ----- AI抽出モーダル -----
-
-function openIvyExtractModal() {
-  document.getElementById('ivytask-extract-text').value = '';
-  document.getElementById('ivytask-extract-step1').classList.remove('hidden');
-  document.getElementById('ivytask-extract-step2').classList.add('hidden');
-  document.getElementById('ivytask-extract-modal-backdrop').classList.remove('hidden');
-  document.getElementById('ivytask-extract-text').focus();
-}
-
-function closeIvyExtractModal() {
-  document.getElementById('ivytask-extract-modal-backdrop').classList.add('hidden');
-  ivyExtractedTasks = [];
-}
-
-function buildPreviewRow(task, index) {
-  const staffOptions = ivyStaffList.map(s =>
-    `<option value="${s.id}" ${task.staffId === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
-  ).join('');
-
-  const row = document.createElement('tr');
-  row.dataset.idx = index;
-  row.innerHTML = `
-    <td><input type="text" class="preview-title" value="${escapeHtml(task.title || '')}" placeholder="タイトル"></td>
-    <td>
-      <select class="preview-staff">
-        <option value="">（未設定）</option>
-        ${staffOptions}
-      </select>
-    </td>
-    <td>
-      <select class="preview-direction">
-        <option value="REQUESTED_TO" ${task.direction === 'REQUESTED_TO' ? 'selected' : ''}>依頼した</option>
-        <option value="REQUESTED_BY" ${task.direction === 'REQUESTED_BY' ? 'selected' : ''}>依頼された</option>
-      </select>
-    </td>
-    <td><input type="text" class="preview-requested-by" list="ivytask-staff-datalist" value="${escapeHtml(task.requestedBy || '')}" placeholder="選択または直接入力..."></td>
-    <td><input type="date" class="preview-due" value="${task.dueDate || ''}"></td>
-    <td>
-      <select class="preview-priority">
-        <option value="HIGH" ${task.priority === 'HIGH' ? 'selected' : ''}>🔴 高</option>
-        <option value="MEDIUM" ${task.priority === 'MEDIUM' ? 'selected' : ''}>🟡 中</option>
-        <option value="LOW" ${task.priority === 'LOW' ? 'selected' : ''}>🟢 低</option>
-      </select>
-    </td>
-    <td><input type="url" class="preview-file-url" value="${escapeHtml(task.fileUrl || '')}" placeholder="https://..."></td>
-    <td><input type="text" class="preview-desc" value="${escapeHtml(task.description || '')}" placeholder="説明"></td>
-    <td><button class="row-delete-btn" type="button" title="この行を削除">🗑️</button></td>
-  `;
-  row.querySelector('.row-delete-btn').addEventListener('click', () => {
-    ivyExtractedTasks.splice(index, 1);
-    renderPreviewTable();
-  });
-  return row;
-}
-
-function renderPreviewTable() {
-  const tbody = document.getElementById('ivytask-preview-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  ivyExtractedTasks.forEach((t, i) => {
-    tbody.appendChild(buildPreviewRow(t, i));
-  });
-}
-
-function collectPreviewData() {
-  const rows = document.querySelectorAll('#ivytask-preview-tbody tr');
-  return Array.from(rows).map(row => ({
-    title: row.querySelector('.preview-title').value.trim(),
-    staffId: row.querySelector('.preview-staff').value || null,
-    direction: row.querySelector('.preview-direction').value,
-    requestedBy: row.querySelector('.preview-requested-by').value.trim() || null,
-    dueDate: row.querySelector('.preview-due').value || null,
-    priority: row.querySelector('.preview-priority').value,
-    fileUrl: row.querySelector('.preview-file-url').value.trim() || null,
-    description: row.querySelector('.preview-desc').value.trim(),
-    sourceSnippet: ivyExtractedTasks[parseInt(row.dataset.idx)]?.sourceSnippet || ''
-  }));
-}
-
-// ----- ユーティリティ -----
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// ----- イベントリスナー -----
-
-// スタートアップ → IvyTask
-if (startIvyTaskButton) {
-  startIvyTaskButton.addEventListener('click', () => {
-    enterIvyTaskWorkspace();
-  });
-}
-
-// スタートに戻る
-if (ivyBackStartupButton) {
-  ivyBackStartupButton.addEventListener('click', () => {
-    leaveIvyTaskWorkspace();
-    showStartupScreen();
-  });
-}
-
-// ビュー切り替えタブ
-document.querySelectorAll('.ivytask-tab').forEach(btn => {
-  btn.addEventListener('click', () => switchIvyView(btn.dataset.view));
-});
-
-// カレンダーナビゲーション
-const ivyCalPrev = document.getElementById('ivytask-cal-prev');
-const ivyCalNext = document.getElementById('ivytask-cal-next');
-if (ivyCalPrev) {
-  ivyCalPrev.addEventListener('click', () => {
-    ivyCalendarDate.setMonth(ivyCalendarDate.getMonth() - 1);
-    renderIvyCalendarView();
-  });
-}
-if (ivyCalNext) {
-  ivyCalNext.addEventListener('click', () => {
-    ivyCalendarDate.setMonth(ivyCalendarDate.getMonth() + 1);
-    renderIvyCalendarView();
-  });
-}
-
-// フィルター変更
-['ivytask-filter-direction', 'ivytask-filter-status', 'ivytask-filter-priority', 'ivytask-filter-show-done'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('change', () => renderCurrentIvyView());
-});
-
-// スタッフ追加ボタン
-const ivyAddStaffBtn = document.getElementById('ivytask-add-staff-btn');
-if (ivyAddStaffBtn) ivyAddStaffBtn.addEventListener('click', () => openIvyStaffModal());
-
-// スタッフモーダル閉じる
-const ivyStaffModalClose = document.getElementById('ivytask-staff-modal-close');
-const ivyStaffCancel = document.getElementById('ivytask-staff-cancel');
-if (ivyStaffModalClose) ivyStaffModalClose.addEventListener('click', closeIvyStaffModal);
-if (ivyStaffCancel) ivyStaffCancel.addEventListener('click', closeIvyStaffModal);
-
-// スタッフフォーム送信
-const ivyStaffForm = document.getElementById('ivytask-staff-form');
-if (ivyStaffForm) {
-  ivyStaffForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    const name = document.getElementById('ivytask-staff-name').value.trim();
-    const role = document.getElementById('ivytask-staff-role').value.trim();
-    if (!name) return;
-    if (!currentUserId) return;
-    try {
-      await addIvyStaff(currentUserId, name, role);
-      closeIvyStaffModal();
-    } catch (err) {
-      console.error('スタッフ追加エラー:', err);
-      Swal.fire('エラー', 'スタッフの追加に失敗しました。', 'error');
-    }
-  });
-}
-
-// AI抽出ボタン
-const ivyAiExtractBtn = document.getElementById('ivytask-ai-extract-btn');
-if (ivyAiExtractBtn) ivyAiExtractBtn.addEventListener('click', openIvyExtractModal);
-
-// AI抽出モーダル閉じる
-const ivyExtractModalClose = document.getElementById('ivytask-extract-modal-close');
-const ivyExtractCancelBtn = document.getElementById('ivytask-extract-cancel-btn');
-if (ivyExtractModalClose) ivyExtractModalClose.addEventListener('click', closeIvyExtractModal);
-if (ivyExtractCancelBtn) ivyExtractCancelBtn.addEventListener('click', closeIvyExtractModal);
-
-// 手動追加ボタン
-const ivyAddTaskManualBtn = document.getElementById('ivytask-add-task-manual-btn');
-if (ivyAddTaskManualBtn) ivyAddTaskManualBtn.addEventListener('click', () => openIvyTaskModal(null));
-
-// AI抽出実行
-const ivyExtractRunBtn = document.getElementById('ivytask-extract-run-btn');
-if (ivyExtractRunBtn) {
-  ivyExtractRunBtn.addEventListener('click', async () => {
-    const text = document.getElementById('ivytask-extract-text').value.trim();
-    if (!text) {
-      Swal.fire('入力エラー', 'テキストを入力してください。', 'warning');
-      return;
-    }
-
-    ivyExtractRunBtn.disabled = true;
-    ivyExtractRunBtn.textContent = '🔄 抽出中...';
-
-    try {
-      const extractFn = httpsCallable(functions, 'extractTasksFromText');
-      const today = new Date().toISOString().split('T')[0];
-      const result = await extractFn({
-        text,
-        staffList: ivyStaffList.map(s => ({ id: s.id, name: s.name, role: s.role || '' })),
-        currentDate: today
-      });
-
-      ivyExtractedTasks = result.data.tasks || [];
-
-      if (ivyExtractedTasks.length === 0) {
-        Swal.fire('タスクが見つかりません', '入力されたテキストからタスクを抽出できませんでした。\nテキストを確認してもう一度お試しください。', 'info');
-        return;
-      }
-
-      // Step2へ
-      document.getElementById('ivytask-extract-step1').classList.add('hidden');
-      document.getElementById('ivytask-extract-step2').classList.remove('hidden');
-      renderPreviewTable();
-    } catch (err) {
-      console.error('AI抽出エラー:', err);
-      Swal.fire('エラー', `AIによるタスク抽出に失敗しました。\n${err.message || ''}`, 'error');
-    } finally {
-      ivyExtractRunBtn.disabled = false;
-      ivyExtractRunBtn.textContent = '🤖 AIで抽出する';
-    }
-  });
-}
-
-// プレビュー「戻る」ボタン
-const ivyPreviewBackBtn = document.getElementById('ivytask-preview-back-btn');
-if (ivyPreviewBackBtn) {
-  ivyPreviewBackBtn.addEventListener('click', () => {
-    document.getElementById('ivytask-extract-step1').classList.remove('hidden');
-    document.getElementById('ivytask-extract-step2').classList.add('hidden');
-  });
-}
-
-// プレビュー「行を追加」ボタン
-const ivyPreviewAddRowBtn = document.getElementById('ivytask-preview-add-row-btn');
-if (ivyPreviewAddRowBtn) {
-  ivyPreviewAddRowBtn.addEventListener('click', () => {
-    ivyExtractedTasks.push({ title: '', staffId: null, requestedBy: null, direction: 'REQUESTED_TO', dueDate: null, priority: 'MEDIUM', fileUrl: null, description: '', sourceSnippet: '' });
-    renderPreviewTable();
-  });
-}
-
-// プレビュー「確定して登録」ボタン
-const ivyPreviewConfirmBtn = document.getElementById('ivytask-preview-confirm-btn');
-if (ivyPreviewConfirmBtn) {
-  ivyPreviewConfirmBtn.addEventListener('click', async () => {
-    const tasks = collectPreviewData().filter(t => t.title);
-    if (tasks.length === 0) {
-      Swal.fire('入力エラー', 'タイトルが入力されたタスクがありません。', 'warning');
-      return;
-    }
-    if (!currentUserId) return;
-
-    ivyPreviewConfirmBtn.disabled = true;
-    ivyPreviewConfirmBtn.textContent = '登録中...';
-
-    try {
-      for (const t of tasks) {
-        await addIvyTask(currentUserId, { ...t, status: 'TODO' });
-      }
-      closeIvyExtractModal();
-      Swal.fire({ title: `${tasks.length}件のタスクを登録しました！`, icon: 'success', timer: 1800, showConfirmButton: false });
-    } catch (err) {
-      console.error('タスク登録エラー:', err);
-      Swal.fire('エラー', 'タスクの登録に失敗しました。', 'error');
-    } finally {
-      ivyPreviewConfirmBtn.disabled = false;
-      ivyPreviewConfirmBtn.textContent = '✅ 確定して登録';
-    }
-  });
-}
-
-// タスク編集モーダル 閉じる
-const ivyTaskModalClose = document.getElementById('ivytask-task-modal-close');
-const ivyTaskCancelBtn = document.getElementById('ivytask-task-cancel-btn');
-if (ivyTaskModalClose) ivyTaskModalClose.addEventListener('click', closeIvyTaskModal);
-if (ivyTaskCancelBtn) ivyTaskCancelBtn.addEventListener('click', closeIvyTaskModal);
-
-// タスク削除ボタン
-const ivyTaskDeleteBtn = document.getElementById('ivytask-task-delete-btn');
-if (ivyTaskDeleteBtn) {
-  ivyTaskDeleteBtn.addEventListener('click', async () => {
-    if (!editingIvyTaskId) return;
-    const result = await Swal.fire({
-      title: 'タスクを削除しますか？',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: '削除',
-      cancelButtonText: 'キャンセル',
-      confirmButtonColor: '#ef4444'
-    });
-    if (result.isConfirmed) {
-      await deleteIvyTask(editingIvyTaskId);
-      closeIvyTaskModal();
-    }
-  });
-}
-
-// タスクフォーム送信（追加・編集）
-const ivyTaskForm = document.getElementById('ivytask-task-form');
-if (ivyTaskForm) {
-  ivyTaskForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    if (!currentUserId) return;
-
-    const data = {
-      title: document.getElementById('ivytask-task-title').value.trim(),
-      staffId: document.getElementById('ivytask-task-staff').value || null,
-      requestedBy: document.getElementById('ivytask-task-requested-by')?.value.trim() || null,
-      direction: document.getElementById('ivytask-task-direction').value,
-      status: document.getElementById('ivytask-task-status').value,
-      priority: document.getElementById('ivytask-task-priority').value,
-      dueDate: document.getElementById('ivytask-task-due').value || null,
-      startDate: document.getElementById('ivytask-task-start').value || null,
-      fileUrl: document.getElementById('ivytask-task-file-url')?.value.trim() || null,
-      description: document.getElementById('ivytask-task-description').value.trim(),
-    };
-
-    if (!data.title) {
-      Swal.fire('入力エラー', 'タイトルを入力してください。', 'warning');
-      return;
-    }
-
-    try {
-      if (editingIvyTaskId) {
-        await updateIvyTask(editingIvyTaskId, data);
-      } else {
-        await addIvyTask(currentUserId, data);
-      }
-      closeIvyTaskModal();
-    } catch (err) {
-      console.error('タスク保存エラー:', err);
-      Swal.fire('エラー', 'タスクの保存に失敗しました。', 'error');
-    }
-  });
-}
-
-// モーダルの背景クリックで閉じる
-['ivytask-staff-modal-backdrop', 'ivytask-extract-modal-backdrop', 'ivytask-task-modal-backdrop'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener('click', e => {
-      if (e.target === el) {
-        el.classList.add('hidden');
-        if (id === 'ivytask-extract-modal-backdrop') ivyExtractedTasks = [];
-        if (id === 'ivytask-task-modal-backdrop') editingIvyTaskId = null;
-        if (id === 'ivytask-staff-modal-backdrop') editingIvyStaffId = null;
-      }
-    });
-  }
-});
-
-// IvyTask用のworkspaceSelection対応（onAuthStateChangedで復元）
-// ※ onAuthStateChangedのif-else chainに 'ivytask' を追加する必要があるため
-// workspaceSelection === 'ivytask' の場合は enterIvyTaskWorkspace を呼ぶ
-(function patchAuthStateHandler() {
-  // onAuthStateChangedはすでに登録済みなので、DOMContent後にセッション復元を補完
-  if (workspaceSelection === 'ivytask' && lastKnownAuthUser) {
-    enterIvyTaskWorkspace();
-  }
-})();

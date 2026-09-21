@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CoralDesk</title>
   <link rel="icon" href="/CoralDesk.png">
-  <link rel="stylesheet" href="style.css?v=calendar_v1">
+  <link rel="stylesheet" href="style.css?v=calendar_v3">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
   <link rel="stylesheet" href="memo-title.css">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
@@ -28,15 +28,11 @@
       <button id="startup-settings-button" class="icon-button" title="設定" style="position: absolute; top: 12px; right: 12px;">⚙️</button>
       <p class="startup-kicker">モードを選択</p>
       <h1 class="startup-title"><img src="/CoralDesk.png" alt="CoralDesk" style="height: 48px; width: 48px; vertical-align: sub; margin-right: 8px; border-radius: 8px;">CoralDesk をどちらで使いますか？</h1>
-      <p class="startup-subtitle">普段のタスク管理と、チーム人事向けのToDoを分けてスタートできます。</p>
+      <p class="startup-subtitle">モードを選択してください。</p>
       <div class="startup-actions">
         <button id="start-task-button" class="startup-option primary">
           <span class="option-label">Task</span>
           <span class="option-desc">これまでのタスク管理を開く</span>
-        </button>
-        <button id="start-todo-button" class="startup-option">
-          <span class="option-label">Todo</span>
-          <span class="option-desc">人事チーム用ToDo（新機能）</span>
         </button>
         <!-- Memo Button Added -->
         <button id="start-memo-button" class="startup-option">
@@ -69,7 +65,6 @@
           <span class="option-desc">会議を文字起こし・議事録作成</span>
         </button>
       </div>
-      <p id="todo-coming-soon" class="startup-note hidden">Todo（人事向け）は準備中です。近日中にお知らせします。</p>
     </div>
 
     <!-- Live Status Bar (Phase 8 Footer Widget) -->
@@ -194,185 +189,6 @@
 
   </main>
 
-  <div id="todo-container" class="hidden">
-    <div class="todo-hero">
-      <p class="todo-kicker">人事チーム向け</p>
-      <h1 class="todo-title">Team Todo</h1>
-      <p class="todo-subtitle">人事・総務のルーチンや依頼をまとめて管理する新しいワークスペースです。</p>
-      <div class="todo-actions">
-        <button id="todo-back-startup-button" type="button">スタートに戻る</button>
-
-        <button id="todo-settings-button" type="button" class="secondary">設定</button>
-      </div>
-    </div>
-    <section id="candidate-panel" class="todo-section hidden">
-      <h2>求職者の進行管理</h2>
-      <form id="candidate-form" class="candidate-form">
-        <div class="form-row">
-          <label for="candidate-name">氏名</label>
-          <input id="candidate-name" type="text" placeholder="例: 山田 太郎" required>
-        </div>
-        <div class="form-row">
-          <label for="candidate-start">入社予定日</label>
-          <input id="candidate-start" type="date">
-        </div>
-        <div class="form-row">
-          <label for="candidate-dept">配属予定部署</label>
-          <input id="candidate-dept" type="text" placeholder="例: プロダクト本部 開発部">
-        </div>
-        <div class="form-row">
-          <label for="candidate-grade">入社後グレード</label>
-          <select id="candidate-grade">
-            <option value="">選択してください</option>
-            <option value="E6">E6</option>
-            <option value="E5">E5</option>
-            <option value="E4">E4</option>
-            <option value="P6">P6</option>
-            <option value="P5">P5</option>
-            <option value="P4">P4</option>
-            <option value="G3">G3</option>
-            <option value="G2">G2</option>
-            <option value="G1">G1</option>
-            <option value="嘱託">嘱託</option>
-            <option value="パート">パート</option>
-            <option value="派遣">派遣</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label for="candidate-note">メモ</label>
-          <input id="candidate-note" type="text" placeholder="アカウント発行、PC準備 など">
-        </div>
-        <div class="form-row">
-          <label for="candidate-type">区分</label>
-          <select id="candidate-type">
-            <option value="">選択してください</option>
-            <option value="新卒">新卒</option>
-            <option value="キャリア">キャリア</option>
-            <option value="パート">パート</option>
-            <option value="派遣">派遣</option>
-          </select>
-        </div>
-        <div class="form-actions" style="display: flex; gap: 10px; align-items: center;">
-          <button type="submit">求職者を追加</button>
-          <button type="button" id="import-csv-button" class="" style="background-color: #28a745;">CSV読込</button>
-          <input type="file" id="import-csv-input" accept=".csv" class="hidden">
-        </div>
-      </form>
-      <div class="candidate-list-wrapper">
-        <h3 class="candidate-heading">進行中の求職者</h3>
-        <ul id="candidate-list" class="candidate-list empty-state">
-          <li class="candidate-empty">まだ登録がありません。</li>
-        </ul>
-      </div>
-    </section>
-    <div id="candidate-modal-backdrop" class="hidden">
-      <div id="candidate-modal">
-        <h2>求職者の詳細</h2>
-        <form id="candidate-detail-form" class="candidate-form">
-          <div class="form-row">
-            <label for="candidate-detail-name">氏名</label>
-            <input id="candidate-detail-name" type="text" required>
-          </div>
-          <div class="form-row">
-            <label for="candidate-detail-start">入社予定日</label>
-            <input id="candidate-detail-start" type="date">
-          </div>
-          <div class="form-row">
-            <label for="candidate-detail-dept">配属予定部署</label>
-            <input id="candidate-detail-dept" type="text">
-          </div>
-          <div class="form-row">
-            <label for="candidate-detail-grade">入社後グレード</label>
-            <select id="candidate-detail-grade">
-              <option value="">選択してください</option>
-              <option value="E6">E6</option>
-              <option value="E5">E5</option>
-              <option value="E4">E4</option>
-              <option value="P6">P6</option>
-              <option value="P5">P5</option>
-              <option value="P4">P4</option>
-              <option value="G3">G3</option>
-              <option value="G2">G2</option>
-              <option value="G1">G1</option>
-              <option value="嘱託">嘱託</option>
-              <option value="パート">パート</option>
-              <option value="派遣">派遣</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label for="candidate-detail-note">メモ</label>
-            <input id="candidate-detail-note" type="text">
-          </div>
-          <div class="form-row">
-            <label for="candidate-detail-type">区分</label>
-            <select id="candidate-detail-type">
-              <option value="">選択してください</option>
-              <option value="新卒">新卒</option>
-              <option value="キャリア">キャリア</option>
-              <option value="パート">パート</option>
-              <option value="派遣">派遣</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>入社タスク</label>
-            <ul id="candidate-detail-tasks" class="candidate-detail-tasks"></ul>
-          </div>
-          <div class="modal-actions">
-            <button type="button" id="migrate-candidate-button"
-              style="background-color: #ffd700; color: #333;">DBへ登録</button>
-            <button type="button" id="candidate-modal-close">閉じる</button>
-            <button type="submit">保存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    <div id="onboarding-modal-backdrop" class="hidden">
-      <div id="onboarding-modal" class="candidate-modal-small">
-        <h3>入社前説明の設定</h3>
-        <div class="form-row">
-          <label for="onboarding-datetime">日時</label>
-          <input id="onboarding-datetime" type="datetime-local">
-        </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="onboarding-items-checkbox">
-          <span>持参物連絡済み</span>
-        </label>
-        <div class="modal-actions">
-          <button type="button" id="onboarding-modal-cancel">キャンセル</button>
-          <button type="button" id="onboarding-modal-save">保存</button>
-        </div>
-      </div>
-    </div>
-    <div id="candidate-interview-modal-backdrop" class="hidden">
-      <div id="candidate-interview-modal" class="candidate-modal-small">
-        <h3>面接設定</h3>
-        <ul id="interview-modal-list" class="interview-modal-list"></ul>
-        <div class="modal-actions">
-          <button type="button" id="interview-modal-cancel">キャンセル</button>
-          <button type="button" id="interview-modal-save">保存</button>
-        </div>
-      </div>
-    </div>
-    <section class="todo-section">
-      <h2>まずはここから</h2>
-      <div class="todo-cards">
-        <button id="open-candidate-panel" class="todo-card action-card" type="button">
-          <h3>入社・退社タスク</h3>
-          <p>入社準備、アカウント発行、備品手配などを求職者ごとに管理します。</p>
-          <span class="card-cta">求職者リストを開く</span>
-        </button>
-        <div class="todo-card">
-          <h3>依頼トラッカー</h3>
-          <p>各チームからの依頼を集約し、担当/期限を明確にする機能を準備中。</p>
-        </div>
-        <div class="todo-card">
-          <h3>リマインダー</h3>
-          <p>面談や評価の期日を逃さないためのリマインダーを順次追加予定です。</p>
-        </div>
-      </div>
-      <p class="todo-note">※ これはプレビュー画面です。機能は順次追加されます。</p>
-    </section>
-  </div>
   <div id="memo-container" class="hidden">
     <div class="memo-layout">
       <aside class="memo-sidebar">
@@ -556,6 +372,8 @@
         <button id="database-export-button" class="secondary">CSVエクスポート</button>
         <button id="database-import-button" class="secondary">CSVインポート</button>
         <input type="file" id="database-import-input" accept=".csv" class="hidden">
+        <button id="database-bulk-photo-button" class="secondary">写真一括インポート</button>
+        <input type="file" id="database-bulk-photo-input" webkitdirectory directory multiple class="hidden">
         <button id="database-add-button">+ 職員を追加</button>
       </div>
     </div>
@@ -650,26 +468,35 @@
       </ul>
     </div>
 
-    <!-- PDF Preview Modal -->
+    <!-- PDF Preview Modal (全画面ビューア) -->
     <div id="pdf-preview-modal-backdrop" class="hidden">
-      <div id="pdf-preview-modal">
-        <div class="pdf-modal-header" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-          <button id="close-preview-button">閉じる</button>
+      <!-- 全画面閉じるボタン（右上） -->
+      <button id="close-preview-button" aria-label="全画面を終了">✕</button>
+
+      <!-- ページインジケーター（上部中央） -->
+      <div id="pdf-page-indicator" class="pdf-page-indicator" aria-live="polite"></div>
+
+      <!-- タップ操作ヒント（下部） -->
+      <div id="pdf-tap-hint" class="pdf-tap-hint">
+        <span>タップ: 次ページ</span>
+        <span class="pdf-tap-hint-sep">｜</span>
+        <span>ダブルタップ: 前ページ</span>
+      </div>
+
+      <!-- PDFキャンバスエリア -->
+      <div id="pdf-canvas-container"></div>
+
+      <!-- 画像プレビューラッパー（画像ファイル用） -->
+      <div id="image-preview-wrapper"
+        style="display: none; position: relative; max-width: 90vw; max-height: 80vh; margin: auto; cursor: pointer;"
+        title="クリックでコメントを表示/非表示">
+        <img id="image-preview-element"
+          style="display: block; width: 100%; height: 100%; max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 4px;"
+          alt="Preview" />
+        <div id="image-preview-caption" class="image-preview-caption hidden-caption">
+          <span id="image-preview-caption-text"></span>
         </div>
-        <div class="pdf-modal-content">
-          <div id="pdf-canvas-container"></div>
-          <div id="image-preview-wrapper"
-            style="display: none; position: relative; max-width: 90vw; max-height: 80vh; margin: auto; cursor: pointer;"
-            title="クリックでコメントを表示/非表示">
-            <img id="image-preview-element"
-              style="display: block; width: 100%; height: 100%; max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 4px;"
-              alt="Preview" />
-            <div id="image-preview-caption" class="image-preview-caption hidden-caption">
-              <span id="image-preview-caption-text"></span>
-            </div>
-            <div id="image-preview-tap-hint" class="hidden-caption">💬 タップでコメント表示</div>
-          </div>
-        </div>
+        <div id="image-preview-tap-hint" class="hidden-caption">💬 タップでコメント表示</div>
       </div>
     </div>
 
@@ -711,15 +538,29 @@
     <div id="employee-modal">
       <h2 id="employee-modal-title">職員を追加</h2>
       <form id="employee-form" autocomplete="off">
+        <!-- 写真アップロードエリア -->
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+          <div style="position: relative; width: 80px; height: 80px;">
+            <img id="emp-photo-preview" src="" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #ddd; background-color: #f5f5f5;" alt="写真プレビュー" />
+            <button id="emp-photo-remove-btn" type="button" class="hidden" style="position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">✕</button>
+          </div>
+          <input type="file" id="emp-input-photo" accept="image/*" class="hidden">
+          <button id="emp-photo-select-btn" type="button" class="secondary" style="margin-top: 8px; font-size: 0.82rem; padding: 4px 12px; border-radius: 4px; border: 1px solid #ccc; background: #fff; cursor: pointer;">写真を選択</button>
+        </div>
+
         <div class="form-row two-col">
           <div>
             <label for="emp-input-name">氏名 <span class="required">*</span></label>
             <input type="text" id="emp-input-name" placeholder="山田 太郎" required>
           </div>
           <div>
-            <label for="emp-input-id">社員番号 <span class="required">*</span></label>
-            <input type="text" id="emp-input-id" placeholder="1001" required>
+            <label for="emp-input-name-kana">氏名カナ</label>
+            <input type="text" id="emp-input-name-kana" placeholder="ヤマダ タロウ">
           </div>
+        </div>
+        <div class="form-row">
+          <label for="emp-input-id">社員番号 <span class="required">*</span></label>
+          <input type="text" id="emp-input-id" placeholder="1001" required>
         </div>
         <div class="form-row two-col">
           <div>
@@ -818,6 +659,24 @@
     </div>
   </div>
 
+  <!-- Image Cropper Modal -->
+  <div id="cropper-modal-backdrop" class="cropper-modal-backdrop hidden">
+    <div class="cropper-modal-content">
+      <div class="cropper-modal-header">写真を調整 (ドラッグで移動、拡大/縮小)</div>
+      <div class="cropper-image-container">
+        <img id="cropper-image" src="" alt="トリミング画像" style="max-width: 100%; display: block;" />
+      </div>
+      <div class="cropper-control-bar">
+        <button id="cropper-zoom-in-btn" type="button" class="secondary" style="padding: 5px 12px; font-size: 0.85rem; cursor: pointer;">＋ 拡大</button>
+        <button id="cropper-zoom-out-btn" type="button" class="secondary" style="padding: 5px 12px; font-size: 0.85rem; cursor: pointer;">－ 縮小</button>
+      </div>
+      <div class="cropper-btn-group">
+        <button id="cropper-cancel-btn" type="button" class="secondary">キャンセル</button>
+        <button id="cropper-save-btn" type="button" class="primary">決定</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Image Editor Modal -->
   <div id="image-editor-modal-backdrop" class="hidden">
     <div id="image-editor-modal">
@@ -837,27 +696,6 @@
     </div>
   </div>
 
-  <div id="todo-settings-modal-backdrop" class="hidden">
-    <div id="todo-settings-modal" class="settings-modal">
-      <h2>設定</h2>
-      <div class="settings-section">
-        <h3>更新情報</h3>
-        <ul id="todo-updates-list" class="updates-list"></ul>
-      </div>
-      <div class="settings-section">
-        <h3>FAQ</h3>
-
-        <p class="settings-help">Team Todoについてよくある質問です。</p>
-        <ul class="faq-list">
-          <li>「入社・退社タスク」で求職者ごとの進捗を管理できます。</li>
-          <li>データはブラウザ内に保存され、サーバーには送信されません（プライバシー重視）。</li>
-          <li>ブラウザの履歴削除などでデータが消える場合がありますのでご注意ください。</li>
-        </ul>
-        <a href="/faq-todo.html">FAQを見る</a>
-      </div>
-      <button id="close-todo-settings-modal-button" type="button">閉じる</button>
-    </div>
-  </div>
 
   <div id="archive-container" style="display: none;">
     <div class="archive-toolbar">
@@ -1347,6 +1185,21 @@
       </div>
 
       <div class="settings-section">
+        <h3>保管庫（Vault）設定</h3>
+        <div class="settings-item">
+          <span>自動ロック時間</span>
+          <select id="vault-autolock-select" style="width:120px;">
+            <option value="60">1分</option>
+            <option value="300">5分</option>
+            <option value="900">15分</option>
+            <option value="1800">30分</option>
+            <option value="3600">1時間</option>
+            <option value="0">ロックしない</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <button id="logout-button-modal" class="danger">ログアウト</button>
       </div>
 
@@ -1486,7 +1339,46 @@
     <div id="slideshow-caption"></div>
   </div>
 
-  <script type="module" src="./main.js?v=calendar_v1"></script>
+  <!-- ===== Gemiko Secret Chat Modal (Gemini) ===== -->
+  <div id="gemiko-secret-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+    <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); width: 90%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; height: 500px; font-family: sans-serif;">
+      <!-- ヘッダー -->
+      <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.15); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold; color: #fff; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+          <span>🤖</span> ジェミ子 (Gemini)
+        </span>
+        <button id="gemiko-close-btn" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; line-height: 1;">✕</button>
+      </div>
+      <!-- ログエリア -->
+      <div id="gemiko-chat-log" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2);">
+        <div style="color: rgba(255,255,255,0.5); text-align: center; font-size: 0.85rem; margin-top: auto; margin-bottom: 10px;">
+          マスター、ジェミ子へのメッセージを入力してね！
+        </div>
+      </div>
+      <!-- プレビューエリア -->
+      <div id="gemiko-file-preview-container" class="hidden" style="padding: 10px 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.15);">
+        <div id="gemiko-file-preview-content" style="position: relative; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); max-width: 80%;">
+          <!-- 動的に添付プレビューを表示 -->
+        </div>
+        <button id="gemiko-remove-file-btn" type="button" style="background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 0.9rem; margin-left: auto; font-weight: bold;">削除</button>
+      </div>
+
+      <!-- 入力エリア -->
+      <div style="padding: 15px 20px; border-top: 1px solid rgba(255,255,255,0.15); display: flex; gap: 10px; background: rgba(0,0,0,0.1); align-items: center;">
+        <input type="file" id="gemiko-file-input" style="display:none;" accept="image/*,application/pdf,text/*">
+        <button id="gemiko-attach-btn" type="button" style="background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 5px; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'" title="画像やファイルを添付">📎</button>
+        <input type="text" id="gemiko-user-input" placeholder="メッセージを入力..." style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 10px 15px; color: #fff; outline: none; font-size: 0.95rem;">
+        <button id="gemiko-send-btn" style="background: #4285f4; border: none; color: #fff; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: background 0.2s;" onmouseover="this.style.background='#357ae8'" onmouseout="this.style.background='#4285f4'">✈️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隠し起動トリガー -->
+  <button id="gemiko-trigger" class="hidden" style="position: fixed; bottom: 20px; right: 20px; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9999; box-shadow: 0 4px 15px rgba(0,0,0,0.15); transition: all 0.2s;" title="秘密の通信" onmouseover="this.style.transform='scale(1.1)'; this.style.background='rgba(255,255,255,0.35)';" onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(255,255,255,0.25)';">
+    🤫
+  </button>
+
+  <script type="module" src="./main.js?v=calendar_v3"></script>
 
 </body>
 
