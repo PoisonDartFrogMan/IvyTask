@@ -644,10 +644,8 @@ const INTERVIEW_STAGES = ['一次', '二次', '最終'];
 
 // ===== Startup View Helpers =====
 function showStartupScreen() {
-  workspaceSelection = showTodoMessage ? 'todo' : null; // Keep this logic for 'todo' message, but general reset
-    workspaceSelection = null;
-    localStorage.removeItem('ivy_workspace_selection');
-  }
+  workspaceSelection = null;
+  localStorage.removeItem('ivy_workspace_selection');
 
   // Reset workspace
   document.body.removeAttribute('data-workspace');
@@ -658,7 +656,6 @@ function showStartupScreen() {
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
-  if (ivyTaskContainer) ivyTaskContainer.classList.add('hidden');
 
   currentCalendarDate = new Date();
   fetchEventsFromAllAccounts();
@@ -679,8 +676,6 @@ async function enterTaskWorkspace() {
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
-}
-
 }
 
 async function enterMemoWorkspace() {
