@@ -18,6 +18,9 @@ import {
   getFunctions, httpsCallable
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import {
+  getVertexAI, getGenerativeModel
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-vertexai-preview.js";
+import {
   initializeRecurringTasks,
   setRecurringTaskUser,
   refreshTodayRecurringTasks,
@@ -225,6 +228,7 @@ const vaultModalCancel = document.getElementById('vault-modal-cancel');
 const vaultLockScreen = document.getElementById('vault-lock-screen'); // New
 const vaultMasterPasswordInput = document.getElementById('vault-master-password-input'); // New
 const vaultUnlockButton = document.getElementById('vault-unlock-button'); // New
+const vaultAutolockSelect = document.getElementById('vault-autolock-select'); // New
 
 // Chat Workspace Elements
 const startChatButton = document.getElementById('start-chat-button');
@@ -386,6 +390,13 @@ const archiveFilterContainer = document.getElementById('archive-filter-container
 const archiveSortSelect = document.getElementById('archive-sort-select');
 let currentPreviewPdfId = null;
 let archiveViewMode = 'list'; // 'list' | 'grid'
+// PDF 全画面ビューア状態
+let _pdfDoc = null;
+let _pdfCurrentPage = 1;
+let _pdfTotalPages = 0;
+let _pdfRendering = false;
+let _pdfClickTimer = null;
+
 
 
 // Candidate (Todo) State
@@ -396,6 +407,9 @@ const importCSVInput = document.getElementById('import-csv-input');
 let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
+let vaultAutolockSeconds = 900; // New: Default 15 minutes
+let lastVaultActivityTime = Date.now(); // New
+let vaultAutolockTimer = null; // New
 // DataBase State (Employee)
 let employees = [];
 let unsubscribeEmployees = () => { };
@@ -709,6 +723,7 @@ function showStartupScreen(showTodoMessage = false) {
   if (databaseContainer) databaseContainer.classList.add('hidden');
   if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
   if (chatContainer) chatContainer.classList.add('hidden');
+  if (ivyTaskContainer) ivyTaskContainer.classList.add('hidden');
   if (todoComingSoon) todoComingSoon.classList.toggle('hidden', !showTodoMessage);
 
   currentCalendarDate = new Date();
@@ -876,14 +891,30 @@ async function enterChatWorkspace() {
 onAuthStateChanged(auth, async (user) => {
   lastKnownAuthUser = user;
 
+  // マスター専用隠しチャット（ジェミ子）の有効化制御
+  if (user && user.email && user.email.toLowerCase() === 'foolfrogman@gmail.com') {
+    initGemikoChat();
+    const trigger = document.getElementById('gemiko-trigger');
+    if (trigger) trigger.classList.remove('hidden');
+  } else {
+    const secretModal = document.getElementById('gemiko-secret-modal');
+    if (secretModal) secretModal.classList.add('hidden');
+    const trigger = document.getElementById('gemiko-trigger');
+    if (trigger) trigger.classList.add('hidden');
+  }
+
   // マスターUID判定: ログイン確定直後に表示制御
   const startDbBtn = document.getElementById('start-database-button');
+  const startIvyTaskBtn = document.getElementById('start-ivytask-button');
   if (user && user.uid === MASTER_UID) {
     if (startDbBtn) startDbBtn.classList.remove('hidden');
-    if (startVoiceButton) startVoiceButton.classList.remove('hidden');
+    // Coral-Voice AI は使用頻度が低いため非表示（必要時はコメントを外す）
+    // if (startVoiceButton) startVoiceButton.classList.remove('hidden');
+    if (startIvyTaskBtn) startIvyTaskBtn.classList.remove('hidden');
   } else {
     if (startDbBtn) startDbBtn.classList.add('hidden');
     if (startVoiceButton) startVoiceButton.classList.add('hidden');
+    if (startIvyTaskBtn) startIvyTaskBtn.classList.add('hidden');
   }
 
   // user_profiles に保存 & 保留中の招待を処理
@@ -924,6 +955,8 @@ onAuthStateChanged(auth, async (user) => {
     enterChatWorkspace();
   } else if (workspaceSelection === 'calendar') {
     enterCalendarWorkspace();
+  } else if (workspaceSelection === 'ivytask') {
+    enterIvyTaskWorkspace();
   } else {
     showStartupScreen(workspaceSelection === 'todo');
   }
@@ -1058,10 +1091,26 @@ async function loadUserSettings(userId) {
     if (sleepToggle) sleepToggle.checked = sleepEnabled;
     if (sleepSecondsInput) sleepSecondsInput.value = sleepSeconds;
     scheduleSleepTimer();
+
+    // Vault Autolock Settings
+    vaultAutolockSeconds = typeof data.vaultAutolockSeconds === 'number' ? data.vaultAutolockSeconds : 900;
+    if (vaultAutolockSelect) vaultAutolockSelect.value = String(vaultAutolockSeconds);
+    startVaultAutolockTimer();
   } catch (error) {
     console.error("Error loading settings:", error);
     applyWallpaper('default');
     sleepEnabled = false; sleepSeconds = 60; scheduleSleepTimer();
+    vaultAutolockSeconds = 900; startVaultAutolockTimer();
+  }
+}
+
+async function saveVaultAutolockPreference(userId, seconds) {
+  if (!userId) return;
+  const settingsRef = doc(db, 'settings', userId);
+  try {
+    await setDoc(settingsRef, { vaultAutolockSeconds: seconds }, { merge: true });
+  } catch (error) {
+    console.error("Error saving vault autolock settings:", error);
   }
 }
 
@@ -1402,20 +1451,26 @@ function renderTask(id, data, isArchived = false) {
     due.textContent = `期日: ${data.dueDate.toDate().toLocaleDateString('ja-JP')}`;
     content.appendChild(due);
   }
+  let memoEl = null;
+  const hasMemo = data.memo && data.memo.trim().length > 0;
+  if (hasMemo) {
+    memoEl = document.createElement('div');
+    memoEl.className = 'task-memo-text hidden';
+    memoEl.textContent = data.memo;
+    content.appendChild(memoEl);
+  }
+
   li.appendChild(content);
-  // タスク本体をクリックしたら内容/メモのポップアップ（閲覧モード）
+  // タスク本体をクリックしたらメモがある場合は表示/非表示を切り替え
   // ただし、期日クリックはインライン編集に委ねる
   content.addEventListener('click', (e) => {
     if (e.target.classList?.contains('due-date') || e.target.closest?.('.due-date')) {
       return; // グローバルの期日編集ハンドラに任せる
     }
     e.stopPropagation();
-    currentlyEditingTaskId = id;
-    currentlyEditingTaskDueDate = data.dueDate ? data.dueDate.toDate() : null;
-    modalTaskTitle.textContent = data.title || data.text;
-    modalTaskMemo.textContent = data.memo || '(メモはありません)';
-    switchToViewMode();
-    taskDetailModalBackdrop.classList.remove('hidden');
+    if (memoEl) {
+      memoEl.classList.toggle('hidden');
+    }
   });
   // コンテンツクリックでは編集モーダルを開かない（編集はメニューから）
   const buttons = document.createElement('div');
@@ -1572,9 +1627,43 @@ if (memoTitleSaveButton) {
   });
 }
 
+async function deleteMemoImages(contentHtml) {
+  if (!contentHtml) return;
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = contentHtml;
+  const imgs = tempDiv.querySelectorAll('img');
+  for (const img of imgs) {
+    const src = img.src || '';
+    if (src.includes('firebasestorage.googleapis.com') && src.includes('memos%2F')) {
+      try {
+        const match = src.match(/\/o\/(.+?)\?/);
+        if (match && match[1]) {
+          const storagePath = decodeURIComponent(match[1]);
+          const fileRef = storageRef(storage, storagePath);
+          await deleteObject(fileRef).catch(err => {
+            if (err.code !== 'storage/object-not-found') {
+              console.error("Failed to delete memo image:", err);
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing memo image URL:", e);
+      }
+    }
+  }
+}
+
 if (deleteMemoButton) {
   deleteMemoButton.addEventListener('click', async () => {
     if (currentMemoId && confirm('このメモを削除しますか？')) {
+      const memo = memos.find(m => m.id === currentMemoId);
+      if (memo && memo.content) {
+        try {
+          await deleteMemoImages(memo.content);
+        } catch (imgErr) {
+          console.error("Error cleaning up memo images:", imgErr);
+        }
+      }
       await deleteDoc(doc(db, "memos", currentMemoId));
       currentMemoId = null;
       renderMemoEditorState();
@@ -2033,9 +2122,17 @@ function renderMemoList() {
 
       try {
         const batch = writeBatch(db);
-        selectedMemoIds.forEach(id => {
+        for (const id of selectedMemoIds) {
+          const memo = memos.find(m => m.id === id);
+          if (memo && memo.content) {
+            try {
+              await deleteMemoImages(memo.content);
+            } catch (imgErr) {
+              console.error("Error cleaning up bulk memo image:", imgErr);
+            }
+          }
           batch.delete(doc(db, "memos", id));
-        });
+        }
         await batch.commit();
         selectedMemoIds.clear();
       } catch (e) {
@@ -3143,24 +3240,31 @@ if (chatInputForm) {
   });
 }
 
+// PDF全画面ビューアを閉じる共通処理
+function closePdfViewer() {
+  if (pdfPreviewModalBackdrop) {
+    pdfPreviewModalBackdrop.classList.add('hidden');
+    // クリックハンドラを解除
+    pdfPreviewModalBackdrop.removeEventListener('click', _pdfClickHandler);
+  }
+  if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; }
+  // PDF状態リセット
+  _pdfDoc = null;
+  _pdfCurrentPage = 1;
+  _pdfTotalPages = 0;
+  if (_pdfClickTimer !== null) { clearTimeout(_pdfClickTimer); _pdfClickTimer = null; }
+  closeImagePreview();
+  currentPreviewPdfId = null;
+}
+
 if (closePreviewButton) {
-  closePreviewButton.addEventListener('click', () => {
-    if (pdfPreviewModalBackdrop) pdfPreviewModalBackdrop.classList.add('hidden');
-    if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
-    closeImagePreview();
-    currentPreviewPdfId = null;
+  closePreviewButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closePdfViewer();
   });
 }
-if (pdfPreviewModalBackdrop) {
-  pdfPreviewModalBackdrop.addEventListener('click', (e) => {
-    if (e.target === pdfPreviewModalBackdrop) {
-      pdfPreviewModalBackdrop.classList.add('hidden');
-      if (pdfCanvasContainer) { pdfCanvasContainer.innerHTML = ''; pdfCanvasContainer.style.display = ''; }
-      closeImagePreview();
-      currentPreviewPdfId = null;
-    }
-  });
-}
+// バックドロップへの直接クリックによる閉じる処理は _pdfClickHandler で管理
+// （ページナビゲーションとの競合防止のため削除）
 
 if (openCandidatePanelButton) {
   openCandidatePanelButton.addEventListener('click', () => {
@@ -4051,6 +4155,15 @@ if (sleepSecondsInput) {
   });
 }
 
+if (vaultAutolockSelect) {
+  vaultAutolockSelect.addEventListener('change', () => {
+    vaultAutolockSeconds = parseInt(vaultAutolockSelect.value, 10);
+    if (isNaN(vaultAutolockSeconds)) vaultAutolockSeconds = 900;
+    saveVaultAutolockPreference(currentUserId, vaultAutolockSeconds);
+    resetVaultActivity();
+  });
+}
+
 ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
   document.addEventListener(evt, () => {
     if (sleepEnabled) {
@@ -4205,6 +4318,33 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
+function resetVaultActivity() {
+  lastVaultActivityTime = Date.now();
+}
+
+function startVaultAutolockTimer() {
+  if (vaultAutolockTimer) clearInterval(vaultAutolockTimer);
+  
+  if (!window.vaultActivityListenersAdded) {
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(eventName => {
+      document.addEventListener(eventName, resetVaultActivity, { passive: true });
+    });
+    window.vaultActivityListenersAdded = true;
+  }
+  
+  resetVaultActivity();
+  
+  vaultAutolockTimer = setInterval(() => {
+    if (!currentUserId || isVaultLocked || vaultAutolockSeconds <= 0) return;
+    
+    const elapsed = (Date.now() - lastVaultActivityTime) / 1000;
+    if (elapsed >= vaultAutolockSeconds) {
+      console.log("Vault auto-locked due to inactivity");
+      lockVault();
+    }
+  }, 5000); // 5秒ごとにチェック
+}
+
 function lockVault() {
   isVaultLocked = true;
   vaultMasterPassword = null;
@@ -4220,6 +4360,10 @@ function unlockVault(password) {
   isVaultLocked = false;
   if (vaultLockScreen) vaultLockScreen.classList.add('hidden');
   if (vaultLockButton) vaultLockButton.classList.remove('hidden');
+  
+  // ロック解除時にアクティビティ監視タイマーを開始
+  startVaultAutolockTimer();
+  
   // onSnapshot が既にデータを保持している場合は renderVaultList を直接呼ぶ。
   // subscribeVaults 呼び出し後に unlockVault が呼ばれるケースでは
   // onSnapshot コールバックからの renderVaultList と競合しないよう、
@@ -5005,6 +5149,8 @@ function formatDateForInput(dateStr) {
 }
 
 // DataBase Logic
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e1e4e6'/><text x='50' y='65' font-size='45' text-anchor='middle' fill='%23adb5bd'>👤</text></svg>";
+
 // DOM Elements
 const startDatabaseButton = document.getElementById('start-database-button');
 const databaseBackStartupButton = document.getElementById('database-back-startup-button');
@@ -5015,7 +5161,26 @@ const databaseList = document.getElementById('database-list');
 const employeeModalBackdrop = document.getElementById('employee-modal-backdrop');
 const employeeModalTitle = document.getElementById('employee-modal-title');
 const employeeForm = document.getElementById('employee-form');
+const empInputPhoto = document.getElementById('emp-input-photo');
+const empPhotoPreview = document.getElementById('emp-photo-preview');
+const empPhotoSelectBtn = document.getElementById('emp-photo-select-btn');
+const empPhotoRemoveBtn = document.getElementById('emp-photo-remove-btn');
+
+// Photo upload states
+let selectedPhotoFile = null;
+let photoRemoved = false;
+
+// Cropper DOM Elements & State
+let cropperInstance = null;
+const cropperModalBackdrop = document.getElementById('cropper-modal-backdrop');
+const cropperImage = document.getElementById('cropper-image');
+const cropperZoomInBtn = document.getElementById('cropper-zoom-in-btn');
+const cropperZoomOutBtn = document.getElementById('cropper-zoom-out-btn');
+const cropperCancelBtn = document.getElementById('cropper-cancel-btn');
+const cropperSaveBtn = document.getElementById('cropper-save-btn');
+
 const empInputName = document.getElementById('emp-input-name');
+const empInputNameKana = document.getElementById('emp-input-name-kana');
 const empInputId = document.getElementById('emp-input-id');
 const empInputDept = document.getElementById('emp-input-dept'); // Division
 const empInputDepartment = document.getElementById('emp-input-department'); // Department
@@ -5043,6 +5208,8 @@ const databaseColumnsButton = document.getElementById('database-columns-button')
 const databaseImportButton = document.getElementById('database-import-button');
 const databaseExportButton = document.getElementById('database-export-button');
 const databaseImportInput = document.getElementById('database-import-input');
+const databaseBulkPhotoButton = document.getElementById('database-bulk-photo-button');
+const databaseBulkPhotoInput = document.getElementById('database-bulk-photo-input');
 const columnModalBackdrop = document.getElementById('column-modal-backdrop');
 const columnCheckboxes = document.getElementById('column-checkboxes');
 const columnModalCancel = document.getElementById('column-modal-cancel');
@@ -5063,8 +5230,10 @@ const filterInputsContainer = document.getElementById('filter-inputs-container')
 
 // Column Definitions
 const ALL_COLUMNS = [
+  { id: 'photo', label: '写真', default: true },
   { id: 'empId', label: '社員番号', default: true },
   { id: 'name', label: '氏名', default: true },
+  { id: 'nameKana', label: '氏名カナ', default: true },
   { id: 'dept', label: '部門', default: true },
   { id: 'department', label: '部署', default: true },
   { id: 'title', label: '役職', default: false },
@@ -5303,11 +5472,29 @@ function renderEmployeeList() {
         td.appendChild(span);
       } else if (c.id === 'empId') {
         td.textContent = formatEmpId(e.empId) || '-';
+      } else if (c.id === 'photo') {
+        const img = document.createElement('img');
+        img.src = e.photo || DEFAULT_AVATAR;
+        img.style.width = '80px';
+        img.style.height = '80px';
+        img.style.borderRadius = '50%';
+        img.style.objectFit = 'cover';
+        img.style.display = 'block';
+        td.appendChild(img);
+
+        // 写真が最初の列で、かつCSV更新された場合、写真の左上にオーバーレイするバッジを配置
+        if (colIndex === 0 && e.csvUpdated) {
+          const badge = document.createElement('span');
+          badge.className = 'csv-update-badge';
+          badge.title = 'CSVで更新されました';
+          td.appendChild(badge);
+          td.style.position = 'relative';
+        }
       } else {
         td.textContent = e[c.id] || '-';
       }
-      // Show update dot on the first column
-      if (colIndex === 0 && e.csvUpdated) {
+      // Show update dot on the first column (if it's not the photo column, which is handled above)
+      if (colIndex === 0 && e.csvUpdated && c.id !== 'photo') {
         const dot = document.createElement('span');
         dot.className = 'csv-update-dot';
         dot.title = 'CSVで更新されました';
@@ -5385,19 +5572,63 @@ function getStatusClass(status) {
   return '';
 }
 
+function openCropperModal(imageSrc) {
+  cropperImage.src = imageSrc;
+  cropperModalBackdrop.classList.remove('hidden');
+
+  if (cropperInstance) {
+    cropperInstance.destroy();
+  }
+
+  cropperInstance = new Cropper(cropperImage, {
+    aspectRatio: 1,
+    viewMode: 1,
+    dragMode: 'move',
+    autoCropArea: 0.8,
+    restore: false,
+    guides: false,
+    center: false,
+    highlight: false,
+    cropBoxMovable: false,
+    cropBoxResizable: false,
+    toggleDragModeOnDblclick: false,
+  });
+}
+
+function closeCropperModal() {
+  cropperModalBackdrop.classList.add('hidden');
+  if (cropperInstance) {
+    cropperInstance.destroy();
+    cropperInstance = null;
+  }
+  cropperImage.src = '';
+  if (empInputPhoto) empInputPhoto.value = '';
+}
+
 function openEmployeeModal(id = null) {
+  selectedPhotoFile = null;
+  photoRemoved = false;
+
   if (id) {
     // Edit
     editingEmployeeId = id;
     const e = employees.find(x => x.id === id);
     if (!e) return;
     employeeModalTitle.textContent = '職員を編集';
+
+    if (e.photo) {
+      empPhotoPreview.src = e.photo;
+      empPhotoRemoveBtn.classList.remove('hidden');
+    } else {
+      empPhotoPreview.src = DEFAULT_AVATAR;
+      empPhotoRemoveBtn.classList.add('hidden');
+    }
+
     empInputName.value = e.name || '';
+    empInputNameKana.value = e.nameKana || '';
     empInputId.value = formatEmpId(e.empId || '');
     empInputDept.value = e.dept || '';
     empInputDepartment.value = e.department || '';
-    empInputTitle.value = e.title || '';
-    empInputGrade.value = e.grade || '';
     empInputTitle.value = e.title || '';
     empInputGrade.value = e.grade || '';
     empInputBirthday.value = formatDateForInput(e.birthday || '');
@@ -5420,6 +5651,10 @@ function openEmployeeModal(id = null) {
     employeeForm.reset();
     empInputStatus.value = '在籍';
     empInputContractType.value = '無期';
+
+    empPhotoPreview.src = DEFAULT_AVATAR;
+    empPhotoRemoveBtn.classList.add('hidden');
+
     updateAge(); // Clear
     updateTenure(); // Clear
   }
@@ -5430,6 +5665,11 @@ function closeEmployeeModal() {
   employeeModalBackdrop.classList.add('hidden');
   editingEmployeeId = null;
   employeeForm.reset();
+
+  empPhotoPreview.src = '';
+  empInputPhoto.value = '';
+  selectedPhotoFile = null;
+  photoRemoved = false;
 }
 
 async function saveEmployee() {
@@ -5438,6 +5678,7 @@ async function saveEmployee() {
   const data = {
     userId: currentUserId,
     name: empInputName.value.trim(),
+    nameKana: empInputNameKana.value.trim(),
     empId: formatEmpId(empInputId.value.trim()),
     dept: empInputDept.value.trim(),
     department: empInputDepartment.value.trim(),
@@ -5462,12 +5703,40 @@ async function saveEmployee() {
   }
 
   try {
-    if (editingEmployeeId) {
-      await updateDoc(doc(db, 'employees', editingEmployeeId), data);
-    } else {
+    let employeeId = editingEmployeeId;
+    const isNew = !employeeId;
+
+    if (isNew) {
       data.createdAt = serverTimestamp();
-      await addDoc(collection(db, 'employees'), data);
+      const docRef = await addDoc(collection(db, 'employees'), data);
+      employeeId = docRef.id;
+    } else {
+      await updateDoc(doc(db, 'employees', employeeId), data);
     }
+
+    // Handle photo removal
+    if (photoRemoved) {
+      try {
+        const fileRef = storageRef(storage, `employees/${currentUserId}/${employeeId}/photo`);
+        await deleteObject(fileRef);
+      } catch (err) {
+        console.warn('Storage photo delete warning:', err);
+      }
+      await updateDoc(doc(db, 'employees', employeeId), {
+        photo: deleteField()
+      });
+    }
+
+    // Handle photo upload
+    if (selectedPhotoFile) {
+      const fileRef = storageRef(storage, `employees/${currentUserId}/${employeeId}/photo`);
+      await uploadBytes(fileRef, selectedPhotoFile);
+      const downloadURL = await getDownloadURL(fileRef);
+      await updateDoc(doc(db, 'employees', employeeId), {
+        photo: downloadURL
+      });
+    }
+
     closeEmployeeModal();
   } catch (err) {
     console.error('Error saving employee:', err);
@@ -5524,10 +5793,208 @@ if (databaseSearchInput) {
 
 // Auto Calculate Age & Tenure
 if (empInputBirthday) {
+  empInputBirthday.addEventListener('input', updateAge);
   empInputBirthday.addEventListener('change', updateAge);
 }
 if (empInputHireDate) {
+  empInputHireDate.addEventListener('input', updateTenure);
   empInputHireDate.addEventListener('change', updateTenure);
+}
+
+// Photo Upload Handlers
+if (empPhotoSelectBtn) {
+  empPhotoSelectBtn.addEventListener('click', () => {
+    empInputPhoto.click();
+  });
+}
+
+if (empInputPhoto) {
+  empInputPhoto.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        openCropperModal(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+}
+
+if (empPhotoRemoveBtn) {
+  empPhotoRemoveBtn.addEventListener('click', () => {
+    selectedPhotoFile = null;
+    photoRemoved = true;
+    empPhotoPreview.src = DEFAULT_AVATAR;
+    empPhotoRemoveBtn.classList.add('hidden');
+    empInputPhoto.value = '';
+  });
+}
+
+// Cropper Modal Listeners
+if (cropperZoomInBtn) {
+  cropperZoomInBtn.addEventListener('click', () => {
+    if (cropperInstance) cropperInstance.zoom(0.1);
+  });
+}
+
+if (cropperZoomOutBtn) {
+  cropperZoomOutBtn.addEventListener('click', () => {
+    if (cropperInstance) cropperInstance.zoom(-0.1);
+  });
+}
+
+if (cropperCancelBtn) {
+  cropperCancelBtn.addEventListener('click', () => {
+    closeCropperModal();
+  });
+}
+
+if (cropperSaveBtn) {
+  cropperSaveBtn.addEventListener('click', () => {
+    if (!cropperInstance) return;
+
+    const canvas = cropperInstance.getCroppedCanvas({
+      width: 300,
+      height: 300,
+    });
+
+    if (canvas) {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          selectedPhotoFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+          photoRemoved = false;
+          empPhotoPreview.src = canvas.toDataURL('image/jpeg');
+          empPhotoRemoveBtn.classList.remove('hidden');
+          closeCropperModal();
+        }
+      }, 'image/jpeg', 0.85);
+    }
+  });
+}
+
+// Bulk Photo Upload Handlers
+if (databaseBulkPhotoButton && databaseBulkPhotoInput) {
+  databaseBulkPhotoButton.addEventListener('click', () => {
+    databaseBulkPhotoInput.click();
+  });
+
+  databaseBulkPhotoInput.addEventListener('change', async (e) => {
+    if (!currentUserId) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const matchedPairs = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+
+      const fullPath = file.webkitRelativePath || file.name;
+      const parts = fullPath.split('/');
+      const fileNameWithExt = parts[parts.length - 1];
+      const dotIndex = fileNameWithExt.lastIndexOf('.');
+      const fileName = dotIndex !== -1 ? fileNameWithExt.substring(0, dotIndex) : fileNameWithExt;
+
+      const targetEmpId = fileName.trim();
+
+      const employee = employees.find(emp => {
+        if (!emp.empId) return false;
+        const empIdStr = String(emp.empId).trim();
+        if (empIdStr === targetEmpId) return true;
+
+        const numEmpId = parseInt(empIdStr, 10);
+        const numTarget = parseInt(targetEmpId, 10);
+        if (!isNaN(numEmpId) && !isNaN(numTarget) && numEmpId === numTarget) return true;
+
+        return false;
+      });
+
+      if (employee) {
+        matchedPairs.push({
+          employeeId: employee.id,
+          file: file,
+          empId: employee.empId,
+          name: employee.name
+        });
+      }
+    }
+
+    if (matchedPairs.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: '対象画像なし',
+        text: '選択したフォルダ内に、登録されている社員番号と一致する画像ファイルが見つかりませんでした。',
+        confirmButtonColor: 'var(--primary-color)'
+      });
+      databaseBulkPhotoInput.value = '';
+      return;
+    }
+
+    const confirmResult = await Swal.fire({
+      title: '写真の一括登録',
+      html: `社員番号と一致する画像が <b>${matchedPairs.length}</b> 件見つかりました。<br>一括アップロードを開始しますか？`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '開始',
+      cancelButtonText: 'キャンセル',
+      confirmButtonColor: 'var(--primary-color)',
+      cancelButtonColor: '#aaa'
+    });
+
+    if (!confirmResult.isConfirmed) {
+      databaseBulkPhotoInput.value = '';
+      return;
+    }
+
+    Swal.fire({
+      title: '写真をアップロード中...',
+      html: `進行状況: <b>0</b> / <b>${matchedPairs.length}</b> 件`,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < matchedPairs.length; i++) {
+      const pair = matchedPairs[i];
+      try {
+        const fileRef = storageRef(storage, `employees/${currentUserId}/${pair.employeeId}/photo`);
+        await uploadBytes(fileRef, pair.file);
+        const downloadURL = await getDownloadURL(fileRef);
+
+        await updateDoc(doc(db, 'employees', pair.employeeId), {
+          photo: downloadURL
+        });
+
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to upload photo for ${pair.name} (${pair.empId}):`, err);
+        failCount++;
+      }
+
+      const container = Swal.getHtmlContainer();
+      if (container) {
+        const b = container.querySelector('b');
+        if (b) {
+          b.textContent = `${i + 1}`;
+        }
+      }
+    }
+
+    Swal.fire({
+      icon: successCount > 0 ? 'success' : 'error',
+      title: '一括インポート完了',
+      text: `${successCount} 件の写真を登録・更新しました。` + (failCount > 0 ? ` (${failCount} 件失敗)` : ''),
+      confirmButtonColor: 'var(--primary-color)'
+    });
+
+    databaseBulkPhotoInput.value = '';
+  });
 }
 
 function updateAge() {
@@ -5542,8 +6009,13 @@ function updateTenure() {
 
 function calculateAge(dateString) {
   if (!dateString) return null;
+  const formatted = formatDateForInput(dateString);
+  if (!formatted) return null;
+
   const today = new Date();
-  const birthDate = new Date(dateString);
+  const birthDate = new Date(formatted);
+  if (isNaN(birthDate.getTime())) return null;
+
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
@@ -5554,7 +6026,11 @@ function calculateAge(dateString) {
 
 function calculateTenure(dateString) {
   if (!dateString) return null;
-  const start = new Date(dateString);
+  const formatted = formatDateForInput(dateString);
+  if (!formatted) return null;
+
+  const start = new Date(formatted);
+  if (isNaN(start.getTime())) return null;
   const now = new Date();
 
   if (start > now) return '入社前';
@@ -5565,7 +6041,6 @@ function calculateTenure(dateString) {
 
   if (days < 0) {
     months--;
-    // Get days in previous month
     const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
     days += prevMonth.getDate();
   }
@@ -6085,16 +6560,30 @@ async function calcStorageUsage() {
   if (label) label.textContent = '計算中...';
 
   try {
-    const folders = [
-      storageRef(storage, `pdfs/${currentUserId}`),
-      storageRef(storage, `memos/${currentUserId}`)
-    ];
-    let totalBytes = 0;
-    for (const folder of folders) {
-      const result = await listAll(folder);
-      const sizes = await Promise.all(result.items.map(item => getMetadata(item).then(m => m.size).catch(() => 0)));
-      totalBytes += sizes.reduce((a, b) => a + b, 0);
+    // Firestoreからユーザーの全PDFサイズを計算（リアルタイム＆即座に反映）
+    let pdfBytes = 0;
+    try {
+      const qAll = query(collection(db, "pdfs"), where("userId", "==", currentUserId));
+      const snap = await getDocs(qAll);
+      snap.forEach(d => {
+        pdfBytes += d.data().fileSize || 0;
+      });
+    } catch (fsErr) {
+      console.warn("Failed to get PDFs size from Firestore:", fsErr);
     }
+
+    // Storageからメモの画像サイズを取得
+    let memoBytes = 0;
+    try {
+      const memoFolder = storageRef(storage, `memos/${currentUserId}`);
+      const result = await listAll(memoFolder);
+      const sizes = await Promise.all(result.items.map(item => getMetadata(item).then(m => m.size).catch(() => 0)));
+      memoBytes = sizes.reduce((a, b) => a + b, 0);
+    } catch (storageErr) {
+      console.warn("Failed to get memos size from Storage:", storageErr);
+    }
+
+    const totalBytes = pdfBytes + memoBytes;
     updateStorageGauge(totalBytes);
   } catch (err) {
     console.error('ストレージ使用量取得エラー:', err);
@@ -6244,6 +6733,14 @@ function closeGenreDropdown() {
 function renderArchivePdf(pdf) {
   if (!archiveListContainer) return;
 
+  const formatFileSize = (bytes) => {
+    if (bytes === undefined || bytes === null || isNaN(bytes)) return '---';
+    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+    if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
+  };
+
   if (archiveViewMode === 'grid') {
     // ===== グリッドモード =====
     const card = document.createElement('li');
@@ -6266,6 +6763,11 @@ function renderArchivePdf(pdf) {
     cardTitle.className = 'archive-grid-title';
     cardTitle.textContent = pdf.fileName;
     card.appendChild(cardTitle);
+
+    const cardSize = document.createElement('div');
+    cardSize.className = 'archive-grid-size';
+    cardSize.textContent = formatFileSize(pdf.fileSize);
+    card.appendChild(cardSize);
 
     const cardActions = document.createElement('div');
     cardActions.className = 'archive-item-actions';
@@ -6335,6 +6837,14 @@ function renderArchivePdf(pdf) {
       }
     };
     metaDiv.appendChild(genreSpan);
+
+    if (pdf.fileSize !== undefined && pdf.fileSize !== null) {
+      const sizeSpan = document.createElement('span');
+      sizeSpan.className = 'archive-item-size';
+      sizeSpan.textContent = formatFileSize(pdf.fileSize);
+      sizeSpan.style.color = 'var(--text-secondary)';
+      metaDiv.appendChild(sizeSpan);
+    }
 
     if (pdf.createdAt) {
       const dateSpan = document.createElement('span');
@@ -6430,48 +6940,147 @@ function renderArchivePdf(pdf) {
   }
 }
 
-// ===== PDF.js によるプレビュー関数 =====
-async function openPdfPreview(url) {
-  if (!pdfCanvasContainer) return;
-  pdfCanvasContainer.innerHTML = '<p style="color:#ccc;text-align:center;padding:20px;">読み込み中...</p>';
+// ===== PDF.js による全画面ページビューア =====
+const _PDF_DBLCLICK_DELAY = 280; // ダブルクリック判定ミリ秒
+
+// ページインジケーター更新
+function _updatePdfPageIndicator() {
+  const indicator = document.getElementById('pdf-page-indicator');
+  if (indicator) {
+    indicator.textContent = `${_pdfCurrentPage} / ${_pdfTotalPages}`;
+  }
+}
+
+// 1ページをキャンバスに描画
+async function _renderPdfPage(pageNum) {
+  if (!_pdfDoc || _pdfRendering) return;
+  _pdfRendering = true;
+
+  const container = pdfCanvasContainer;
+  if (!container) { _pdfRendering = false; return; }
 
   try {
-    // PDF.js をESモジュールとして動的インポート
+    const page = await _pdfDoc.getPage(pageNum);
+    const dpr = window.devicePixelRatio || 1;
+
+    // 画面サイズに収まるスケールを計算
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const viewport1 = page.getViewport({ scale: 1 });
+    const scaleW = (vw / viewport1.width) * dpr;
+    const scaleH = (vh / viewport1.height) * dpr;
+    const scale = Math.min(scaleW, scaleH) * 0.97; // 少し余白
+    const scaledViewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'pdf-page-canvas';
+    canvas.width = scaledViewport.width;
+    canvas.height = scaledViewport.height;
+    // CSS表示サイズ
+    canvas.style.width = Math.round(scaledViewport.width / dpr) + 'px';
+    canvas.style.height = Math.round(scaledViewport.height / dpr) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+    // 既存のキャンバスを差し替え
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    _pdfCurrentPage = pageNum;
+    _updatePdfPageIndicator();
+  } catch (err) {
+    console.error('PDF render error:', err);
+    if (container) {
+      container.innerHTML =
+        '<p style="color:#f87171;text-align:center;padding:20px;">描画エラー: ' + err.message + '</p>';
+    }
+  } finally {
+    _pdfRendering = false;
+  }
+}
+
+// 次のページへ
+function _pdfNextPage() {
+  if (!_pdfDoc || _pdfCurrentPage >= _pdfTotalPages) return;
+  _renderPdfPage(_pdfCurrentPage + 1);
+}
+
+// 前のページへ
+function _pdfPrevPage() {
+  if (!_pdfDoc || _pdfCurrentPage <= 1) return;
+  _renderPdfPage(_pdfCurrentPage - 1);
+}
+
+// クリックイベントハンドラ（シングル/ダブル判定）
+function _pdfClickHandler(e) {
+  // 閉じるボタンをクリックした場合は無視
+  const closeBtn = document.getElementById('close-preview-button');
+  if (closeBtn && closeBtn.contains(e.target)) return;
+
+  // 画像プレビュー表示中はPDFナビゲーション不要
+  if (imagePreviewWrapper && imagePreviewWrapper.style.display !== 'none') return;
+
+  // PDFが未ロードの場合はスキップ
+  if (!_pdfDoc) return;
+
+  if (_pdfClickTimer !== null) {
+    // ダブルクリック → 前のページへ
+    clearTimeout(_pdfClickTimer);
+    _pdfClickTimer = null;
+    _pdfPrevPage();
+  } else {
+    // シングルクリック（遅延後確定）
+    _pdfClickTimer = setTimeout(() => {
+      _pdfClickTimer = null;
+      _pdfNextPage();
+    }, _PDF_DBLCLICK_DELAY);
+  }
+}
+
+// PDF全画面ビューアを開く
+async function openPdfPreview(url) {
+  if (!pdfCanvasContainer) return;
+  pdfCanvasContainer.innerHTML =
+    '<p style="color:rgba(255,255,255,0.7);text-align:center;padding:20px;font-size:1rem;">読み込み中...</p>';
+
+  // リセット
+  _pdfDoc = null;
+  _pdfCurrentPage = 1;
+  _pdfTotalPages = 0;
+
+  // タップヒントを表示してから5秒後にフェード
+  const tapHint = document.getElementById('pdf-tap-hint');
+  if (tapHint) {
+    tapHint.classList.remove('hint-fade');
+    clearTimeout(tapHint._fadeTimer);
+    tapHint._fadeTimer = setTimeout(() => {
+      tapHint.classList.add('hint-fade');
+    }, 5000);
+  }
+
+  // バックドロップにクリックハンドラを登録（重複防止）
+  if (pdfPreviewModalBackdrop) {
+    pdfPreviewModalBackdrop.removeEventListener('click', _pdfClickHandler);
+    pdfPreviewModalBackdrop.addEventListener('click', _pdfClickHandler);
+  }
+
+  try {
     const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
 
     const loadingTask = pdfjsLib.getDocument(url);
-    const pdfDoc = await loadingTask.promise;
-    pdfCanvasContainer.innerHTML = '';
+    _pdfDoc = await loadingTask.promise;
+    _pdfTotalPages = _pdfDoc.numPages;
 
-    const dpr = window.devicePixelRatio || 1;
-    // コンテナ幅に合わせたスケールを計算（最大幅基準）
-    const containerWidth = pdfCanvasContainer.clientWidth || window.innerWidth;
-
-    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1 });
-      // コンテナ幅いっぱいになるスケールを算出
-      const scale = (containerWidth / viewport.width) * dpr;
-      const scaledViewport = page.getViewport({ scale });
-
-      const canvas = document.createElement('canvas');
-      canvas.className = 'pdf-page-canvas';
-      canvas.width = scaledViewport.width;
-      canvas.height = scaledViewport.height;
-      // CSS上の表示サイズはコンテナ幅に合わせる
-      canvas.style.width = containerWidth + 'px';
-      canvas.style.height = (scaledViewport.height / dpr) + 'px';
-
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
-      pdfCanvasContainer.appendChild(canvas);
-    }
+    // 1ページ目を描画
+    await _renderPdfPage(1);
   } catch (err) {
     console.error('PDF.js render error:', err);
-    pdfCanvasContainer.innerHTML =
-      '<p style="color:#f87171;text-align:center;padding:20px;">PDFの読み込みに失敗しました。<br>' + err.message + '</p>';
+    if (pdfCanvasContainer) {
+      pdfCanvasContainer.innerHTML =
+        '<p style="color:#f87171;text-align:center;padding:20px;">PDFの読み込みに失敗しました。<br>' + err.message + '</p>';
+    }
   }
 }
 
@@ -6528,8 +7137,44 @@ function buildDeleteBtn(pdf) {
     e.preventDefault();
     if (confirm(`本当に「${pdf.fileName}」を削除しますか？`)) {
       try {
-        const fileRef = storageRef(storage, pdf.fileUrl);
-        await deleteObject(fileRef);
+        let storagePath = null;
+        try {
+          const match = pdf.fileUrl.match(/\/o\/(.+?)\?/);
+          if (match && match[1]) {
+            storagePath = decodeURIComponent(match[1]);
+          }
+        } catch (urlErr) {
+          console.warn("Failed to parse storage path from URL:", urlErr);
+        }
+
+        if (storagePath) {
+          let deleted = false;
+          const pathsToTry = [
+            storagePath,
+            storagePath.normalize('NFC'),
+            storagePath.normalize('NFD')
+          ];
+          const uniquePaths = Array.from(new Set(pathsToTry));
+          
+          for (const path of uniquePaths) {
+            try {
+              const fileRef = storageRef(storage, path);
+              await deleteObject(fileRef);
+              deleted = true;
+              break;
+            } catch (storageErr) {
+              if (storageErr.code === 'storage/object-not-found') {
+                console.warn(`Object not found at path: ${path}, trying next normalization.`);
+              } else {
+                throw storageErr; // 権限エラーやネットワークエラーの場合は例外を上げてロールバックする
+              }
+            }
+          }
+          if (!deleted) {
+            console.warn(`File not found in Storage at any normalized path. Proceeding with Firestore document deletion.`);
+          }
+        }
+
         await deleteDoc(doc(db, "pdfs", pdf.id));
       } catch (error) {
         console.error("Error deleting PDF: ", error);
@@ -8757,6 +9402,18 @@ async function addGoogleAccount() {
   try {
     const response = await requestTokenPromise({ prompt: 'consent' });
     
+    // カレンダー読み取り権限（scope）が許可されているかチェック
+    const grantedScopes = response.scope || '';
+    if (!grantedScopes.includes('https://www.googleapis.com/auth/calendar.readonly')) {
+      Swal.fire({
+        title: 'アクセス権限が不足しています',
+        html: 'Googleのサインイン画面で、<b>「Google カレンダーのすべての予定の表示（読み取り専用）」</b>のチェックボックスに必ずチェックを入れてから「続行」をクリックしてください。<br><br>チェックを入れないと、予定を取得することができません。',
+        icon: 'warning',
+        confirmButtonText: 'もう一度試す'
+      });
+      return;
+    }
+
     // ユーザー情報の取得
     const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${response.access_token}` }
@@ -8963,7 +9620,8 @@ function renderAgenda() {
   statusAgendaListEl.innerHTML = '';
 
   const now = new Date();
-  const limitTime = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48時間後
+  // 今日の日付の明日23:59:59.999までに制限する（今日と明日の予定のみ表示）
+  const limitTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
 
   const agendaEvents = allEvents.filter(event => {
     const start = event.start?.dateTime || event.start?.date;
@@ -8975,16 +9633,21 @@ function renderAgenda() {
   });
 
   if (agendaEvents.length === 0) {
-    statusAgendaListEl.innerHTML = '<div class="agenda-empty">直近48時間の予定はありません</div>';
+    statusAgendaListEl.innerHTML = '<div class="agenda-empty">今日・明日の予定はありません</div>';
     return;
   }
 
-  const todayDate = now.getDate();
+  const todayStr = now.toDateString();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const tomorrowStr = tomorrow.toDateString();
 
   agendaEvents.slice(0, 5).forEach(event => {
     const startStr = event.start.dateTime || event.start.date;
     const eventStart = new Date(startStr);
-    const isTomorrow = eventStart.getDate() !== todayDate;
+    const eventDateStr = eventStart.toDateString();
+    
+    const isToday = eventDateStr === todayStr;
+    const isTomorrow = eventDateStr === tomorrowStr;
     
     const startTime = event.start.dateTime 
       ? eventStart.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) 
@@ -8999,6 +9662,100 @@ function renderAgenda() {
       <div class="agenda-text">${event.summary || '(無題)'}</div>
     `;
     statusAgendaListEl.appendChild(item);
+  });
+}
+
+function showCalendarEventDetail(ev) {
+  const startStr = ev.start?.dateTime || ev.start?.date;
+  const endStr = ev.end?.dateTime || ev.end?.date;
+  if (!startStr) return;
+
+  const start = new Date(startStr);
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  
+  const formatDate = (d) => {
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${weekdays[d.getDay()]})`;
+  };
+
+  const formatTime = (d) => {
+    return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  let timeText = '';
+  if (ev.start.dateTime) {
+    const startPart = formatDate(start) + ' ' + formatTime(start);
+    let endPart = '';
+    if (endStr) {
+      const end = new Date(endStr);
+      if (start.toDateString() === end.toDateString()) {
+        endPart = formatTime(end);
+      } else {
+        endPart = formatDate(end) + ' ' + formatTime(end);
+      }
+    }
+    timeText = endPart ? `${startPart} 〜 ${endPart}` : startPart;
+  } else {
+    const startDateText = formatDate(start);
+    if (endStr) {
+      const end = new Date(endStr);
+      const actualEnd = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      if (start.toDateString() === actualEnd.toDateString()) {
+        timeText = `${startDateText} (終日)`;
+      } else {
+        timeText = `${startDateText} 〜 ${formatDate(actualEnd)} (終日)`;
+      }
+    } else {
+      timeText = `${startDateText} (終日)`;
+    }
+  }
+
+  let htmlContent = `
+    <div style="text-align: left; font-size: 0.95rem; line-height: 1.6; color: #333;">
+      <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #666; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: ${ev.accountColor || '#4285f4'};"></span>
+        <span>${ev.accountEmail || 'Googleカレンダー'}</span>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <div style="font-size: 0.8rem; color: #888; margin-bottom: 4px;">📅 日時</div>
+        <div style="font-weight: bold; padding-left: 4px;">${timeText}</div>
+      </div>
+  `;
+
+  if (ev.location) {
+    htmlContent += `
+      <div style="margin-bottom: 15px;">
+        <div style="font-size: 0.8rem; color: #888; margin-bottom: 4px;">📍 場所</div>
+        <div style="padding-left: 4px; word-break: break-all;">${ev.location}</div>
+      </div>
+    `;
+  }
+
+  if (ev.description) {
+    const safeDesc = ev.description
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+      .replace(/\n/g, '<br>');
+
+    htmlContent += `
+      <div style="margin-bottom: 15px;">
+        <div style="font-size: 0.8rem; color: #888; margin-bottom: 4px;">📝 説明</div>
+        <div style="background-color: #f7f9fa; padding: 10px 12px; border-radius: 6px; border: 1px solid #e1e4e6; max-height: 150px; overflow-y: auto; font-size: 0.9rem; white-space: pre-wrap; word-break: break-all; color: #444;">${safeDesc}</div>
+      </div>
+    `;
+  }
+
+  htmlContent += `</div>`;
+
+  Swal.fire({
+    title: ev.summary || '(無題)',
+    html: htmlContent,
+    confirmButtonText: '閉じる',
+    confirmButtonColor: '#4285f4',
+    width: '450px'
   });
 }
 
@@ -9133,6 +9890,10 @@ function renderCalendar() {
         textSpan.textContent = ev.summary || '(無題)';
       }
       evItem.appendChild(textSpan);
+      evItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showCalendarEventDetail(ev);
+      });
       eventList.appendChild(evItem);
     });
 
@@ -9209,3 +9970,1208 @@ renderGoogleAccounts();
 fetchEventsFromAllAccounts();
 fetchJapaneseHolidays();
 
+
+// ===== Phase 9: Secret Chat with Gemiko (Gemini) =====
+let gemikoChatSession = null;
+let isGemikoInitialized = false;
+
+// UI キャッシュ
+const gemikoSecretModal = document.getElementById('gemiko-secret-modal');
+const gemikoChatLog = document.getElementById('gemiko-chat-log');
+const gemikoUserInput = document.getElementById('gemiko-user-input');
+const gemikoSendBtn = document.getElementById('gemiko-send-btn');
+const gemikoCloseBtn = document.getElementById('gemiko-close-btn');
+const gemikoTrigger = document.getElementById('gemiko-trigger'); // 起動トリガー（あれば）
+
+// 添付ファイル関連UIキャッシュ
+const gemikoFileInput = document.getElementById('gemiko-file-input');
+const gemikoAttachBtn = document.getElementById('gemiko-attach-btn');
+const gemikoFilePreviewContainer = document.getElementById('gemiko-file-preview-container');
+const gemikoFilePreviewContent = document.getElementById('gemiko-file-preview-content');
+const gemikoRemoveFileBtn = document.getElementById('gemiko-remove-file-btn');
+
+let selectedGemikoFile = null;
+
+function initGemikoChat() {
+  if (isGemikoInitialized) return;
+
+  try {
+    // Vertex AI の初期化
+    const vertexAI = getVertexAI(app);
+    
+    // システム指示の設定
+    const systemInstruction = "日本の20代の明るくて元気な女性、フランクな口調、ユーザーをマスターと呼ぶ、AI感を出しすぎず親しみやすいパートナーとして振る舞う";
+    
+    // モデルの初期化（廃止された1.5の代わりに2.5-flashを使用）
+    const model = getGenerativeModel(vertexAI, {
+      model: "gemini-2.5-flash",
+      systemInstruction: systemInstruction
+    });
+
+    // 履歴保持型チャットセッションの開始
+    gemikoChatSession = model.startChat({ history: [] });
+    isGemikoInitialized = true;
+
+    // イベントリスナーの登録
+    if (gemikoSendBtn) {
+      gemikoSendBtn.addEventListener('click', handleGemikoSend);
+    }
+    if (gemikoUserInput) {
+      gemikoUserInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleGemikoSend();
+        }
+      });
+    }
+    if (gemikoCloseBtn) {
+      gemikoCloseBtn.addEventListener('click', () => {
+        if (gemikoSecretModal) gemikoSecretModal.classList.add('hidden');
+      });
+    }
+    if (gemikoTrigger) {
+      gemikoTrigger.addEventListener('click', () => {
+        if (gemikoSecretModal) {
+          gemikoSecretModal.classList.remove('hidden');
+          if (gemikoUserInput) gemikoUserInput.focus();
+        }
+      });
+    }
+
+    // ファイル添付制御
+    if (gemikoAttachBtn && gemikoFileInput) {
+      gemikoAttachBtn.addEventListener('click', () => gemikoFileInput.click());
+      gemikoFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        selectedGemikoFile = file;
+        if (gemikoFilePreviewContainer && gemikoFilePreviewContent) {
+          gemikoFilePreviewContent.innerHTML = '';
+          
+          if (file.type.startsWith('image/')) {
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.style.height = '40px';
+            img.style.borderRadius = '4px';
+            gemikoFilePreviewContent.appendChild(img);
+          } else {
+            const fileIcon = document.createElement('span');
+            fileIcon.textContent = '📄 ';
+            fileIcon.style.fontSize = '1.2rem';
+            gemikoFilePreviewContent.appendChild(fileIcon);
+          }
+          
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = file.name;
+          nameSpan.style.color = '#fff';
+          nameSpan.style.fontSize = '0.85rem';
+          gemikoFilePreviewContent.appendChild(nameSpan);
+
+          gemikoFilePreviewContainer.classList.remove('hidden');
+        }
+      });
+    }
+
+    // 添付ファイル削除
+    if (gemikoRemoveFileBtn) {
+      gemikoRemoveFileBtn.addEventListener('click', () => {
+        selectedGemikoFile = null;
+        if (gemikoFileInput) gemikoFileInput.value = '';
+        if (gemikoFilePreviewContainer) gemikoFilePreviewContainer.classList.add('hidden');
+      });
+    }
+    
+    console.log("Gemiko (Gemini 2.5 Flash) initialized successfully.");
+  } catch (err) {
+    console.error("Gemiko初期化エラー:", err);
+  }
+}
+
+// ログへのメッセージ描画 (マルチモーダル対応)
+function appendGemikoMessage(sender, text, fileObj = null) {
+  if (!gemikoChatLog) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `gemiko-msg ${sender === 'user' ? 'user-msg' : 'gemiko-msg-bubble'}`;
+  
+  // スタイルの設定
+  msgDiv.style.margin = '8px 0';
+  msgDiv.style.padding = '10px 14px';
+  msgDiv.style.borderRadius = '12px';
+  msgDiv.style.maxWidth = '80%';
+  msgDiv.style.wordBreak = 'break-all';
+  msgDiv.style.fontSize = '0.95rem';
+  msgDiv.style.lineHeight = '1.4';
+
+  if (sender === 'user') {
+    msgDiv.style.alignSelf = 'flex-end';
+    msgDiv.style.background = '#4285f4';
+    msgDiv.style.color = '#fff';
+    msgDiv.style.marginLeft = 'auto';
+  } else if (sender === 'system') {
+    msgDiv.style.background = 'rgba(255, 107, 107, 0.15)';
+    msgDiv.style.color = '#ff6b6b';
+    msgDiv.style.margin = '8px auto';
+  } else {
+    msgDiv.style.alignSelf = 'flex-start';
+    msgDiv.style.background = 'rgba(255, 255, 255, 0.1)';
+    msgDiv.style.color = '#fff';
+    msgDiv.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+  }
+
+  // HTMLエスケープ & 改行反映
+  let safeText = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\n/g, '<br>');
+
+  // 添付ファイルが渡されていればプレビューをインライン表示
+  if (fileObj) {
+    if (fileObj.type.startsWith('image/')) {
+      const imgUrl = URL.createObjectURL(fileObj);
+      safeText = `<img src="${imgUrl}" style="max-width: 100%; max-height: 150px; border-radius: 8px; margin-bottom: 8px; display: block;" />` + safeText;
+    } else {
+      safeText = `<div style="background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.1);">📄 ${fileObj.name}</div>` + safeText;
+    }
+  }
+    
+  msgDiv.innerHTML = safeText;
+  gemikoChatLog.appendChild(msgDiv);
+  
+  // スクロールを底まで移動
+  gemikoChatLog.scrollTop = gemikoChatLog.scrollHeight;
+}
+
+// ファイルをGemini用インラインデータに変換するヘルパー
+async function fileToGenerativePart(file) {
+  const base64EncodedDataPromise = new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  
+  return {
+    inlineData: {
+      data: await base64EncodedDataPromise,
+      mimeType: file.type,
+    },
+  };
+}
+
+// 送信非同期処理
+async function handleGemikoSend() {
+  if (!gemikoChatSession || !gemikoUserInput) return;
+
+  const text = gemikoUserInput.value.trim();
+  const file = selectedGemikoFile;
+  if (!text && !file) return;
+
+  // 入力をクリア
+  gemikoUserInput.value = '';
+  selectedGemikoFile = null;
+  if (gemikoFileInput) gemikoFileInput.value = '';
+  if (gemikoFilePreviewContainer) gemikoFilePreviewContainer.classList.add('hidden');
+
+  // メッセージを画面に描画
+  appendGemikoMessage('user', text, file);
+
+  // 考え中インジケーターの表示
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'gemiko-msg typing-placeholder';
+  typingDiv.style.margin = '8px 0';
+  typingDiv.style.padding = '10px 14px';
+  typingDiv.style.borderRadius = '12px';
+  typingDiv.style.alignSelf = 'flex-start';
+  typingDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+  typingDiv.style.color = 'rgba(255, 255, 255, 0.5)';
+  typingDiv.style.fontSize = '0.9rem';
+  typingDiv.textContent = 'ジェミ子が考え中...';
+  
+  if (gemikoChatLog) {
+    gemikoChatLog.appendChild(typingDiv);
+    gemikoChatLog.scrollTop = gemikoChatLog.scrollHeight;
+  }
+
+  try {
+    let responseResult;
+    if (file) {
+      const filePart = await fileToGenerativePart(file);
+      // テキストがない場合はデフォルトメッセージを送る
+      const prompt = text || "このファイルを解析してね。";
+      responseResult = await gemikoChatSession.sendMessage([prompt, filePart]);
+    } else {
+      responseResult = await gemikoChatSession.sendMessage(text);
+    }
+    
+    const replyText = responseResult.response.text();
+
+    if (typingDiv.parentNode) {
+      typingDiv.parentNode.removeChild(typingDiv);
+    }
+
+    appendGemikoMessage('gemiko', replyText);
+  } catch (err) {
+    console.error("Gemini送信エラー:", err);
+    if (typingDiv.parentNode) {
+      typingDiv.parentNode.removeChild(typingDiv);
+    }
+    const errorDetails = err.message || JSON.stringify(err);
+    appendGemikoMessage('system', `⚠️ 送信に失敗したよ。<br><span style="font-size: 0.85rem; opacity: 0.8; word-break: break-all;">エラー詳細: ${errorDetails}</span>`);
+  }
+}
+
+
+// ============================================================
+// ===== IvyTask ワークスペース =====
+// ============================================================
+
+// ----- 状態変数 -----
+let ivyStaffList = [];
+let ivyTaskList = [];
+let unsubscribeIvyStaff = () => {};
+let unsubscribeIvyTasks = () => {};
+let ivyViewMode = 'todo'; // 'todo' | 'calendar' | 'gantt'
+let ivySelectedStaffId = 'all'; // 'all' or staffId
+let ivyCalendarDate = new Date();
+let editingIvyTaskId = null;
+let editingIvyStaffId = null;
+let ivyExtractedTasks = []; // AIで抽出したタスクの一時保存
+
+// ----- DOM要素 -----
+const ivyTaskContainer = document.getElementById('ivytask-container');
+const startIvyTaskButton = document.getElementById('start-ivytask-button');
+const ivyBackStartupButton = document.getElementById('ivytask-back-startup-button');
+
+// ----- Firestore CRUD -----
+
+function subscribeIvyStaff(userId) {
+  if (unsubscribeIvyStaff) unsubscribeIvyStaff();
+  const q = query(collection(db, 'staff'), where('userId', '==', userId));
+  unsubscribeIvyStaff = onSnapshot(q, snap => {
+    ivyStaffList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    ivyStaffList.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now();
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now();
+      return aTime - bTime;
+    });
+    renderIvyStaffSidebar();
+    renderCurrentIvyView();
+  }, err => console.error('staff subscribe error:', err));
+}
+
+function subscribeIvyTasks(userId) {
+  if (unsubscribeIvyTasks) unsubscribeIvyTasks();
+  const q = query(collection(db, 'staff_tasks'), where('userId', '==', userId));
+  unsubscribeIvyTasks = onSnapshot(q, snap => {
+    ivyTaskList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    ivyTaskList.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now();
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now();
+      return bTime - aTime;
+    });
+    renderCurrentIvyView();
+  }, err => console.error('staff_tasks subscribe error:', err));
+}
+
+async function addIvyStaff(userId, name, role) {
+  return addDoc(collection(db, 'staff'), {
+    userId, name, role: role || '',
+    createdAt: serverTimestamp()
+  });
+}
+
+async function deleteIvyStaff(staffId) {
+  await deleteDoc(doc(db, 'staff', staffId));
+}
+
+async function addIvyTask(userId, taskData) {
+  return addDoc(collection(db, 'staff_tasks'), {
+    userId,
+    title: taskData.title || '',
+    staffId: taskData.staffId || null,
+    requestedBy: taskData.requestedBy || null,
+    direction: taskData.direction || 'REQUESTED_TO',
+    status: taskData.status || 'TODO',
+    priority: taskData.priority || 'MEDIUM',
+    startDate: taskData.startDate || null,
+    dueDate: taskData.dueDate || null,
+    fileUrl: taskData.fileUrl || null,
+    description: taskData.description || '',
+    sourceSnippet: taskData.sourceSnippet || '',
+    createdAt: serverTimestamp()
+  });
+}
+
+async function updateIvyTask(taskId, updates) {
+  const ref = doc(db, 'staff_tasks', taskId);
+  await updateDoc(ref, updates);
+}
+
+async function deleteIvyTask(taskId) {
+  await deleteDoc(doc(db, 'staff_tasks', taskId));
+}
+
+// ----- ワークスペース切り替え -----
+
+async function enterIvyTaskWorkspace() {
+  workspaceSelection = 'ivytask';
+  localStorage.setItem('ivy_workspace_selection', 'ivytask');
+  document.body.dataset.workspace = 'ivytask';
+
+  if (startupScreen) startupScreen.classList.add('hidden');
+  if (todoComingSoon) todoComingSoon.classList.add('hidden');
+  if (mainContainer) mainContainer.style.display = 'none';
+  if (archiveContainer) archiveContainer.style.display = 'none';
+  if (todoContainer) todoContainer.classList.add('hidden');
+  if (memoContainer) memoContainer.classList.add('hidden');
+  if (vaultContainer) vaultContainer.classList.add('hidden');
+  if (databaseContainer) databaseContainer.classList.add('hidden');
+  if (archiveWorkspace) archiveWorkspace.classList.add('hidden');
+  if (chatContainer) chatContainer.style.display = 'none';
+  if (ivyTaskContainer) ivyTaskContainer.classList.remove('hidden');
+
+  if (lastKnownAuthUser) {
+    if (!currentUserId) currentUserId = lastKnownAuthUser.uid;
+    await loadUserSettings(currentUserId);
+    subscribeIvyStaff(currentUserId);
+    subscribeIvyTasks(currentUserId);
+    switchIvyView('todo');
+  } else {
+    handleSignedOut(true);
+  }
+}
+
+function leaveIvyTaskWorkspace() {
+  if (ivyTaskContainer) ivyTaskContainer.classList.add('hidden');
+  if (unsubscribeIvyStaff) unsubscribeIvyStaff();
+  if (unsubscribeIvyTasks) unsubscribeIvyTasks();
+}
+
+// ----- ビュー切り替え -----
+
+function switchIvyView(mode) {
+  ivyViewMode = mode;
+  document.querySelectorAll('.ivytask-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === mode);
+  });
+  document.getElementById('ivytask-todo-view').classList.toggle('hidden', mode !== 'todo');
+  document.getElementById('ivytask-calendar-view').classList.toggle('hidden', mode !== 'calendar');
+  document.getElementById('ivytask-gantt-view').classList.toggle('hidden', mode !== 'gantt');
+  renderCurrentIvyView();
+}
+
+function renderCurrentIvyView() {
+  if (ivyViewMode === 'todo') renderIvyTodoView();
+  else if (ivyViewMode === 'calendar') renderIvyCalendarView();
+  else if (ivyViewMode === 'gantt') renderIvyGanttView();
+}
+
+function updateStaffDatalist() {
+  const datalist = document.getElementById('ivytask-staff-datalist');
+  if (!datalist) return;
+  datalist.innerHTML = '';
+  ivyStaffList.forEach(s => {
+    if (s.name) {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      datalist.appendChild(opt);
+    }
+  });
+}
+
+// ----- スタッフサイドバー -----
+
+function renderIvyStaffSidebar() {
+  updateStaffDatalist();
+  const list = document.getElementById('ivytask-staff-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  // 「全員」
+  const allLi = document.createElement('li');
+  allLi.className = 'ivytask-staff-item' + (ivySelectedStaffId === 'all' ? ' active' : '');
+  allLi.innerHTML = `<span class="ivytask-staff-avatar">全</span><span class="ivytask-staff-name">すべて</span>`;
+  allLi.addEventListener('click', () => {
+    ivySelectedStaffId = 'all';
+    renderIvyStaffSidebar();
+    renderCurrentIvyView();
+  });
+  list.appendChild(allLi);
+
+  ivyStaffList.forEach(s => {
+    const li = document.createElement('li');
+    li.className = 'ivytask-staff-item' + (ivySelectedStaffId === s.id ? ' active' : '');
+    const initial = (s.name || '?').charAt(0);
+    li.innerHTML = `
+      <span class="ivytask-staff-avatar">${initial}</span>
+      <span class="ivytask-staff-info">
+        <span class="ivytask-staff-name">${escapeHtml(s.name)}</span>
+        ${s.role ? `<span class="ivytask-staff-role">${escapeHtml(s.role)}</span>` : ''}
+      </span>
+      <button class="ivytask-staff-delete" title="削除">✕</button>
+    `;
+    li.querySelector('.ivytask-staff-delete').addEventListener('click', async e => {
+      e.stopPropagation();
+      const confirmed = await Swal.fire({
+        title: `「${s.name}」を削除しますか？`,
+        text: '関連タスクのスタッフIDはnullになります。',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '削除',
+        cancelButtonText: 'キャンセル',
+        confirmButtonColor: '#ef4444'
+      });
+      if (confirmed.isConfirmed) {
+        await deleteIvyStaff(s.id);
+        if (ivySelectedStaffId === s.id) ivySelectedStaffId = 'all';
+      }
+    });
+    li.addEventListener('click', e => {
+      if (e.target.classList.contains('ivytask-staff-delete')) return;
+      ivySelectedStaffId = s.id;
+      renderIvyStaffSidebar();
+      renderCurrentIvyView();
+    });
+    list.appendChild(li);
+  });
+}
+
+// ----- ToDoビュー -----
+
+function getIvyFilteredTasks() {
+  const filterDir = document.getElementById('ivytask-filter-direction')?.value || 'all';
+  const filterStatus = document.getElementById('ivytask-filter-status')?.value || 'all';
+  const filterPriority = document.getElementById('ivytask-filter-priority')?.value || 'all';
+  const showDone = document.getElementById('ivytask-filter-show-done')?.checked || false;
+
+  return ivyTaskList.filter(t => {
+    if (ivySelectedStaffId !== 'all' && t.staffId !== ivySelectedStaffId) return false;
+    if (filterDir !== 'all' && t.direction !== filterDir) return false;
+    if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+    if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+    // デフォルトでは完了(DONE)を非表示にし、「完了済みを表示」がON、またはステータスで「DONE」が明示選択されている時のみ表示
+    if (!showDone && filterStatus !== 'DONE' && t.status === 'DONE') return false;
+    return true;
+  });
+}
+
+function renderIvyTodoView() {
+  const container = document.getElementById('ivytask-todo-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const tasks = getIvyFilteredTasks();
+  if (tasks.length === 0) {
+    container.innerHTML = `<div class="ivytask-empty-state"><p>タスクがありません</p><p style="font-size:0.85rem;">「AIでタスク抽出」または「＋ タスクを手動追加」から追加してください。</p></div>`;
+    return;
+  }
+
+  // スタッフ別グループ化
+  const staffMap = {};
+  tasks.forEach(t => {
+    const sid = t.staffId || '__none__';
+    if (!staffMap[sid]) staffMap[sid] = [];
+    staffMap[sid].push(t);
+  });
+
+  Object.entries(staffMap).forEach(([staffId, staffTasks]) => {
+    const staff = ivyStaffList.find(s => s.id === staffId);
+    const staffName = staff ? staff.name : '（担当未設定）';
+
+    const group = document.createElement('div');
+    group.className = 'ivytask-staff-group';
+    group.innerHTML = `<div class="ivytask-group-header">
+      <span class="ivytask-staff-avatar" style="width:20px;height:20px;font-size:0.7rem;">${staffName.charAt(0)}</span>
+      ${escapeHtml(staffName)} (${staffTasks.length})
+    </div>`;
+
+    staffTasks.forEach(t => {
+      const card = createIvyTaskCard(t);
+      group.appendChild(card);
+    });
+    container.appendChild(group);
+  });
+}
+
+function createIvyTaskCard(task) {
+  const today = new Date().toISOString().split('T')[0];
+  const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'DONE';
+
+  const staff = ivyStaffList.find(s => s.id === task.staffId);
+  const staffName = staff ? staff.name : '';
+  const reqName = task.requestedBy || '';
+
+  let dirLabel = '';
+  if (task.direction === 'REQUESTED_BY') {
+    if (reqName) {
+      dirLabel = `📩 ${reqName}から依頼`;
+    } else if (staffName) {
+      dirLabel = `📩 ${staffName}から依頼`;
+    } else {
+      dirLabel = `📩 依頼された`;
+    }
+  } else {
+    if (staffName) {
+      dirLabel = `📤 ${staffName}へ依頼`;
+    } else {
+      dirLabel = `📤 依頼した`;
+    }
+  }
+  const dirClass = task.direction === 'REQUESTED_TO' ? 'to' : 'by';
+  const statusLabel = { TODO: 'TODO', IN_PROGRESS: '進行中', DONE: '完了' }[task.status] || task.status;
+
+  let fileBadgeHtml = '';
+  if (task.fileUrl) {
+    let fileLabel = '関連ファイル';
+    const lowerUrl = task.fileUrl.toLowerCase();
+    if (lowerUrl.includes('drive.google.com') || lowerUrl.includes('docs.google.com')) {
+      fileLabel = 'Google Drive';
+    } else if (lowerUrl.includes('onedrive') || lowerUrl.includes('sharepoint') || lowerUrl.includes('1drv.ms')) {
+      fileLabel = 'OneDrive';
+    } else if (lowerUrl.includes('dropbox.com')) {
+      fileLabel = 'Dropbox';
+    } else if (lowerUrl.includes('box.com')) {
+      fileLabel = 'Box';
+    }
+    fileBadgeHtml = `<a href="${escapeHtml(task.fileUrl)}" target="_blank" rel="noopener noreferrer" class="ivytask-file-link-badge" title="${escapeHtml(task.fileUrl)}" onclick="event.stopPropagation();">🔗 ${fileLabel}</a>`;
+  }
+
+  const card = document.createElement('div');
+  card.className = `ivytask-task-card priority-${task.priority} status-${task.status}`;
+  card.innerHTML = `
+    <input type="checkbox" class="ivytask-task-check" ${task.status === 'DONE' ? 'checked' : ''} title="完了にする">
+    <div class="ivytask-task-body">
+      <div class="ivytask-task-title">${escapeHtml(task.title)}</div>
+      <div class="ivytask-task-meta">
+        <span class="ivytask-direction-badge ${dirClass}">${escapeHtml(dirLabel)}</span>
+        <span class="ivytask-status-badge ${task.status}">${statusLabel}</span>
+        ${task.dueDate ? `<span class="ivytask-task-due${isOverdue ? ' overdue' : ''}">📅 ${task.dueDate}${isOverdue ? ' ⚠️' : ''}</span>` : ''}
+        ${fileBadgeHtml}
+      </div>
+      ${task.description ? `<div class="ivytask-task-desc">${escapeHtml(task.description)}</div>` : ''}
+    </div>
+  `;
+
+  // チェックボックス → DONE/TODOトグル
+  card.querySelector('.ivytask-task-check').addEventListener('change', async e => {
+    e.stopPropagation();
+    const newStatus = e.target.checked ? 'DONE' : 'TODO';
+    await updateIvyTask(task.id, { status: newStatus });
+  });
+
+  // カードクリック → 編集モーダル
+  card.addEventListener('click', e => {
+    if (e.target.classList.contains('ivytask-task-check')) return;
+    openIvyTaskModal(task);
+  });
+
+  return card;
+}
+
+// ----- カレンダービュー -----
+
+function renderIvyCalendarView() {
+  const grid = document.getElementById('ivytask-calendar-grid');
+  const label = document.getElementById('ivytask-cal-month-label');
+  if (!grid || !label) return;
+
+  const year = ivyCalendarDate.getFullYear();
+  const month = ivyCalendarDate.getMonth();
+  label.textContent = `${year}年${month + 1}月`;
+
+  const tasks = getIvyFilteredTasks();
+
+  // タスクを期日でマップ化
+  const tasksByDate = {};
+  tasks.forEach(t => {
+    if (t.dueDate) {
+      if (!tasksByDate[t.dueDate]) tasksByDate[t.dueDate] = [];
+      tasksByDate[t.dueDate].push(t);
+    }
+  });
+
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date().toISOString().split('T')[0];
+
+  grid.innerHTML = '';
+
+  // 曜日ヘッダー
+  ['日', '月', '火', '水', '木', '金', '土'].forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'ivytask-cal-day-header';
+    h.textContent = d;
+    grid.appendChild(h);
+  });
+
+  // 前月の空白
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'ivytask-cal-day other-month';
+    grid.appendChild(empty);
+  }
+
+  // 日付セル
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const cell = document.createElement('div');
+    cell.className = 'ivytask-cal-day' + (dateStr === today ? ' today' : '');
+
+    const dateEl = document.createElement('div');
+    dateEl.className = 'ivytask-cal-date';
+    dateEl.textContent = d;
+    cell.appendChild(dateEl);
+
+    const dayTasks = tasksByDate[dateStr] || [];
+    const MAX_DOTS = 3;
+    dayTasks.slice(0, MAX_DOTS).forEach(t => {
+      const dot = document.createElement('span');
+      dot.className = `ivytask-cal-task-dot priority-${t.priority}`;
+      dot.textContent = t.title;
+      dot.title = t.title;
+      dot.addEventListener('click', () => openIvyTaskModal(t));
+      cell.appendChild(dot);
+    });
+    if (dayTasks.length > MAX_DOTS) {
+      const more = document.createElement('span');
+      more.className = 'ivytask-cal-more';
+      more.textContent = `+${dayTasks.length - MAX_DOTS} 件`;
+      cell.appendChild(more);
+    }
+    grid.appendChild(cell);
+  }
+}
+
+// ----- ガントチャートビュー -----
+
+function renderIvyGanttView() {
+  const container = document.getElementById('ivytask-gantt-container');
+  if (!container) return;
+
+  const tasks = getIvyFilteredTasks().filter(t => t.dueDate);
+  if (tasks.length === 0) {
+    container.innerHTML = '<div class="ivytask-gantt-empty">期日が設定されたタスクがありません。</div>';
+    return;
+  }
+
+  // 日付範囲を決定
+  const todayStr = new Date().toISOString().split('T')[0];
+  let minDate = todayStr;
+  let maxDate = todayStr;
+  tasks.forEach(t => {
+    const start = t.startDate || t.createdAt?.toDate?.().toISOString().split('T')[0] || todayStr;
+    if (start < minDate) minDate = start;
+    if (t.dueDate > maxDate) maxDate = t.dueDate;
+  });
+
+  // 7日程度の余裕を追加
+  const minD = new Date(minDate);
+  minD.setDate(minD.getDate() - 1);
+  const maxD = new Date(maxDate);
+  maxD.setDate(maxD.getDate() + 3);
+
+  const days = [];
+  for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  const table = document.createElement('table');
+  table.className = 'ivytask-gantt-table';
+
+  // ヘッダー行
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  const taskTh = document.createElement('th');
+  taskTh.className = 'task-col';
+  taskTh.textContent = 'タスク名';
+  headerRow.appendChild(taskTh);
+  days.forEach(dateStr => {
+    const th = document.createElement('th');
+    const d = new Date(dateStr + 'T00:00:00');
+    th.textContent = `${d.getMonth() + 1}/${d.getDate()}`;
+    if (dateStr === todayStr) th.style.background = 'rgba(74,124,89,0.12)';
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // データ行
+  const tbody = document.createElement('tbody');
+  tasks.forEach(t => {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.className = 'task-name-cell';
+    nameTd.textContent = t.title;
+    nameTd.title = t.title;
+    nameTd.addEventListener('click', () => openIvyTaskModal(t));
+    tr.appendChild(nameTd);
+
+    const startStr = t.startDate || t.createdAt?.toDate?.().toISOString().split('T')[0] || todayStr;
+
+    days.forEach(dateStr => {
+      const td = document.createElement('td');
+      if (dateStr === todayStr) td.style.background = 'rgba(74,124,89,0.05)';
+      if (dateStr >= startStr && dateStr <= t.dueDate) {
+        const bar = document.createElement('div');
+        const totalCols = days.length;
+        const startIdx = days.indexOf(startStr);
+        const endIdx = days.indexOf(t.dueDate);
+        if (dateStr === startStr) {
+          const colSpan = endIdx - startIdx + 1;
+          bar.className = `ivytask-gantt-bar priority-${t.priority} status-${t.status}`;
+          bar.style.left = '2px';
+          bar.style.right = dateStr === t.dueDate ? '2px' : `calc(-${colSpan - 1}00% - ${(colSpan - 1) * 2}px + 2px)`;
+          bar.style.width = `calc(${colSpan * 100}% + ${(colSpan - 1) * 2}px - 4px)`;
+          bar.title = `${t.title} (${startStr} → ${t.dueDate})`;
+          bar.addEventListener('click', () => openIvyTaskModal(t));
+          td.appendChild(bar);
+        }
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  container.innerHTML = '';
+  container.appendChild(table);
+}
+
+// ----- タスク編集モーダル -----
+
+function openIvyTaskModal(task = null) {
+  editingIvyTaskId = task ? task.id : null;
+  const title = document.getElementById('ivytask-task-modal-title');
+  const form = document.getElementById('ivytask-task-form');
+  const deleteBtn = document.getElementById('ivytask-task-delete-btn');
+  const sourceRow = document.getElementById('ivytask-task-source-row');
+  const sourceText = document.getElementById('ivytask-task-source-text');
+
+  if (!form) return;
+
+  if (title) title.textContent = task ? 'タスクを編集' : 'タスクを追加';
+  if (deleteBtn) deleteBtn.style.display = task ? '' : 'none';
+
+  // スタッフセレクトおよびdatalistを更新
+  updateStaffDatalist();
+  const staffSel = document.getElementById('ivytask-task-staff');
+  if (staffSel) {
+    staffSel.innerHTML = '<option value="">（未設定）</option>';
+    ivyStaffList.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      staffSel.appendChild(opt);
+    });
+  }
+
+  // フォームに値を設定
+  document.getElementById('ivytask-task-title').value = task?.title || '';
+  if (staffSel) staffSel.value = task?.staffId || '';
+  const reqByEl = document.getElementById('ivytask-task-requested-by');
+  if (reqByEl) reqByEl.value = task?.requestedBy || '';
+  document.getElementById('ivytask-task-direction').value = task?.direction || 'REQUESTED_TO';
+  document.getElementById('ivytask-task-status').value = task?.status || 'TODO';
+  document.getElementById('ivytask-task-priority').value = task?.priority || 'MEDIUM';
+  document.getElementById('ivytask-task-due').value = task?.dueDate || '';
+  document.getElementById('ivytask-task-start').value = task?.startDate || '';
+  const fileUrlEl = document.getElementById('ivytask-task-file-url');
+  if (fileUrlEl) fileUrlEl.value = task?.fileUrl || '';
+  document.getElementById('ivytask-task-description').value = task?.description || '';
+
+  if (sourceRow && sourceText) {
+    if (task?.sourceSnippet) {
+      sourceRow.classList.remove('hidden');
+      sourceText.textContent = task.sourceSnippet;
+    } else {
+      sourceRow.classList.add('hidden');
+    }
+  }
+
+  document.getElementById('ivytask-task-modal-backdrop').classList.remove('hidden');
+}
+
+function closeIvyTaskModal() {
+  document.getElementById('ivytask-task-modal-backdrop').classList.add('hidden');
+  editingIvyTaskId = null;
+}
+
+// ----- スタッフ追加モーダル -----
+
+function openIvyStaffModal(staff = null) {
+  editingIvyStaffId = staff ? staff.id : null;
+  document.getElementById('ivytask-staff-modal-title').textContent = staff ? 'スタッフを編集' : 'スタッフを追加';
+  document.getElementById('ivytask-staff-name').value = staff?.name || '';
+  document.getElementById('ivytask-staff-role').value = staff?.role || '';
+  document.getElementById('ivytask-staff-modal-backdrop').classList.remove('hidden');
+  document.getElementById('ivytask-staff-name').focus();
+}
+
+function closeIvyStaffModal() {
+  document.getElementById('ivytask-staff-modal-backdrop').classList.add('hidden');
+  editingIvyStaffId = null;
+}
+
+// ----- AI抽出モーダル -----
+
+function openIvyExtractModal() {
+  document.getElementById('ivytask-extract-text').value = '';
+  document.getElementById('ivytask-extract-step1').classList.remove('hidden');
+  document.getElementById('ivytask-extract-step2').classList.add('hidden');
+  document.getElementById('ivytask-extract-modal-backdrop').classList.remove('hidden');
+  document.getElementById('ivytask-extract-text').focus();
+}
+
+function closeIvyExtractModal() {
+  document.getElementById('ivytask-extract-modal-backdrop').classList.add('hidden');
+  ivyExtractedTasks = [];
+}
+
+function buildPreviewRow(task, index) {
+  const staffOptions = ivyStaffList.map(s =>
+    `<option value="${s.id}" ${task.staffId === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+  ).join('');
+
+  const row = document.createElement('tr');
+  row.dataset.idx = index;
+  row.innerHTML = `
+    <td><input type="text" class="preview-title" value="${escapeHtml(task.title || '')}" placeholder="タイトル"></td>
+    <td>
+      <select class="preview-staff">
+        <option value="">（未設定）</option>
+        ${staffOptions}
+      </select>
+    </td>
+    <td>
+      <select class="preview-direction">
+        <option value="REQUESTED_TO" ${task.direction === 'REQUESTED_TO' ? 'selected' : ''}>依頼した</option>
+        <option value="REQUESTED_BY" ${task.direction === 'REQUESTED_BY' ? 'selected' : ''}>依頼された</option>
+      </select>
+    </td>
+    <td><input type="text" class="preview-requested-by" list="ivytask-staff-datalist" value="${escapeHtml(task.requestedBy || '')}" placeholder="選択または直接入力..."></td>
+    <td><input type="date" class="preview-due" value="${task.dueDate || ''}"></td>
+    <td>
+      <select class="preview-priority">
+        <option value="HIGH" ${task.priority === 'HIGH' ? 'selected' : ''}>🔴 高</option>
+        <option value="MEDIUM" ${task.priority === 'MEDIUM' ? 'selected' : ''}>🟡 中</option>
+        <option value="LOW" ${task.priority === 'LOW' ? 'selected' : ''}>🟢 低</option>
+      </select>
+    </td>
+    <td><input type="url" class="preview-file-url" value="${escapeHtml(task.fileUrl || '')}" placeholder="https://..."></td>
+    <td><input type="text" class="preview-desc" value="${escapeHtml(task.description || '')}" placeholder="説明"></td>
+    <td><button class="row-delete-btn" type="button" title="この行を削除">🗑️</button></td>
+  `;
+  row.querySelector('.row-delete-btn').addEventListener('click', () => {
+    ivyExtractedTasks.splice(index, 1);
+    renderPreviewTable();
+  });
+  return row;
+}
+
+function renderPreviewTable() {
+  const tbody = document.getElementById('ivytask-preview-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  ivyExtractedTasks.forEach((t, i) => {
+    tbody.appendChild(buildPreviewRow(t, i));
+  });
+}
+
+function collectPreviewData() {
+  const rows = document.querySelectorAll('#ivytask-preview-tbody tr');
+  return Array.from(rows).map(row => ({
+    title: row.querySelector('.preview-title').value.trim(),
+    staffId: row.querySelector('.preview-staff').value || null,
+    direction: row.querySelector('.preview-direction').value,
+    requestedBy: row.querySelector('.preview-requested-by').value.trim() || null,
+    dueDate: row.querySelector('.preview-due').value || null,
+    priority: row.querySelector('.preview-priority').value,
+    fileUrl: row.querySelector('.preview-file-url').value.trim() || null,
+    description: row.querySelector('.preview-desc').value.trim(),
+    sourceSnippet: ivyExtractedTasks[parseInt(row.dataset.idx)]?.sourceSnippet || ''
+  }));
+}
+
+// ----- ユーティリティ -----
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ----- イベントリスナー -----
+
+// スタートアップ → IvyTask
+if (startIvyTaskButton) {
+  startIvyTaskButton.addEventListener('click', () => {
+    enterIvyTaskWorkspace();
+  });
+}
+
+// スタートに戻る
+if (ivyBackStartupButton) {
+  ivyBackStartupButton.addEventListener('click', () => {
+    leaveIvyTaskWorkspace();
+    showStartupScreen();
+  });
+}
+
+// ビュー切り替えタブ
+document.querySelectorAll('.ivytask-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchIvyView(btn.dataset.view));
+});
+
+// カレンダーナビゲーション
+const ivyCalPrev = document.getElementById('ivytask-cal-prev');
+const ivyCalNext = document.getElementById('ivytask-cal-next');
+if (ivyCalPrev) {
+  ivyCalPrev.addEventListener('click', () => {
+    ivyCalendarDate.setMonth(ivyCalendarDate.getMonth() - 1);
+    renderIvyCalendarView();
+  });
+}
+if (ivyCalNext) {
+  ivyCalNext.addEventListener('click', () => {
+    ivyCalendarDate.setMonth(ivyCalendarDate.getMonth() + 1);
+    renderIvyCalendarView();
+  });
+}
+
+// フィルター変更
+['ivytask-filter-direction', 'ivytask-filter-status', 'ivytask-filter-priority', 'ivytask-filter-show-done'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => renderCurrentIvyView());
+});
+
+// スタッフ追加ボタン
+const ivyAddStaffBtn = document.getElementById('ivytask-add-staff-btn');
+if (ivyAddStaffBtn) ivyAddStaffBtn.addEventListener('click', () => openIvyStaffModal());
+
+// スタッフモーダル閉じる
+const ivyStaffModalClose = document.getElementById('ivytask-staff-modal-close');
+const ivyStaffCancel = document.getElementById('ivytask-staff-cancel');
+if (ivyStaffModalClose) ivyStaffModalClose.addEventListener('click', closeIvyStaffModal);
+if (ivyStaffCancel) ivyStaffCancel.addEventListener('click', closeIvyStaffModal);
+
+// スタッフフォーム送信
+const ivyStaffForm = document.getElementById('ivytask-staff-form');
+if (ivyStaffForm) {
+  ivyStaffForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = document.getElementById('ivytask-staff-name').value.trim();
+    const role = document.getElementById('ivytask-staff-role').value.trim();
+    if (!name) return;
+    if (!currentUserId) return;
+    try {
+      await addIvyStaff(currentUserId, name, role);
+      closeIvyStaffModal();
+    } catch (err) {
+      console.error('スタッフ追加エラー:', err);
+      Swal.fire('エラー', 'スタッフの追加に失敗しました。', 'error');
+    }
+  });
+}
+
+// AI抽出ボタン
+const ivyAiExtractBtn = document.getElementById('ivytask-ai-extract-btn');
+if (ivyAiExtractBtn) ivyAiExtractBtn.addEventListener('click', openIvyExtractModal);
+
+// AI抽出モーダル閉じる
+const ivyExtractModalClose = document.getElementById('ivytask-extract-modal-close');
+const ivyExtractCancelBtn = document.getElementById('ivytask-extract-cancel-btn');
+if (ivyExtractModalClose) ivyExtractModalClose.addEventListener('click', closeIvyExtractModal);
+if (ivyExtractCancelBtn) ivyExtractCancelBtn.addEventListener('click', closeIvyExtractModal);
+
+// 手動追加ボタン
+const ivyAddTaskManualBtn = document.getElementById('ivytask-add-task-manual-btn');
+if (ivyAddTaskManualBtn) ivyAddTaskManualBtn.addEventListener('click', () => openIvyTaskModal(null));
+
+// AI抽出実行
+const ivyExtractRunBtn = document.getElementById('ivytask-extract-run-btn');
+if (ivyExtractRunBtn) {
+  ivyExtractRunBtn.addEventListener('click', async () => {
+    const text = document.getElementById('ivytask-extract-text').value.trim();
+    if (!text) {
+      Swal.fire('入力エラー', 'テキストを入力してください。', 'warning');
+      return;
+    }
+
+    ivyExtractRunBtn.disabled = true;
+    ivyExtractRunBtn.textContent = '🔄 抽出中...';
+
+    try {
+      const extractFn = httpsCallable(functions, 'extractTasksFromText');
+      const today = new Date().toISOString().split('T')[0];
+      const result = await extractFn({
+        text,
+        staffList: ivyStaffList.map(s => ({ id: s.id, name: s.name, role: s.role || '' })),
+        currentDate: today
+      });
+
+      ivyExtractedTasks = result.data.tasks || [];
+
+      if (ivyExtractedTasks.length === 0) {
+        Swal.fire('タスクが見つかりません', '入力されたテキストからタスクを抽出できませんでした。\nテキストを確認してもう一度お試しください。', 'info');
+        return;
+      }
+
+      // Step2へ
+      document.getElementById('ivytask-extract-step1').classList.add('hidden');
+      document.getElementById('ivytask-extract-step2').classList.remove('hidden');
+      renderPreviewTable();
+    } catch (err) {
+      console.error('AI抽出エラー:', err);
+      Swal.fire('エラー', `AIによるタスク抽出に失敗しました。\n${err.message || ''}`, 'error');
+    } finally {
+      ivyExtractRunBtn.disabled = false;
+      ivyExtractRunBtn.textContent = '🤖 AIで抽出する';
+    }
+  });
+}
+
+// プレビュー「戻る」ボタン
+const ivyPreviewBackBtn = document.getElementById('ivytask-preview-back-btn');
+if (ivyPreviewBackBtn) {
+  ivyPreviewBackBtn.addEventListener('click', () => {
+    document.getElementById('ivytask-extract-step1').classList.remove('hidden');
+    document.getElementById('ivytask-extract-step2').classList.add('hidden');
+  });
+}
+
+// プレビュー「行を追加」ボタン
+const ivyPreviewAddRowBtn = document.getElementById('ivytask-preview-add-row-btn');
+if (ivyPreviewAddRowBtn) {
+  ivyPreviewAddRowBtn.addEventListener('click', () => {
+    ivyExtractedTasks.push({ title: '', staffId: null, requestedBy: null, direction: 'REQUESTED_TO', dueDate: null, priority: 'MEDIUM', fileUrl: null, description: '', sourceSnippet: '' });
+    renderPreviewTable();
+  });
+}
+
+// プレビュー「確定して登録」ボタン
+const ivyPreviewConfirmBtn = document.getElementById('ivytask-preview-confirm-btn');
+if (ivyPreviewConfirmBtn) {
+  ivyPreviewConfirmBtn.addEventListener('click', async () => {
+    const tasks = collectPreviewData().filter(t => t.title);
+    if (tasks.length === 0) {
+      Swal.fire('入力エラー', 'タイトルが入力されたタスクがありません。', 'warning');
+      return;
+    }
+    if (!currentUserId) return;
+
+    ivyPreviewConfirmBtn.disabled = true;
+    ivyPreviewConfirmBtn.textContent = '登録中...';
+
+    try {
+      for (const t of tasks) {
+        await addIvyTask(currentUserId, { ...t, status: 'TODO' });
+      }
+      closeIvyExtractModal();
+      Swal.fire({ title: `${tasks.length}件のタスクを登録しました！`, icon: 'success', timer: 1800, showConfirmButton: false });
+    } catch (err) {
+      console.error('タスク登録エラー:', err);
+      Swal.fire('エラー', 'タスクの登録に失敗しました。', 'error');
+    } finally {
+      ivyPreviewConfirmBtn.disabled = false;
+      ivyPreviewConfirmBtn.textContent = '✅ 確定して登録';
+    }
+  });
+}
+
+// タスク編集モーダル 閉じる
+const ivyTaskModalClose = document.getElementById('ivytask-task-modal-close');
+const ivyTaskCancelBtn = document.getElementById('ivytask-task-cancel-btn');
+if (ivyTaskModalClose) ivyTaskModalClose.addEventListener('click', closeIvyTaskModal);
+if (ivyTaskCancelBtn) ivyTaskCancelBtn.addEventListener('click', closeIvyTaskModal);
+
+// タスク削除ボタン
+const ivyTaskDeleteBtn = document.getElementById('ivytask-task-delete-btn');
+if (ivyTaskDeleteBtn) {
+  ivyTaskDeleteBtn.addEventListener('click', async () => {
+    if (!editingIvyTaskId) return;
+    const result = await Swal.fire({
+      title: 'タスクを削除しますか？',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '削除',
+      cancelButtonText: 'キャンセル',
+      confirmButtonColor: '#ef4444'
+    });
+    if (result.isConfirmed) {
+      await deleteIvyTask(editingIvyTaskId);
+      closeIvyTaskModal();
+    }
+  });
+}
+
+// タスクフォーム送信（追加・編集）
+const ivyTaskForm = document.getElementById('ivytask-task-form');
+if (ivyTaskForm) {
+  ivyTaskForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!currentUserId) return;
+
+    const data = {
+      title: document.getElementById('ivytask-task-title').value.trim(),
+      staffId: document.getElementById('ivytask-task-staff').value || null,
+      requestedBy: document.getElementById('ivytask-task-requested-by')?.value.trim() || null,
+      direction: document.getElementById('ivytask-task-direction').value,
+      status: document.getElementById('ivytask-task-status').value,
+      priority: document.getElementById('ivytask-task-priority').value,
+      dueDate: document.getElementById('ivytask-task-due').value || null,
+      startDate: document.getElementById('ivytask-task-start').value || null,
+      fileUrl: document.getElementById('ivytask-task-file-url')?.value.trim() || null,
+      description: document.getElementById('ivytask-task-description').value.trim(),
+    };
+
+    if (!data.title) {
+      Swal.fire('入力エラー', 'タイトルを入力してください。', 'warning');
+      return;
+    }
+
+    try {
+      if (editingIvyTaskId) {
+        await updateIvyTask(editingIvyTaskId, data);
+      } else {
+        await addIvyTask(currentUserId, data);
+      }
+      closeIvyTaskModal();
+    } catch (err) {
+      console.error('タスク保存エラー:', err);
+      Swal.fire('エラー', 'タスクの保存に失敗しました。', 'error');
+    }
+  });
+}
+
+// モーダルの背景クリックで閉じる
+['ivytask-staff-modal-backdrop', 'ivytask-extract-modal-backdrop', 'ivytask-task-modal-backdrop'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('click', e => {
+      if (e.target === el) {
+        el.classList.add('hidden');
+        if (id === 'ivytask-extract-modal-backdrop') ivyExtractedTasks = [];
+        if (id === 'ivytask-task-modal-backdrop') editingIvyTaskId = null;
+        if (id === 'ivytask-staff-modal-backdrop') editingIvyStaffId = null;
+      }
+    });
+  }
+});
+
+// IvyTask用のworkspaceSelection対応（onAuthStateChangedで復元）
+// ※ onAuthStateChangedのif-else chainに 'ivytask' を追加する必要があるため
+// workspaceSelection === 'ivytask' の場合は enterIvyTaskWorkspace を呼ぶ
+(function patchAuthStateHandler() {
+  // onAuthStateChangedはすでに登録済みなので、DOMContent後にセッション復元を補完
+  if (workspaceSelection === 'ivytask' && lastKnownAuthUser) {
+    enterIvyTaskWorkspace();
+  }
+})();
