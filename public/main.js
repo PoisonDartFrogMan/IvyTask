@@ -179,6 +179,7 @@ const vaultModalBackdrop = document.getElementById('vault-modal-backdrop');
 const vaultModalTitle = document.getElementById('vault-modal-title');
 const vaultForm = document.getElementById('vault-form');
 const vaultInputTitle = document.getElementById('vault-input-title');
+const vaultInputCategory = document.getElementById('vault-input-category');
 const vaultInputUrl = document.getElementById('vault-input-url');
 const vaultInputLoginId = document.getElementById('vault-input-login-id');
 const vaultInputPassword = document.getElementById('vault-input-password');
@@ -351,6 +352,7 @@ let _pdfTotalPages = 0;
 let _pdfRendering = false;
 let _pdfClickTimer = null;
 
+let editingVaultId = null;
 let vaultMasterPassword = null; // New: E2EE Key (Raw Password)
 let isVaultLocked = true; // New: Default locked
 let vaultAutolockSeconds = 900; // New: Default 15 minutes
@@ -3920,7 +3922,6 @@ let currentVaultCategory = 'all';
 // DOM Elements for Vault Sort & Filter
 const vaultSortSelect = document.getElementById('vault-sort-select');
 const vaultFilterCategory = document.getElementById('vault-filter-category');
-const vaultInputCategory = document.getElementById('vault-input-category');
 const vaultCategorySuggestions = document.getElementById('vault-category-suggestions');
 
 async function enterVaultWorkspace() {
@@ -4250,9 +4251,13 @@ function closeVaultModal() {
 }
 
 async function saveVault() {
-  if (!currentUserId) return;
+  const uid = getEffectiveUserId();
+  if (!uid) {
+    alert('ユーザー認証エラー: 再ログインしてください。');
+    return;
+  }
 
-  let pwToSave = vaultInputPassword.value;
+  let pwToSave = vaultInputPassword ? vaultInputPassword.value : '';
   // Encrypt
   if (pwToSave) {
     if (!vaultMasterPassword) {
@@ -4263,13 +4268,13 @@ async function saveVault() {
   }
 
   const data = {
-    userId: currentUserId,
-    title: vaultInputTitle.value.trim(),
-    category: vaultInputCategory.value.trim(),
-    url: vaultInputUrl.value.trim(),
-    loginId: vaultInputLoginId.value.trim(),
+    userId: uid,
+    title: vaultInputTitle ? vaultInputTitle.value.trim() : '',
+    category: vaultInputCategory ? vaultInputCategory.value.trim() : '',
+    url: vaultInputUrl ? vaultInputUrl.value.trim() : '',
+    loginId: vaultInputLoginId ? vaultInputLoginId.value.trim() : '',
     password: pwToSave,
-    memo: vaultInputMemo.value.trim(),
+    memo: vaultInputMemo ? vaultInputMemo.value.trim() : '',
     updatedAt: serverTimestamp()
   };
   if (!data.title) {
